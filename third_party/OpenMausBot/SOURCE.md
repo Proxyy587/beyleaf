@@ -11,6 +11,7 @@ OpenMausBot (Apache-2.0, `enterprise/` excluded and never fetched) is the refere
 | Upstream file | What we take | Belay destination | Feature |
 |---|---|---|---|
 | `shared/redact.ts` | High-precision secret redaction (`redactSecretsInText`, `mask`). It recognises Anthropic/OpenAI/Stripe/GitHub/GitLab/Slack/HF and other key shapes and keeps the shape, not the value. No imports. | **Adapt** at `core/packages/belayd/src/redact.ts`, used before storing command summaries, in the Logbook, in share cards, and for B4 clipboard masking | A3, G1, B4, `architecture.md` §6 |
+| `server/group-exec.ts` | Spawn a child in its **own process group** and stop the whole group (SIGTERM, then SIGKILL after a grace period), so stopping an agent also stops what it started (git helpers, ssh, dev servers). Imports only `node:child_process`. | **Adapt** at `core/packages/belayd/src/crew/process-group.ts` | Crew stop / "lower everyone" (`docs/crew.md` §9), J1 |
 
 **v0.2 porting list (read from `refs/OpenMausBot`, not vendored yet):**
 - `server/cli-probe.ts`: run `--version` with PATH only, never inherited credentials.
@@ -26,4 +27,5 @@ OpenMausBot (Apache-2.0, `enterprise/` excluded and never fetched) is the refere
 
 | File | SHA-256 | Lines |
 |---|---|---|
+| `server/group-exec.ts` | `718e3715aafb3de8` | 97 |
 | `shared/redact.ts` | `2027a6675925cd13` | 168 |
