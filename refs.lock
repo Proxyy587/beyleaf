@@ -2,6 +2,7 @@
 # Format: <dir> <git-url> <commit> <license> <sparse-excludes|-> <purpose>
 # Fetched into refs/ (git-ignored) by scripts/fetch-refs.sh. Never copy from a repo not listed here,
 # and never from a GPL repo (see docs/decisions/0003-no-gpl-code.md).
+# Source-available repos (PolyForm, BSL, "personal use only", e.g. dusk bot) are never listed here (docs/decisions/0008).
 perch           https://github.com/asafofer/perch.git                 47ce905fd63848e8be2d0a356f479a9734e13766  MIT         -           hook transport, hook installer, terminal focus, notch geometry, event parsing
 clicky          https://github.com/farzaa/clicky.git                  e71105ce091d71dff4d89cf5d8d37ea1df460961  MIT         -           push-to-talk monitor, Apple on-device speech, overlay window
 avo             https://github.com/Stu1124/avo.git                    8cd34c2f7c04d439941e5c70c3bbfb460e26dec8  MIT         -           Spotify control, dictation waveform, edit-before-send cards (pattern)

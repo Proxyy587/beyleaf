@@ -12,3 +12,4 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0005](0005-fail-open.md) | Fail open to the agent's own prompt; never auto-allow | accepted |
 | [0006](0006-unix-socket-hook-transport.md) | Hooks reach the core over a Unix socket via a command-hook shim | accepted |
 | [0007](0007-dynamicnotchkit-dependency.md) | DynamicNotchKit as a pinned SwiftPM dependency, not vendored | accepted |
+| [0008](0008-source-available-inspiration-only.md) | Source-available projects (e.g. dusk bot) are product inspiration only: not cloned, not read for code | accepted |
