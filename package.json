@@ -1,0 +1,7 @@
+{
+  "name": "belay",
+  "private": true,
+  "description": "A climber in your Mac's notch that holds the rope for your coding agents.",
+  "license": "MIT",
+  "workspaces": ["core/packages/*"]
+}
