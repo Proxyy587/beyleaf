@@ -22,6 +22,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Agent context:** `AGENTS.md`, `CLAUDE.md`; `CONTRIBUTING.md`.
 - **Skeleton:** monorepo folders (`apps/mac`, `apps/web`, `core/packages/*`, `rules/`, `e2e/`), each with a README mapping it to features and vendored sources; root Bun workspace manifest.
 
+- **Decisions:** ADR 0008 (source-available projects such as dusk bot are inspiration only) and ADRs 0009–0011 (Crew hub and tool surface, runtimes and turns, taint tracking).
+- **Crew spec:** `docs/crew.md`, the engineering design for Belay's sub-agents (Belay, Lead, Porter, Tempo, Scout, Sketch).
+- **Vendored:** OpenMausBot `server/group-exec.ts` (Apache-2.0), process-group stop for crew members.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 
