@@ -1,0 +1,26 @@
+# Open questions (UNVERIFIED until checked)
+
+Check these before building on them. When you resolve one, move it to the "Resolved" list with the evidence and date, and update the doc that depended on it.
+
+## Day 1 (v0.1)
+- [ ] Bun can serve HTTP and WebSocket on a Unix socket inside a `bun build --compile` binary (ADR 0006). Fallback: localhost plus a per-launch token.
+- [ ] A Claude Code `command` hook holds `PermissionRequest` while the shim waits (Perch uses a 3600 s timeout).
+- [ ] Codex `PermissionRequest` hold time (Perch registers it with **5 s**).
+- [ ] Bun binary size and idle memory versus the budgets in `docs/tech-stack.md` §4.
+- [ ] Whether `PermissionRequest` fires for headless `claude -p` runs (needed by `e2e/`).
+- [ ] Haptic pattern range on Force Touch trackpads (`NSHapticFeedbackManager`).
+
+## Before v0.2 (Hands / Crew)
+- [ ] Claude Code non-interactive flags: streaming JSON output, per-run MCP config, session resume.
+- [ ] Codex exec / app-server JSON events; per-server MCP environment for the capability token.
+- [ ] Anthropic Commercial Terms for **launching** the user's own Claude Code from Belay (`docs/oss-reuse.md` §2).
+- [ ] Whether engines report plan usage (for the usage guard).
+- [ ] Apple Foundation Models quality for one-line summaries (macOS 26).
+- [ ] Spotify AppleScript reliability on the current Spotify build.
+
+## Product and admin
+- [ ] "Belay" name and handle availability (GitHub, X, domain).
+- [ ] Apple Developer Program enrolment, for signing and notarization.
+
+## Resolved
+- (none yet)

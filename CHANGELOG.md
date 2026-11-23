@@ -26,6 +26,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Crew spec:** `docs/crew.md`, the engineering design for Belay's sub-agents (Belay, Lead, Porter, Tempo, Scout, Sketch). Folded into `features.md` (section K), `features-final.md` (v0.2/v0.3), `architecture.md` (CrewService) and `AGENTS.md` (rules 8–9).
 - **Vendored:** OpenMausBot `server/group-exec.ts` (Apache-2.0), process-group stop for crew members.
 
+- **Claude Code skill:** `.claude/skills/belay/`, a project skill with rules, live repo state, playbooks (commit, feature work, vendoring, decisions, crew), references (docs map, glossary, open questions) and `scripts/verify-repo.sh` (licence, provenance, ADR-index, changelog and credential-path checks).
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 

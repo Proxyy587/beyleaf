@@ -19,6 +19,7 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 | Borrowed code and its rules | `docs/oss-reuse.md`, `THIRD_PARTY_NOTICES.md`, `third_party/*/SOURCE.md` |
 | Sub-agents (Crew) design | `docs/crew.md` |
 | What changed recently | `CHANGELOG.md` |
+| Claude Code playbooks (commit, vendor, ADR, feature, crew) + repo checks | `.claude/skills/belay/` (project skill, loads automatically in Claude Code) |
 
 ## Repo map
 
@@ -58,7 +59,7 @@ scripts/         fetch-refs.sh, vendor.sh.
   - `scripts/fetch-refs.sh`, then `scripts/vendor.sh <ref> <paths…>`, then fill "Why we vendor it" in `SOURCE.md` and add or update the `THIRD_PARTY_NOTICES.md` row. One commit per upstream project.
   - Adapted copies start with: `// Adapted from <Project> (<Licence>), <upstream path> @ <short commit>. See third_party/<dir>/.` Apache-2.0 adaptations add `Modified by Belay contributors.`
 - **Unknowns stay marked.** If something isn't verified (an API, a version, agent behaviour), write UNVERIFIED and add it to the Day 1 checks. Don't present guesses as facts.
-- **Verify before you say it's done.** Run the relevant tests or build, or say plainly that you didn't.
+- **Verify before you say it's done.** Run the relevant tests or build, or say plainly that you didn't. Run `.claude/skills/belay/scripts/verify-repo.sh` before every commit.
 
 ## Prerequisites (local)
 
