@@ -20,7 +20,8 @@
 | Project generation | **XcodeGen** (`project.yml`) | No hand-edited `.xcodeproj` merge pain; Avo uses the same |
 | Auto-update | **Sparkle** | The de facto standard for signed Mac updates outside the App Store |
 | **Core (`belayd`)** | **TypeScript on Bun**, shipped as a **single compiled binary** (`bun build --compile`) inside the `.app` | Your strongest language. MausBot's engine layer (Apache-2.0) is TypeScript. Fastest path to the 2-week ship. |
-| Core HTTP/WS server | **Hono** on `Bun.serve` (HTTP hooks + WebSocket to the shell) | Small, typed, fast. No framework weight. |
+| Core HTTP/WS server | **Hono** on `Bun.serve`, listening on **0600 Unix sockets** (hook shim + WebSocket to the shell; ADR 0006) | Small, typed, fast. No ports or tokens in agent configs. |
+| Hook shim | `belay-hook`, a tiny POSIX `sh` script using macOS's built-in `/usr/bin/curl --unix-socket` (pattern from Perch, MIT) | Same mechanism for Claude Code and Codex. Prints nothing if Belay is down, so the agent fails open. |
 | Core storage | **SQLite via `bun:sqlite`** (built into Bun) | Sessions, approvals, logbook, quests. One file, zero setup. |
 | Schemas / protocol | **zod** in TS. Swift `Codable` types **generated** from the schemas (zod → JSON Schema → quicktype) | One source of truth across the language boundary |
 | Rule packs | **YAML + a typed rule DSL**, validated by zod | Community-editable without code (I2) |

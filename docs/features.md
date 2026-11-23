@@ -227,7 +227,7 @@ The idea is that waiting on agents is dead time. Belay offers **small, optional,
 | # | Feature | Phase |
 |---|---|---|
 | H1 | One-click hook install with a **diff preview**; clean uninstall that restores the original file | **v0.1** |
-| H2 | Localhost-only, random port, per-install token in the hook header | **v0.1** |
+| H2 | No network port: 0600 Unix sockets only (ADR 0006) | **v0.1** |
 | H3 | "What Belay reads" page (in-app and on the site), in plain words. Aria has one; ours links straight to the source code. | **v0.1** |
 | H4 | Guided Codex hook-trust step | **v0.1** |
 | H5 | Auto-update via signed GitHub Releases (Sparkle or similar) | v0.2 |
@@ -320,7 +320,7 @@ Everything else is v0.2 and later.
 | Summaries / "what's it doing" | Templates from hook data. Apple's on-device **Foundation Models** framework where available (macOS 26 + Apple Intelligence Macs). **UNVERIFIED on our target hardware; test before promising.** | Bring-your-own-key Claude or OpenAI |
 | Now playing | AppleScript/ScriptingBridge for Music and Spotify (needs an Automation permission prompt). Apple's private MediaRemote route is unreliable on recent macOS (**UNVERIFIED**), so avoid it. | — |
 | Share cards | satori (TS) in the sidecar | — |
-| Agent hooks | Claude Code HTTP hooks, Codex command hooks (`feasibility.md`) | — |
+| Agent hooks | Command hooks running the `belay-hook` shim to a 0600 Unix socket, for both agents (ADR 0006) | — |
 
 **Licensing:**
 - Fork Clicky (MIT) for scaffolding.

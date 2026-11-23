@@ -17,11 +17,11 @@
 │  NotchPanel (NSPanel, top-centre)  ·  ApprovalCard  ·  Character sprites + sounds   │
 │  PushToTalk (global hotkey) → Apple on-device speech → text                         │
 │  TTS (AVSpeechSynthesizer)                                                          │
-│                ▲  WebSocket ws://127.0.0.1:<port>  (JSON events + commands)          │
+│                ▲  WebSocket over 0600 Unix socket  (JSON events + commands)          │
 └────────────────┼───────────────────────────────────────────────────────────────────┘
                  │
 ┌────────────────┴──────── belayd (TypeScript → single binary via `bun build --compile`) ──┐
-│  HTTP  POST /hook/claude/:event   ← Claude Code HTTP hooks                              │
+│  HTTP  POST /hook/claude/:event   ← `belay-hook claude <event>` (Unix socket, ADR 0006) │
 │  HTTP  POST /hook/codex/:event    ← `belayd hook codex` command shim (stdin → POST)     │
 │  Session store (in memory + small JSON on disk) · Pending-approval map (holds response) │
 │  Risk rules engine · Voice-intent parser · Status sentence templates                   │
@@ -39,7 +39,9 @@
 
 **Claude Code** (`~/.claude/settings.json`, user scope):
 
-- **`PermissionRequest`** is the approval path. It's an `http` hook to `/hook/claude/permission` with `timeout` up to 600 s.
+> **Superseded transport (ADR 0006):** hooks are now `command` hooks running the `belay-hook` shim, which `curl --unix-socket`s to `belayd`, instead of `http` hooks on a localhost port. The decision payloads below are unchanged.
+
+- **`PermissionRequest`** is the approval path. A `command` hook runs `belay-hook claude PermissionRequest` with `timeout` up to 3600 s (Perch uses 3600).
   - `belayd` keeps the HTTP request open until you answer.
   - It then returns `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{…}}}`:
     - Allow: `behavior:"allow"`
@@ -48,7 +50,7 @@
     - Stop: `behavior:"deny", interrupt:true`
   - If no answer comes before the timeout, it returns **no decision**, so Claude Code falls back to its normal terminal prompt.
 - **Status:** `SessionStart`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `SessionEnd`, and `PermissionDenied` (auto-mode blocks), all sent to `/hook/claude/:event`. They return immediately with no decision.
-- **Fail-safe:** if `belayd` is down the HTTP hook errors, which is a non-blocking error. The normal flow continues, so nothing is auto-allowed.
+- **Fail-safe:** if `belayd` is down the shim finds no socket and prints nothing (no decision). The normal flow continues, so nothing is auto-allowed.
 
 **Codex** (`~/.codex/hooks.json`):
 
@@ -57,7 +59,7 @@
 - `PermissionRequest` supports **allow, or deny with a `message`, only**. No `updatedInput`, no `interrupt` ("fail closed today"). So with Codex, "Always" and "Stop" are unavailable. The UI greys them out.
 - Codex requires the user to **review and trust** non-managed hooks. Onboarding must walk them through it.
 
-**Spike this on Day 1.** If HTTP hooks or response-holding behave differently than the docs say, find out before building anything on top.
+**Spike this on Day 1.** If command-hook response holding, Bun on a Unix socket, or Codex's hold time behave differently than expected, find out before building anything on top.
 
 ## 3. Day-by-day plan
 
@@ -107,7 +109,7 @@
 | Microphone and speech permission friction | Medium | Ask only on first push-to-talk, with a clear sentence explaining why |
 | **Aria or NotchNook ships the same "voice steer" headline** | Medium–high | Your moat is the character, the catch moment and open source. Launch on Day 14; don't slip. |
 | Anthropic or OpenAI change hook schemas | Medium | Pin tested versions in the README. Keep the schema parsing in one TS module. |
-| Security criticism ("a hook that can approve shell commands") | Certain on HN | Localhost only, random port plus a token in the hook header, no remote access, open source, fail-open-to-prompt. Say all of this in the README. |
+| Security criticism ("a hook that can approve shell commands") | Certain on HN | 0600 Unix sockets (no network port at all), no remote access, open source, fail-open-to-prompt. Say all of this in the README. |
 | Trademark or brand complaints | Low | No vendor logos or mascots. Use "works with Claude Code and Codex" wording, as Aria does. |
 
 ## 7. Definition of shipped (Day 14)

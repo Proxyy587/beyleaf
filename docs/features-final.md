@@ -32,7 +32,7 @@ The question v0.1 answers: *does the catch-and-steer moment work, feel native, a
 | E8 | Battery-light, event-driven | both processes | Idle CPU < 1% combined |
 | G1 | Daily Belay log card, with Copy or Post to X | Logbook, CardRenderer | A PNG with hours, approvals, falls caught and summits; two clicks to post |
 | H1 | One-click hook install with diff preview; clean uninstall | Installer | Uninstall restores byte-identical original configs |
-| H2 | Localhost-only, tokens | HookGateway | Requests without a token are rejected (test) |
+| H2 | No network port: 0600 Unix sockets only (ADR 0006) | HookGateway | The socket is mode 0600; no TCP listener exists (test) |
 | H3 | "What Belay reads" page | web + Settings | Published and linked from onboarding |
 | H4 | Guided Codex hook trust | Installer → onboarding | A fresh user gets Codex approvals working without reading docs |
 

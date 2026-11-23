@@ -12,11 +12,10 @@
 
 ```
                          ┌──────────────────────── user's Mac ─────────────────────────┐
- Claude Code sessions ──►│  HTTP hooks (localhost + token)                             │
- (terminal/IDE/desktop)  │        │                                                    │
-                         │        ▼                                                    │
- Codex sessions ────────►│  `belay hook codex <event>` shim ──POST──┐                  │
- (command hooks)         │                                          ▼                  │
+ Claude Code sessions ──►│  command hook: `belay-hook claude <event>` ─┐               │
+ (terminal/IDE/desktop)  │                                             │ curl --unix-  │
+ Codex sessions ────────►│  command hook: `belay-hook codex <event>` ──┤ socket (0600) │
+ (command hooks)         │                                             ▼   (ADR 0006)  │
                          │  ┌──────────────── belayd (TS / Bun binary) ──────────────┐ │
                          │  │ HookGateway → Adapters(claude, codex) → EventBus        │ │
                          │  │ SessionStore · ApprovalBroker · RiskEngine(rule packs)  │ │
@@ -45,12 +44,9 @@
 
 ## 2. Processes and lifecycle
 
-1. The user launches **Belay.app**. `Supervisor` starts the bundled `belayd` with:
-   - a fresh **session token**,
-   - a **random free port**,
-   - the data directory.
-2. `belayd` binds to `127.0.0.1:<port>` and writes `runtime.json` (mode `0600`), holding the port, token, pid and protocol version, to the data directory.
-3. Hook configs point at a **stable launcher**, not a port. Claude Code's HTTP hook URL uses a fixed local port chosen at install time and stored in config. **The Day 1 spike must confirm whether the hook URL can be read dynamically.** If not, the installer picks a fixed port and `belayd` falls back to the next free port while updating the config.
+1. The user launches **Belay.app**. `Supervisor` starts the bundled `belayd` with the data directory.
+2. `belayd` listens on a **Unix socket**, `~/Library/Application Support/Belay/belay.sock` (mode `0600`). It writes `runtime.json` (pid, protocol version) next to it. No TCP port is opened (ADR 0006).
+3. Agent configs run a **command hook**: the installed shim `belay-hook <agent> <event>`. The shim pipes the hook JSON to the socket with `curl --unix-socket`, waits for the reply (up to 3600 s for Claude Code `PermissionRequest`), and prints it. If the socket is missing it prints nothing, which is the fail-open path (ADR 0005). This removes the fixed-port problem of the first draft. The pattern is taken from Perch (MIT; `third_party/perch/`).
 4. **If `belayd` dies:**
    - `Supervisor` restarts it with backoff, and the island shows a dim "rope slack" state.
    - Meanwhile hooks fail. That is a non-blocking error, so **agents fall back to their own terminal prompts**. Belay never auto-allows (the fail-open rule).
@@ -60,7 +56,7 @@
 
 | Module | Responsibility | Feature IDs |
 |---|---|---|
-| **HookGateway** | Hono routes: `POST /hook/claude/:event`, `POST /hook/codex/:event`. Verifies the token header. Parses with zod. Holds `PermissionRequest` responses open. | A1–A4 |
+| **HookGateway** | Hono routes on the Unix socket: `POST /hook/claude/:event`, `POST /hook/codex/:event`. Parses with zod. Holds `PermissionRequest` responses open. Access control is the socket's 0600 mode (ADR 0006). Ported from Perch's `HookServer`. | A1–A4 |
 | **Adapters/claude, Adapters/codex** | Map each agent's hook JSON to Belay's `AgentEvent`. Know each agent's capabilities: Codex has no `updatedInput` or `interrupt`. | A1–A4, A9 |
 | **EventBus** | In-process typed pub/sub. Every module subscribes here, never to each other. | all |
 | **SessionStore** | One state machine per session: `idle → climbing → rope_dropped → climbing → summit / dangling / ended`. Persisted in SQLite. | A1, A5, A10 |
@@ -78,7 +74,7 @@
 
 ## 4. Shell ↔ core protocol (v1)
 
-- **Transport:** WebSocket at `ws://127.0.0.1:<port>/v1`, with `Authorization: Bearer <token>` on the upgrade request.
+- **Transport:** WebSocket (`/v1`) over the same 0600 Unix socket, or a second one, `belay-ui.sock`. The shell connects with `URLSessionWebSocketTask` or a small Network.framework client. Whether Bun serves WebSocket upgrades on a Unix socket in a compiled binary is a **Day 1 check** (ADR 0006); the fallback is a localhost port plus a per-launch token written to `runtime.json`.
 - **Envelope:** `{ "v": 1, "id": "<uuid>", "type": "<name>", "data": { … } }`. Requests carry `id`; replies echo it.
 - **Schemas:** live in `core/packages/protocol` (zod). CI generates `apps/mac/Belay/Protocol/Generated.swift`, and **CI fails if generated code is stale**.
 
@@ -100,7 +96,7 @@
 
 ### 5.1 Approval with voice steering (the hero flow: A2, A3, A4)
 
-1. Claude Code fires `PermissionRequest`, and its HTTP hook POSTs to `belayd`.
+1. Claude Code fires `PermissionRequest`. Its command hook runs `belay-hook claude PermissionRequest`, which posts the JSON to `belayd` over the Unix socket and waits.
 2. Adapter → `AgentEvent.permission`. RiskEngine evaluates it: e.g. `prod-db` severity high.
 3. ApprovalBroker stores the pending request, keeps the HTTP response open, and starts the timeout.
 4. Core → shell: `catch` + `rope.dropped`. The shell plays the catch spring, the 3× haptic and the "whoa" sound, shows the RopeCard **without taking focus**, and speaks the risk line.
@@ -140,7 +136,8 @@ Everything lives under `~/Library/Application Support/Belay/`:
 | `rules/` | user rule packs (YAML) |
 | `plugins/` | installed plugins (v0.3) |
 | `cards/` | rendered PNGs |
-| `runtime.json` | port, token, pid (0600, rewritten each launch) |
+| `belay.sock`, `belay-ui.sock` | Unix sockets (0600) for hooks and the shell (ADR 0006) |
+| `runtime.json` | pid, protocol version (0600, rewritten each launch) |
 | `backups/` | original agent config files saved before the Installer touched them |
 
 **No prompts or code are stored.** The events table holds the tool name, a command summary for Bash, file paths, and timing. Users can turn command text storage off. This matches the privacy line in `product.md`.
@@ -149,7 +146,7 @@ Everything lives under `~/Library/Application Support/Belay/`:
 
 | Threat | Control |
 |---|---|
-| A local malicious process forges approvals | Localhost-only binding; per-launch bearer token for the shell; a separate per-install hook token in the hook headers; `runtime.json` is 0600 |
+| A local malicious process forges approvals | Unix sockets with mode 0600 in the user's Application Support folder: only processes running as the user can connect. No TCP port. (A process already running as the user can also edit agent configs directly, so this is the same trust boundary the agents themselves have.) |
 | Belay auto-approves something dangerous | No code path returns `allow` without an explicit user action or a user-created "Always" rule. Unit test plus a lint rule on the broker. |
 | Belay down or slow blocks the agent | Timeouts return **no decision**, so the terminal prompt takes over |
 | Plugins exfiltrate data | Manifest-declared capabilities, a worker sandbox, no network unless declared, plugins listed on install (v0.3) |
