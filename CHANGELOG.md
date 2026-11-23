@@ -1,0 +1,32 @@
+# Changelog
+
+All notable changes to Belay are recorded here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/) once code ships. Update `[Unreleased]` in the same commit as the change.
+
+## [Unreleased]
+
+### Added
+- **Research:** competitive landscape, evidence of pain, technical feasibility, verdict, market growth (`docs/`).
+- **Product:** concept and hero moment, full ecosystem spec, locked v0.1/v0.2/v0.3 feature list, 2-week build plan, launch plan.
+- **Engineering:** tech stack, architecture, open-source reuse and AI-subscription rules.
+- **Decisions:** ADRs 0001–0007 (`docs/decisions/`).
+- **Reference repos:** pinned in `refs.lock`; `scripts/fetch-refs.sh` recreates `refs/`.
+- **Vendoring:** `scripts/vendor.sh`, with a licence gate, pinned-commit check and SHA-256 provenance.
+- **Vendored (verbatim, in `third_party/`):**
+  - Perch (MIT): hook server and installer, terminals, notch geometry, live status, notch state machine.
+  - Clicky (MIT): push-to-talk monitor, on-device speech provider, overlay window.
+  - Avo (MIT): Spotify control, dictation waveform.
+  - OpenMausBot (Apache-2.0): secret redaction.
+- **Licensing:** `THIRD_PARTY_NOTICES.md`, MIT `LICENSE`.
+- **Agent context:** `AGENTS.md`, `CLAUDE.md`; `CONTRIBUTING.md`.
+
+### Changed
+- Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
+
+### Open (Day 1 checks)
+- Bun HTTP/WebSocket on a Unix socket inside a compiled binary.
+- Codex `PermissionRequest` hold time (Perch uses 5 s).
+- Whether `PermissionRequest` fires in headless `claude -p`.
+- Bun binary size and idle memory.
+- Anthropic Commercial Terms for launching the user's own Claude Code (v0.2 Hands).
