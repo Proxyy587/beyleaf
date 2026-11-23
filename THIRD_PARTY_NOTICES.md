@@ -12,6 +12,18 @@ Policy: `docs/decisions/0003-no-gpl-code.md`.
 | [Avo](https://github.com/Stu1124/avo) | MIT | Copyright (c) 2026 Aristu Sachdev | `8cd34c2f` | Spotify control, dictation waveform; edit-before-send card pattern |
 | [OpenMausBot](https://github.com/milind-soni/OpenMausBot) | Apache-2.0 | Copyright 2026 Milind Soni and OpenMausBot contributors | `310e731e` | Secret redaction (engine layer is a v0.2 porting reference) |
 
+### Dependencies (linked, not vendored)
+
+| Project | Licence | Copyright | Pinned commit | Used for |
+|---|---|---|---|---|
+| [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | MIT | Copyright (c) 2025 Kai Azim | `cd0b3e52` | Notch and floating-island window (SwiftPM, ADR 0007). Its licence text is added below once it is linked into a release build. |
+
+### Reference only (read, not copied yet)
+
+| Project | Licence | Pinned commit | Planned use |
+|---|---|---|---|
+| [OpenClicky](https://github.com/prasanthsasikumar/openclicky) | MIT | `66240278` | Pointer from the notch and draw stage (v0.3, D2–D4). Vendor through `scripts/vendor.sh` when work starts. |
+
 ---
 
 ## Perch
