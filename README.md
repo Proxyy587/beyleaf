@@ -19,6 +19,7 @@ Free, open source (MIT), local-only. **Status: pre-v0.1.** Docs, decisions and v
 | [docs/architecture.md](docs/architecture.md) | Processes, modules, protocol, flows, storage, security, testing |
 | [docs/tech-stack.md](docs/tech-stack.md) | Stack decisions (including the Rust question) |
 | [docs/build-plan.md](docs/build-plan.md) | 2-week build plan |
+| [docs/crew.md](docs/crew.md) | **Crew:** sub-agent engineering spec (Lead, Porter, Tempo, Scout, Sketch) |
 | [docs/features.md](docs/features.md) | Full ecosystem feature spec and design principles |
 | [docs/product.md](docs/product.md) | Product concept and hero moment |
 | [docs/oss-reuse.md](docs/oss-reuse.md) | Open-source code to reuse; using existing AI subscriptions |

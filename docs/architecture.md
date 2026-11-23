@@ -70,6 +70,7 @@
 | **Installer** | Detects agents. Produces a **diff preview** of hook-config changes. Backs up the original. Applies the change. Removes it cleanly on uninstall. Walks the user through Codex hook trust. | H1, H4 |
 | **Engines** (v0.2) | Spawn the **user's own** `claude` / `codex` CLIs headless, or a local or BYOK model. Never touches subscription credentials. Adapted from MausBot (Apache-2.0). | J1, J2 |
 | **Actions** (v0.2) | Requests to the shell for Mac actions (open app or URL, music, timers), each typed and permissioned. Destructive or outward actions require a card. | J3, J4 |
+| **CrewService** (v0.2) | Sub-agents: Router, CrewBus, GoalRunner, TurnScheduler, Runtimes, ToolHost (+ `belay mcp` proxy), MemoryStore, Routines. **Full design in `crew.md`** (ADRs 0009–0011). | K1–K8 |
 | **PluginHost** (v0.3) | Loads TS plugins with a declared manifest (holds, quests, rules, intents) and runs them in a restricted worker with only declared capabilities | I1 |
 
 ## 4. Shell ↔ core protocol (v1)

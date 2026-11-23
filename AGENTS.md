@@ -17,6 +17,7 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 | Decisions you must not silently reverse | `docs/decisions/` (ADRs) |
 | Day-by-day v0.1 plan | `docs/build-plan.md` |
 | Borrowed code and its rules | `docs/oss-reuse.md`, `THIRD_PARTY_NOTICES.md`, `third_party/*/SOURCE.md` |
+| Sub-agents (Crew) design | `docs/crew.md` |
 | What changed recently | `CHANGELOG.md` |
 
 ## Repo map
@@ -42,6 +43,8 @@ scripts/         fetch-refs.sh, vendor.sh.
 5. **No GPL code, ever.** Only repos in `refs.lock`, only through `scripts/vendor.sh`. Adapted files get a provenance header. (ADR 0003)
 6. **Hooks go over 0600 Unix sockets via the `belay-hook` shim.** No TCP ports. (ADR 0006)
 7. **No vendor names or logos in Belay's branding.** Plain-text "works with Claude Code and Codex" is fine.
+8. **Untrusted content can't grant permission.** Tainted chains always drop the rope for outward, write-outside or shortcut actions. Only the user approves. (ADR 0011)
+9. **Source-available code is off-limits** (PolyForm, BSL, "personal use", e.g. dusk bot): product inspiration from public pages only. (ADR 0008)
 
 ## Working agreement
 

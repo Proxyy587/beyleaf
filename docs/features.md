@@ -255,6 +255,19 @@ The idea is that waiting on agents is dead time. Belay offers **small, optional,
 | J6 | **Sandboxed computer use** | Risky or long jobs in a Cua VM or sandbox | v0.3+ |
 | J7 | **Opt-in cloud connectors** | Composio-style app integrations, off by default | v0.3+ |
 
+### K. Crew: sub-agents that work together (full design: `crew.md`)
+
+| # | Feature | Detail | Phase |
+|---|---|---|---|
+| K1 | **Rope team roster** | Belay (coordinator), **Lead** (coding), **Porter** (Mac errands), **Tempo** (music), **Scout** (browse and research), **Sketch** (draws on screen), plus custom members. One member, one job, one thread. | v0.2 (Lead, Porter, Tempo, Scout); v0.3 (Sketch, custom) |
+| K2 | **Talk to a member** | "Scout, …", "Tempo, …", "@Lead …": routed by name. "Everyone, …" goes to the group. | v0.2 |
+| K3 | **Members cooperate** | `crew.ask` / `crew.handoff` / `crew.report` through Belay. Hop, cycle and turn budgets. | v0.2 |
+| K4 | **Group goals** | Belay plans, shows a plan card you can edit, runs members in parallel, and decides done or asks you (bounded turns) | v0.3 |
+| K5 | **Memory you can read** | Per-member and crew notes in Markdown. Every new note is shown, with Undo. | v0.2 |
+| K6 | **Same safety rope** | Every crew action goes through RiskEngine and rope cards. Taint tracking: untrusted content can't grant permission. "Belay, stop everyone." | v0.2 |
+| K7 | **Sketch scenes** | Validated SceneSpec drawings animated in sync with narration | v0.3 |
+| K8 | **Routines** | On-device schedules and event triggers ("every weekday at 9", "when a PR opens"). Honest: they run only while the Mac is awake. | v0.3 |
+
 ---
 
 ## 4. What we deliberately don't build
