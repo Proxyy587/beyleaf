@@ -20,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - OpenMausBot (Apache-2.0): secret redaction.
 - **Licensing:** `THIRD_PARTY_NOTICES.md`, MIT `LICENSE`.
 - **Agent context:** `AGENTS.md`, `CLAUDE.md`; `CONTRIBUTING.md`.
+- **Skeleton:** monorepo folders (`apps/mac`, `apps/web`, `core/packages/*`, `rules/`, `e2e/`), each with a README mapping it to features and vendored sources; root Bun workspace manifest.
 
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
