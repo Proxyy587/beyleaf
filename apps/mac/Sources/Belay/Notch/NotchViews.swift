@@ -71,16 +71,9 @@ struct ExpandedView: View {
         }
     }
 
+    /// No-notch displays: the same quiet header as the band (time, gear), with the weekday since there's room.
     private var header: some View {
-        HStack(spacing: Tok.s2) {
-            Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink)
-                .frame(width: Tok.gutter)
-            Text("Belay").font(Tok.title).foregroundStyle(Tok.ink)
-            Spacer()
-            Text(status.now, format: .dateTime.weekday(.abbreviated).hour().minute())
-                .font(Tok.digits).foregroundStyle(Tok.ink2)
-            IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
-        }
+        NotchHeader(status: status, showWeekday: true, openSettings: openSettings)
     }
 }
 
@@ -128,16 +121,17 @@ struct NowPlayingRow: View {
     }
 }
 
-/// The open panel's header in the band beside the camera: [climber Belay]  (camera)  [time  ⚙].
-struct BandHeader: View {
+/// The open panel's header: [time]  (camera)  [gear]. No brand text: the notch is recognised by feel, not a label
+/// (docs/design.md §1). The time balances the gear either side of the camera, and it's a real value.
+struct NotchHeader: View {
     @ObservedObject var status: SystemStatus
+    var showWeekday = false
     var openSettings: () -> Void
     var body: some View {
         HStack(spacing: Tok.s2) {
-            Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink)
-            Text("Belay").font(Tok.title).foregroundStyle(Tok.ink).lineLimit(1)
+            Text(status.now, format: showWeekday ? .dateTime.weekday(.abbreviated).hour().minute() : .dateTime.hour().minute())
+                .font(Tok.digits).foregroundStyle(Tok.ink2).lineLimit(1)
             Spacer()
-            Text(status.now, format: .dateTime.hour().minute()).font(Tok.digits).foregroundStyle(Tok.ink2).lineLimit(1)
             IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
         }
     }

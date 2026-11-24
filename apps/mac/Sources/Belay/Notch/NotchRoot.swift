@@ -13,8 +13,8 @@ struct NotchRoot: View {
 
     /// Room either side of the camera in the open panel, for the header (inside the ears and the content inset).
     private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s4 }
-    /// Put the header beside the camera when there's room; otherwise it sits below the notch line.
-    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 84 }
+    /// Put the header beside the camera when there's room (the time is ~60 pt; the gear 28); otherwise it sits below the notch line.
+    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 64 }
 
     var body: some View {
         let open = model.isOpen
@@ -37,7 +37,7 @@ struct NotchRoot: View {
                 .animation(Tok.reveal, value: open)
 
                 if headerInBand {
-                    BandHeader(status: status, openSettings: openSettings)
+                    NotchHeader(status: status, openSettings: openSettings)
                         .frame(width: model.openWidth - 2 * (Tok.rOpenEar + Tok.s4), height: notchH)
                         .blurReveal(open, delay: 0.03)
                         .allowsHitTesting(open)
