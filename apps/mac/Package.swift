@@ -11,7 +11,6 @@ let package = Package(
             name: "Belay",
             path: "Sources/Belay",
             linkerSettings: [
-                .linkedFramework("CoreWLAN"),
                 .linkedFramework("IOKit"),
                 .linkedFramework("Network"),
             ]

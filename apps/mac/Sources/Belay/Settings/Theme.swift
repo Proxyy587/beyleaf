@@ -53,24 +53,37 @@ struct Theme: Codable, Equatable {
         var id: RowKind { kind }
     }
     enum RowKind: String, Codable, CaseIterable, Identifiable {
-        case nowPlaying, wifi, battery, volume, screenshot
+        // Wi-Fi, battery and volume rows were cut in the purpose audit (docs/ui-inventory.md §5); saved themes that still
+        // list them load through `Theme.decode`, which drops unknown kinds.
+        case nowPlaying, screenshot
         var id: String { rawValue }
-        var name: String {
-            switch self { case .nowPlaying: "Now playing"; case .wifi: "Wi-Fi"; case .battery: "Battery"; case .volume: "Volume"; case .screenshot: "Last screenshot" }
-        }
+        var name: String { self == .nowPlaying ? "Now playing" : "Last screenshot" }
     }
 
-    /// Calm by default (docs/design.md §1): a first open shows one thing, now playing. The last-screenshot row is on too,
-    /// but it only appears after Belay copies a screenshot, so it costs nothing until it has something to say.
-    /// Wi-Fi, battery and volume repeat the menu bar; they stay one toggle away in Settings → Layout.
-    /// Saved themes keep the rows they were saved with (they decode their own `rows`).
+    /// Now playing first; the last-screenshot row only renders after Belay copies a screenshot.
     static let defaultRows: [RowSetting] = [
         RowSetting(kind: .nowPlaying, visible: true),
         RowSetting(kind: .screenshot, visible: true),
-        RowSetting(kind: .wifi, visible: false),
-        RowSetting(kind: .battery, visible: false),
-        RowSetting(kind: .volume, visible: false),
     ]
+
+    /// Decodes a theme, tolerating row kinds that no longer exist (e.g. "volume"): they're dropped, and any current
+    /// kind missing from the saved list is appended with its default visibility. Everything else must decode as-is.
+    static func decode(_ data: Data) -> Theme? {
+        guard var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        let known = Set(RowKind.allCases.map(\.rawValue))
+        var rows = ((json["rows"] as? [[String: Any]]) ?? []).filter { known.contains($0["kind"] as? String ?? "") }
+        for d in defaultRows where !rows.contains(where: { $0["kind"] as? String == d.kind.rawValue }) {
+            rows.append(["kind": d.kind.rawValue, "visible": d.visible])
+        }
+        json["rows"] = rows
+        guard let clean = try? JSONSerialization.data(withJSONObject: json) else { return nil }
+        return try? JSONDecoder().decode(Theme.self, from: clean)
+    }
+
+    static func decodeList(_ data: Data) -> [Theme]? {
+        guard let items = (try? JSONSerialization.jsonObject(with: data)) as? [Any] else { return nil }
+        return items.compactMap { (try? JSONSerialization.data(withJSONObject: $0)).flatMap(decode) }
+    }
 
     // MARK: Presets (each passes the anti-slop list in docs/design.md)
 

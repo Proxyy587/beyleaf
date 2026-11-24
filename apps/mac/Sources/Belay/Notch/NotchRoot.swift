@@ -14,8 +14,8 @@ struct NotchRoot: View {
 
     /// Room either side of the camera in the open panel, for the header (inside the ears and the content inset).
     private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s4 }
-    /// Put the header beside the camera when there's room (the time is ~60 pt; the gear 28); otherwise it sits below the notch line.
-    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 64 }
+    /// Put the header beside the camera when there's room (the gear needs 28 pt); otherwise it sits below the notch line.
+    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 32 }
 
     var body: some View {
         let open = model.isOpen
@@ -38,7 +38,7 @@ struct NotchRoot: View {
                 .animation(Tok.reveal, value: open)
 
                 if headerInBand {
-                    NotchHeader(status: status, openSettings: openSettings)
+                    NotchHeader(openSettings: openSettings)
                         .frame(width: model.openWidth - 2 * (Tok.rOpenEar + Tok.s4), height: notchH)
                         .blurReveal(open, delay: 0.03)
                         .allowsHitTesting(open)
@@ -67,11 +67,10 @@ struct NotchRoot: View {
     }
 
     @ViewBuilder private func wing(_ side: HorizontalEdge) -> some View {
+        // Wings exist only for live activities: at rest the closed notch fits the hardware exactly (ui-inventory §1.1).
         if let a = activities.current {
             ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat)
                 .blurSwap(on: a)
-        } else {
-            WingView(wing: side == .leading ? settings.leftWing : settings.rightWing, side: side, music: music, status: status, shots: shots)
         }
     }
 

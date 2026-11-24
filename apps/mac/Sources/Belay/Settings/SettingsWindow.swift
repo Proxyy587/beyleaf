@@ -514,26 +514,10 @@ private struct LayoutPane: View {
                 }
                 .pickerStyle(.menu)
                 Toggle("Music bars follow the beat", isOn: $s.equalizerWhilePlaying)
-                Toggle("Charging", isOn: $s.alertCharging)
                 Toggle("Low battery", isOn: $s.alertLowBattery)
-                Toggle("Wi-Fi connected or lost", isOn: $s.alertWifi)
+                Toggle("Internet lost or back", isOn: $s.alertWifi)
             } header: {
                 ResetHeader(title: "Live activities", isDefault: s.liveActivitiesAreDefault) { s.resetLiveActivities() }
-            }
-            Section {
-                SegmentedRow(title: "Size", selection: $s.closedStyle, options: AppSettings.ClosedStyle.allCases) { $0.name }
-                if s.closedStyle == .withInfo {
-                    Picker("Left of the camera", selection: $s.leftWing) {
-                        ForEach(AppSettings.Wing.allCases) { Text($0.name).tag($0) }
-                    }
-                    .pickerStyle(.menu)
-                    Picker("Right of the camera", selection: $s.rightWing) {
-                        ForEach(AppSettings.Wing.allCases) { Text($0.name).tag($0) }
-                    }
-                    .pickerStyle(.menu)
-                }
-            } header: {
-                ResetHeader(title: "Closed notch", isDefault: s.closedNotchIsDefault) { s.resetClosedNotch() }
             }
         }
         .toggleStyle(.switch)

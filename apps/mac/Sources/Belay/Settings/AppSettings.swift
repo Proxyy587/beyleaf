@@ -8,29 +8,11 @@ import UniformTypeIdentifiers
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
-    enum ClosedStyle: String, CaseIterable, Identifiable {
-        case exactFit, withInfo
-        var id: String { rawValue }
-        var name: String { self == .exactFit ? "Exact fit" : "With info beside" }
-    }
-
     enum MusicActivity: String, CaseIterable, Identifiable {
         case keep, brief, off
         var id: String { rawValue }
         var name: String { switch self { case .keep: "Keep showing"; case .brief: "Show briefly"; case .off: "Don't show" } }
     }
-
-    enum Wing: String, CaseIterable, Identifiable {
-        case mark, battery, time, none
-        var id: String { rawValue }
-        var name: String { self == .none ? "Nothing" : rawValue.capitalized }
-        /// Reads saved values, including "climber" from before the mark replaced the climber glyph.
-        init?(saved: String?) {
-            guard let saved else { return nil }
-            self.init(rawValue: saved == "climber" ? "mark" : saved)
-        }
-    }
-
 
     /// The active theme (ADR 0015). Changing any field re-renders the notch.
     @Published var theme: Theme { didSet { if theme != oldValue { themeRevision &+= 1; saveTheme() } } }
@@ -41,15 +23,10 @@ final class AppSettings: ObservableObject {
     /// Keep the notch open while Settings is in front, as a live preview.
     @Published var previewWhileEditing = true
 
-    /// Closed notch: exactly the hardware notch (default), or widened with info beside the camera.
-    @Published var closedStyle: ClosedStyle { didSet { save(closedStyle.rawValue, "closedStyle") } }
     /// What the closed notch does while music plays (Dynamic Island style).
     @Published var musicActivity: MusicActivity { didSet { save(musicActivity.rawValue, "musicActivity") } }
-    @Published var alertCharging: Bool { didSet { save(alertCharging, "alertCharging") } }
     @Published var alertLowBattery: Bool { didSet { save(alertLowBattery, "alertLowBattery") } }
     @Published var alertWifi: Bool { didSet { save(alertWifi, "alertWifi") } }
-    @Published var leftWing: Wing { didSet { save(leftWing.rawValue, "leftWing") } }
-    @Published var rightWing: Wing { didSet { save(rightWing.rawValue, "rightWing") } }
     @Published var equalizerWhilePlaying: Bool { didSet { save(equalizerWhilePlaying, "equalizerWhilePlaying") } }
     @Published var haptics: Bool { didSet { save(haptics, "haptics") } }
     /// Seconds the pointer must rest on the notch before it opens (0 = instant).
@@ -63,23 +40,16 @@ final class AppSettings: ObservableObject {
     private let d = UserDefaults.standard
 
     // MARK: Defaults (one place, used by init and by Settings' per-section resets)
-    static let defaultClosedStyle = ClosedStyle.exactFit
     static let defaultMusicActivity = MusicActivity.keep
-    static let defaultLeftWing = Wing.mark
-    static let defaultRightWing = Wing.battery
 
     func resetHover() { openDelay = 0; closeDelay = 0 }
     var hoverIsDefault: Bool { openDelay == 0 && closeDelay == 0 }
     func resetLiveActivities() {
         musicActivity = Self.defaultMusicActivity; equalizerWhilePlaying = true
-        alertCharging = true; alertLowBattery = true; alertWifi = true
+        alertLowBattery = true; alertWifi = true
     }
     var liveActivitiesAreDefault: Bool {
-        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertCharging && alertLowBattery && alertWifi
-    }
-    func resetClosedNotch() { closedStyle = Self.defaultClosedStyle; leftWing = Self.defaultLeftWing; rightWing = Self.defaultRightWing }
-    var closedNotchIsDefault: Bool {
-        closedStyle == Self.defaultClosedStyle && leftWing == Self.defaultLeftWing && rightWing == Self.defaultRightWing
+        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi
     }
 
     /// The theme a section reset returns to: the saved theme or preset the current one is named after, else Midnight.
@@ -90,15 +60,11 @@ final class AppSettings: ObservableObject {
     func themeIsDefault(_ group: Theme.Group) -> Bool { theme.matches(group, themeBase) }
 
     private init() {
-        theme = (d.data(forKey: "theme")).flatMap { try? JSONDecoder().decode(Theme.self, from: $0) } ?? .midnight
-        savedThemes = (d.data(forKey: "savedThemes")).flatMap { try? JSONDecoder().decode([Theme].self, from: $0) } ?? []
-        closedStyle = ClosedStyle(rawValue: d.string(forKey: "closedStyle") ?? "") ?? Self.defaultClosedStyle
+        theme = d.data(forKey: "theme").flatMap(Theme.decode) ?? .midnight
+        savedThemes = d.data(forKey: "savedThemes").flatMap(Theme.decodeList) ?? []
         musicActivity = MusicActivity(rawValue: d.string(forKey: "musicActivity") ?? "") ?? Self.defaultMusicActivity
-        alertCharging = d.object(forKey: "alertCharging") as? Bool ?? true
         alertLowBattery = d.object(forKey: "alertLowBattery") as? Bool ?? true
         alertWifi = d.object(forKey: "alertWifi") as? Bool ?? true
-        leftWing = Wing(saved: d.string(forKey: "leftWing")) ?? Self.defaultLeftWing
-        rightWing = Wing(saved: d.string(forKey: "rightWing")) ?? Self.defaultRightWing
         equalizerWhilePlaying = d.object(forKey: "equalizerWhilePlaying") as? Bool ?? true
         haptics = d.object(forKey: "haptics") as? Bool ?? true
         // Instant by default; an older "hoverDelay" preference carries over as the open delay.
@@ -145,7 +111,7 @@ final class AppSettings: ObservableObject {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
-        guard let data = try? Data(contentsOf: url), let t = try? JSONDecoder().decode(Theme.self, from: data) else {
+        guard let data = try? Data(contentsOf: url), let t = Theme.decode(data) else {
             return "That file isn't a Belay theme. Export one from Settings to see the format."
         }
         theme = t

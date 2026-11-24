@@ -8,7 +8,6 @@ import SwiftUI
 enum NotchActivity: Hashable {
     case nowPlaying
     case copied
-    case charging(Int)
     case lowBattery(Int)
     case wifi(online: Bool)
 
@@ -16,7 +15,7 @@ enum NotchActivity: Hashable {
     var wingWidth: CGFloat {
         switch self {
         case .nowPlaying, .copied: 44
-        case .charging, .lowBattery: 52
+        case .lowBattery: 52
         case .wifi: 72
         }
     }
@@ -59,7 +58,6 @@ final class ActivityCenter: ObservableObject {
     private func battery(_ b: SystemStatus.Battery?) {
         defer { lastBattery = b }
         guard let b, let old = lastBattery else { return }
-        if settings.alertCharging, b.onAC, !old.onAC { flash(.charging(b.percent), for: 2.5) }
         if settings.alertLowBattery, !b.onAC, (b.percent <= 20 && old.percent > 20) || (b.percent <= 10 && old.percent > 10) {
             flash(.lowBattery(b.percent), for: 4)
         }
@@ -118,10 +116,6 @@ struct ActivityWing: View {
                 if let c = shots.lastCopied { Thumbnail(url: c.url) } else { Image(systemName: "camera.viewfinder").font(Tok.icon).foregroundStyle(Tok.ink) }
             case (.copied, .trailing):
                 Image(systemName: "checkmark").font(Tok.icon).foregroundStyle(Tok.live)
-            case (.charging, .leading):
-                Image(systemName: "bolt.fill").font(Tok.icon).foregroundStyle(Tok.live)
-            case (.charging(let p), .trailing):
-                Text("\(p)%").font(Tok.digits).foregroundStyle(Tok.live)
             case (.lowBattery(let p), .leading):
                 Image(systemName: "battery.25percent").font(Tok.icon).foregroundStyle(p <= 10 ? Tok.danger : Tok.warning)
             case (.lowBattery(let p), .trailing):

@@ -14,9 +14,9 @@ final class NotchModel: ObservableObject {
 
     /// Room for the compact "wings" either side of the hardware notch, when shown.
     static let wing: CGFloat = 40
-    /// Current wing width: per activity, or the standard width for "With info beside".
+    /// Current wing width, per activity.
     @Published var wingWidth: CGFloat = 40
-    /// Wings are shown when the user chose "With info beside", or briefly for a live activity (e.g. screenshot copied).
+    /// Wings are shown only for a live activity (music, screenshot copied, low battery, internet).
     @Published var wingsVisible = false
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
@@ -49,11 +49,11 @@ final class NotchController {
     private var activitySub: Any?
     private var pulseSub: Any?
 
-    /// Wings show for a live activity, or always with "With info beside". New activities and tracks get a
+    /// Wings show for a live activity. New activities and tracks get a
     /// jelly spring (more bounce than the open/close spring); reduced motion keeps it a fade.
     private func updateWings() {
         let activity = activities.current
-        let show = activity != nil || settings.closedStyle == .withInfo
+        let show = activity != nil
         let width = activity?.wingWidth ?? NotchModel.wing
         guard show != model.wingsVisible || width != model.wingWidth else { return }
         withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width }
@@ -116,7 +116,6 @@ final class NotchController {
         }
         updateWings()
         music.refreshIfUnknown()
-        status.setActive(false)
         startPolling()
         #if DEBUG
         // `--beat-probe <bundle id>`: start the tap on that (running, not necessarily playing) player for 5 s, then
@@ -178,7 +177,6 @@ final class NotchController {
         guard model.isOpen != open else { return }
         leftAt = nil
         if open { Tok.haptic(.alignment); music.refreshIfUnknown() }
-        status.setActive(open)
         music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
         withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open }

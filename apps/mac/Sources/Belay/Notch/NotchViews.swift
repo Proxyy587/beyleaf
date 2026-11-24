@@ -3,38 +3,6 @@ import SwiftUI
 
 // Layout and type follow docs/design.md: rows of [icon] title / status line … value. Tokens only.
 
-// MARK: - Compact wings (beside the hardware notch)
-
-struct WingView: View {
-    let wing: AppSettings.Wing
-    let side: HorizontalEdge
-    @ObservedObject var music: NowPlaying
-    @ObservedObject var status: SystemStatus
-    @ObservedObject var shots: Screenshots
-
-    var body: some View {
-        Group {
-            switch wing {
-            case .mark:
-                // The notch alone: the point is reserved for "something needs you" (brand/README.md).
-                BelayMarkView(ink: Tok.ink2, showsPoint: false).frame(width: 24, height: 24)
-            case .battery:
-                if let b = status.battery { Text("\(b.percent)%").font(Tok.digits).foregroundStyle(batteryInk(b)) }
-            case .time:
-                Text(status.now, format: .dateTime.hour().minute()).font(Tok.digits).foregroundStyle(Tok.ink2)
-            case .none:
-                EmptyView()
-            }
-        }
-        .blurSwap(on: wing)
-    }
-}
-
-@MainActor func batteryInk(_ b: SystemStatus.Battery) -> Color {
-    if b.onAC { return Tok.ink2 }
-    return b.percent < 10 ? Tok.danger : b.percent <= 20 ? Tok.warning : Tok.ink2
-}
-
 // MARK: - Open panel
 
 struct ExpandedView: View {
@@ -69,17 +37,12 @@ struct ExpandedView: View {
     @ViewBuilder private func row(_ kind: Theme.RowKind) -> some View {
         switch kind {
         case .nowPlaying: if music.title != nil { NowPlayingHero(music: music) } else { NowPlayingEmpty(music: music) }
-        case .wifi: WifiRow(status: status)
-        case .battery: BatteryRow(status: status)
-        case .volume: VolumeRow(status: status)
         case .screenshot: if let c = shots.lastCopied { ScreenshotRow(copied: c, shots: shots) }
         }
     }
 
-    /// No-notch displays: the same quiet header as the band (time, gear), with the weekday since there's room.
-    private var header: some View {
-        NotchHeader(status: status, showWeekday: true, openSettings: openSettings)
-    }
+    /// No-notch displays: the same header as the band, below the notch line.
+    private var header: some View { NotchHeader(openSettings: openSettings) }
 }
 
 /// A notch row: [icon] title over status line … trailing.
@@ -136,16 +99,12 @@ extension EmptyLine where Action == EmptyView {
     init(symbol: String, text: String) { self.init(symbol: symbol, text: text) { EmptyView() } }
 }
 
-/// The open panel's header: [time]  (camera)  [gear]. No brand text: the notch is recognised by feel, not a label
-/// (docs/design.md §1). The time balances the gear either side of the camera, and it's a real value.
+/// The open panel's header: just the Settings gear, right of the camera. No brand text and no clock: the menu bar
+/// clock stays visible beside the open panel (docs/ui-inventory.md §5). The left side is kept for agent status (A1).
 struct NotchHeader: View {
-    @ObservedObject var status: SystemStatus
-    var showWeekday = false
     var openSettings: () -> Void
     var body: some View {
         HStack(spacing: Tok.s2) {
-            Text(status.now, format: showWeekday ? .dateTime.weekday(.abbreviated).hour().minute() : .dateTime.hour().minute())
-                .font(Tok.digits).foregroundStyle(Tok.ink2).lineLimit(1)
             Spacer()
             IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
                 .padding(.trailing, -Tok.buttonInset)
@@ -210,50 +169,6 @@ struct ProgressBar: View {
         .accessibilityValue(clock(f * music.duration))
     }
     private func clock(_ s: Double) -> String { let s = Int(s.rounded()); return String(format: "%d:%02d", s / 60, s % 60) }
-}
-
-struct WifiRow: View {
-    @ObservedObject var status: SystemStatus
-    var body: some View {
-        let strength = ["", "Weak", "Fair", "Strong"][max(0, min(3, status.wifiBars))]
-        Row(title: status.wifiOn ? (status.wifiName ?? "Wi-Fi") : "Wi-Fi off",
-            status: !status.wifiOn ? "Off" : status.online ? "Connected · \(strength)" : "No internet",
-            live: status.wifiOn && status.online) {
-            Image(systemName: status.wifiOn ? "wifi" : "wifi.slash", variableValue: Double(status.wifiBars) / 3)
-                .font(Tok.icon).foregroundStyle(status.wifiOn && !status.online ? Tok.warning : Tok.ink)
-        } trailing: { EmptyView() }
-    }
-}
-
-struct BatteryRow: View {
-    @ObservedObject var status: SystemStatus
-    var body: some View {
-        if let b = status.battery {
-            Row(title: "Battery", status: b.charging ? "Charging" : b.onAC ? "Plugged in" : status.timeLeft.map { "On battery · \($0) left" } ?? "On battery") {
-                Image(systemName: b.charging ? "battery.100percent.bolt" : b.percent > 60 ? "battery.75percent" : b.percent > 25 ? "battery.50percent" : "battery.25percent")
-                    .font(Tok.icon).foregroundStyle(batteryInk(b) == Tok.ink2 ? Tok.ink : batteryInk(b))
-            } trailing: {
-                Text("\(b.percent)%").font(Tok.digits).foregroundStyle(Tok.ink2)
-            }
-        }
-    }
-}
-
-struct VolumeRow: View {
-    @ObservedObject var status: SystemStatus
-    var body: some View {
-        HStack(spacing: Tok.s3) {
-            Image(systemName: "speaker.wave.3.fill", variableValue: status.volume)
-                .font(Tok.icon).foregroundStyle(Tok.ink).frame(width: Tok.gutter)
-            Slider(value: Binding(get: { status.volume }, set: { status.setVolume($0) }), in: 0...1)
-                .controlSize(.small)
-                .tint(Tok.accent)
-                .accessibilityLabel("Volume")
-            Text("\(Int((status.volume * 100).rounded()))").font(Tok.digits).foregroundStyle(Tok.ink2)
-                .frame(width: 28, alignment: .trailing)
-        }
-        .frame(height: Tok.rowHeight)
-    }
 }
 
 struct ScreenshotRow: View {
