@@ -58,6 +58,7 @@ The question v0.1 answers: *does the catch-and-steer moment work, feel native, a
 | I2 | Rule-pack format (YAML), community `rules/` folder | RiskEngine |
 | I5 | Docs site | apps/web |
 | **J1–J4** | **Hands:** engines (your `claude`/`codex` CLI, a local model, BYOK), "ask Belay to do it", instant Mac actions, edit-before-it-happens cards | Engines, Actions, IntentRouter |
+| **L1–L5** | **Convert:** drop-on-notch wheel, Finder right-click, voice/hotkey, route planner on macOS built-ins + permissive bundles, coverage v1 (`conversions.md`) | ConvertService (core), native steps in MacBridge |
 | **K1–K3, K5, K6** | **Crew:** Belay, Lead, Porter, Tempo, Scout (engine web tools); talk by name; ask, handoff and report with budgets; editable memory; taint and "stop everyone" (`crew.md` §14) | CrewService, ToolHost + MCP bridge, Runtimes, MemoryStore |
 
 ## v0.3+: platform
@@ -78,6 +79,7 @@ The question v0.1 answers: *does the catch-and-steer moment work, feel native, a
 | G5, G6 | Profile card, optional Crag community |
 | I1, I3, I4 | TypeScript plugin API, skins and sound packs, standalone `belay` CLI for Linux |
 | J5–J7 | Accessibility-tree control, Cua sandboxed computer use, opt-in cloud connectors |
+| L6–L9 | Convert: detected external tools (WebP, MP3, WebM, epub, office→pdf), OCR, paste-as, watch folders, Shortcuts action |
 | K1, K4, K7, K8 | Crew: Sketch, custom members, group goals with plan cards, SceneSpec drawings, on-device routines; Scout's dedicated browser |
 | — | Rust `belay-core` + Tauri shells for Windows/Linux (`architecture.md` §10) |
 

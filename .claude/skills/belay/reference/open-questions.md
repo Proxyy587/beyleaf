@@ -18,6 +18,13 @@ Check these before building on them. When you resolve one, move it to the "Resol
 - [ ] Apple Foundation Models quality for one-line summaries (macOS 26).
 - [ ] Spotify AppleScript reliability on the current Spotify build.
 
+## Convert (v0.2)
+- [ ] Finder right-click: Services vs App Intent Quick Action vs Action extension (macOS 14–26)
+- [ ] `WKWebView.createPDF` quality for long HTML/DOCX documents
+- [ ] Wasm libwebp/libjxl encoders: size, speed, build licence
+- [ ] Actual licences of Homebrew FFmpeg, ImageMagick, LibreOffice, Ghostscript (shown in Settings)
+- [ ] Finder selection via AppleScript: Automation permission UX
+
 ## Product and admin
 - [ ] "Belay" name and handle availability (GitHub, X, domain).
 - [ ] Apple Developer Program enrolment, for signing and notarization.

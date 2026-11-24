@@ -268,6 +268,20 @@ The idea is that waiting on agents is dead time. Belay offers **small, optional,
 | K7 | **Sketch scenes** | Validated SceneSpec drawings animated in sync with narration | v0.3 |
 | K8 | **Routines** | On-device schedules and event triggers ("every weekday at 9", "when a PR opens"). Honest: they run only while the Mac is awake. | v0.3 |
 
+### L. Convert: any file, any format, locally (full design: `conversions.md`)
+
+| # | Feature | Detail | Phase |
+|---|---|---|---|
+| L1 | ★ **Drop-on-notch conversion wheel** | Drag files to the notch. A radial wheel shows the best targets for that type, with a haptic detent per segment. Release to convert. ⌥ for more formats and options. | v0.2 |
+| L2 | **Finder right-click** | "Convert with Belay…" from Quick Actions/Services. The wheel appears at the cursor. | v0.2 |
+| L3 | **Voice and hotkey** | "Convert these to PNG", "make this PDF a Word doc", for the Finder selection | v0.2 |
+| L4 | **Route planner** | Built-in macOS tools + bundled permissive libraries, multi-hop through pivot formats. Lossy steps are labelled and warned about. Originals are never overwritten; Undo. | v0.2 |
+| L5 | **Coverage v1** | Images (HEIC/JPG/PNG/AVIF/TIFF/GIF/BMP/ICO/ICNS/PDF), docs (txt/rtf/html/doc/docx/odt/md), PDF (pages↔images, text, merge/split), data (csv/json/tsv/yaml/xml), audio (wav/aiff/m4a/alac/flac/caf), video presets (mp4/mov), zip | v0.2 |
+| L6 | **Unlock more formats** | Detects tools the user installed (cwebp, ffmpeg, pandoc, LibreOffice, 7zz) for WebP, MP3, WebM, GIF, epub, office→pdf. Never bundled (ADR 0012). | v0.3 |
+| L7 | **OCR** | Image or scanned PDF → text (Vision) | v0.3 |
+| L8 | **Paste-as and watch folders** | Paste a copied image as another format; "always convert HEIC in Downloads to JPG" | v0.3 |
+| L9 | **Shortcuts action** | "Convert File" App Intent | v0.3 |
+
 ---
 
 ## 4. What we deliberately don't build

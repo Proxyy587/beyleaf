@@ -162,6 +162,7 @@ One registry. Each tool has a zod schema, a **risk class**, a **side-effect clas
 | `mac` (Porter) | `open_app`, `open_url`, `reveal_file`, `run_shortcut(name)`, `timer`, `notify` | local | none for open/reveal/timer; **card** for `run_shortcut` |
 | `browse` (Scout) | `search(q)`, `fetch(url)`, `extract(url, schema)`, `screenshot(url)` (v0.3) | network read | none; results are **tainted** |
 | `draw` (Sketch) | `scene(SceneSpec)`, `clear()`, `point(target)` | local overlay | none |
+| `convert` (Porter) | `plan(files, target)`, `run(files, target, options)` (`conversions.md`) | local write (new file next to the source) | none; **card** if the route is lossy, or the batch is over 50 files |
 | `fs` | `read(path)` inside allowed roots, `write(path)` | local write | **card** outside the task worktree |
 | `outward` | `send_message`, `post`, `email_draft`, `purchase`, … | external | **always a card** (J4), never auto |
 

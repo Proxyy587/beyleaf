@@ -19,5 +19,6 @@
 | Taint | Marker on a turn that read untrusted content. It forces cards for risky follow-ups. |
 | SceneSpec | Sketch's validated drawing format |
 | Lower everyone | Stop all crew turns and their process groups |
+| Conversion wheel | The radial format picker that opens when you drop files on the notch |
 
-**Feature ID prefixes:** A agents · B notch life · C voice · D drawing · E feel · F side quests · G logbook · H trust/setup · I ecosystem · J hands · K crew.
+**Feature ID prefixes:** A agents · B notch life · C voice · D drawing · E feel · F side quests · G logbook · H trust/setup · I ecosystem · J hands · K crew · L convert.
