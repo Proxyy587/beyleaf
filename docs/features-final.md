@@ -29,6 +29,7 @@ The question v0.1 answers: *does the catch-and-steer moment work, feel native, a
 | E1 | Haptics: catch + allow | FeelKit | Felt on a Force Touch trackpad; a sound and visual twin always plays |
 | E2 | Sound pack v1 + auto-mute when the asking terminal is focused | FeelKit | No sound while the user is in that terminal |
 | E3 | Spring-physics island (never flashes black) | NotchShell | 120 Hz on ProMotion, no frame drops on open or close |
+| N1, O1 | Screenshot auto-copy; Settings window (General, Appearance core, Screenshots, AI accounts detect, About). **Built early in the v0.0 prototype.** | Shell (MacBridge, Settings) | Auto-copy verified with a custom save location; settings apply live |
 | E8 | Battery-light, event-driven | both processes | Idle CPU < 1% combined |
 | G1 | Daily Belay log card, with Copy or Post to X | Logbook, CardRenderer | A PNG with hours, approvals, falls caught and summits; two clicks to post |
 | H1 | One-click hook install with diff preview; clean uninstall | Installer | Uninstall restores byte-identical original configs |
@@ -80,6 +81,8 @@ The question v0.1 answers: *does the catch-and-steer moment work, feel native, a
 | I1, I3, I4 | TypeScript plugin API, skins and sound packs, standalone `belay` CLI for Linux |
 | J5–J7 | Accessibility-tree control, Cua sandboxed computer use, opt-in cloud connectors |
 | L6–L9 | Convert: detected external tools (WebP, MP3, WebM, epub, office→pdf), OCR, paste-as, watch folders, Shortcuts action |
+| M1–M6 | Launcher and clipboard (Raycast competitor): command bar, clipboard history (replaces B4), snippets, quick maths, window layouts, plugin commands |
+| N2–N4, O2–O5 | Screenshot peek, more screenshot and appearance settings, skins, launch at login |
 | K1, K4, K7, K8 | Crew: Sketch, custom members, group goals with plan cards, SceneSpec drawings, on-device routines; Scout's dedicated browser |
 | — | Rust `belay-core` + Tauri shells for Windows/Linux (`architecture.md` §10) |
 

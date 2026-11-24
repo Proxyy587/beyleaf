@@ -282,6 +282,36 @@ The idea is that waiting on agents is dead time. Belay offers **small, optional,
 | L8 | **Paste-as and watch folders** | Paste a copied image as another format; "always convert HEIC in Downloads to JPG" | v0.3 |
 | L9 | **Shortcuts action** | "Convert File" App Intent | v0.3 |
 
+### M. Launcher and clipboard (competing with Raycast)
+
+| # | Feature | Detail | Phase |
+|---|---|---|---|
+| M1 | **Command bar** | A global shortcut (default ⌘⌥Space; configurable, must not clash with push-to-talk) opens a search bar that grows out of the notch: apps, files (Spotlight), settings, Belay commands, crew members ("Scout, …") | v0.3 |
+| M2 | **Clipboard history** | Last N copies (text, images, files), searchable, pin, paste-as-plain-text. Secrets auto-masked (vendored `redact.ts`). Sensitive apps (password managers) excluded by default. Replaces B4. | v0.3 |
+| M3 | **Snippets** | Saved text with `;keyword` expansion | v0.3 |
+| M4 | **Quick maths and units** | "12% of 340", "5 km in miles", "3pm IST in PST" | v0.3 |
+| M5 | **Window layouts** | Halves, thirds, maximise via keyboard (Accessibility permission) | v0.3+ |
+| M6 | **Commands are plugins** | Every command and integration is a TypeScript plugin (I1), so the community can add them like Raycast extensions, but free and open | v0.3+ |
+
+### N. Screenshots
+
+| # | Feature | Detail | Phase |
+|---|---|---|---|
+| N1 | **Auto-copy new screenshots** | Every new screenshot (⌘⇧3/4/5, wherever macOS saves it) is copied to the clipboard automatically. Detected by Spotlight's `kMDItemIsScreenCapture` attribute, so a custom save location works too (verified 2026-11-24). | **v0.0 prototype** |
+| N2 | **Screenshot peek** | The notch briefly shows a thumbnail with Copy, Reveal and Delete; drag the thumbnail into any app | v0.1 |
+| N3 | **Settings** | Auto-copy on/off; show peek on/off; delete the file after copying (clipboard-only screenshots); copy as PNG or JPEG | v0.0 (on/off), v0.1 (rest) |
+| N4 | **Pipe into Convert and Sketch** | Convert the screenshot (L) or ask Sketch to annotate it (K7) | v0.3 |
+
+### O. Settings and appearance
+
+| # | Feature | Detail | Phase |
+|---|---|---|---|
+| O1 | **Settings window** | Native sidebar window: General, Appearance, Notch, Screenshots, AI accounts, Shortcuts, About | **v0.0 prototype** |
+| O2 | **Appearance** | Accent colour, open width (Compact/Standard/Wide), corner style, what the closed wings show (left/right: climber, battery, time, now playing, nothing), haptics, sounds | v0.0 (core), v0.1 (rest) |
+| O3 | **AI accounts** | Shows which agent CLIs are installed (`claude`, `codex`) and their versions; "Connect" explains they use their own sign-in. Never collects credentials (ADR 0004). | v0.0 (detect), v0.2 (engines) |
+| O4 | **Skins** | Midnight (default) plus community skins as token sets (I3) | v0.3 |
+| O5 | **Launch at login, hover delay, open on click vs hover** | General preferences | v0.0 (hover delay), v0.1 (rest) |
+
 ---
 
 ## 4. What we deliberately don't build
