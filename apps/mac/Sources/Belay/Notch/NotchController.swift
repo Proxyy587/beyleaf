@@ -10,7 +10,7 @@ final class NotchModel: ObservableObject {
     @Published var metrics: NotchMetrics
     /// Height of the open content, measured by SwiftUI.
     @Published var openContentHeight: CGFloat = 230
-    @Published var openWidth: CGFloat = AppSettings.shared.width.points
+    @Published var openWidth: CGFloat = Tok.openWidth
 
     /// Room for the compact "wings" either side of the hardware notch.
     static let wing: CGFloat = 40
@@ -64,7 +64,7 @@ final class NotchController {
         settingsSub = settings.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self else { return }
-                withAnimation(Tok.open) { self.model.openWidth = self.settings.width.points }
+                withAnimation(Tok.open) { self.model.openWidth = Tok.openWidth }
                 self.shots.apply()
             }
         }

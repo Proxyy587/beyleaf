@@ -27,6 +27,7 @@ struct NotchRoot: View {
                         .frame(width: NotchModel.wing)
                 }
                 .frame(width: model.closedSize.width, height: notchH)
+                .id(settings.themeRevision)
                 .opacity(open ? 0 : 1)
                 .animation(Tok.reveal, value: open)
 
@@ -37,10 +38,11 @@ struct NotchRoot: View {
                     .background(GeometryReader { g in Color.clear.preference(key: ContentHeight.self, value: g.size.height - notchH) })
                     .frame(width: model.openWidth)
                     .allowsHitTesting(open)
+                    .id(settings.themeRevision)
             }
             .frame(width: size.width, height: size.height, alignment: .top)
             .clipped()
-            .shadow(color: .black.opacity(open ? 0.5 : 0), radius: open ? 20 : 0, y: open ? 10 : 0)
+            .shadow(color: .black.opacity(open ? Tok.shadow : 0), radius: open ? 20 : 0, y: open ? 10 : 0)
             .padding(.top, model.metrics.hasNotch ? 0 : Tok.s2)
             Spacer(minLength: 0)
         }
@@ -52,10 +54,34 @@ struct NotchRoot: View {
 
     @ViewBuilder private func background(open: Bool) -> some View {
         if model.metrics.hasNotch {
-            NotchShape(earRadius: open ? Tok.rOpenEar : 6, bottomRadius: open ? Tok.rOpenBottom : 10).fill(Tok.notch)
+            surface(open: open, shape: NotchShape(earRadius: open ? Tok.rOpenEar : 6, bottomRadius: open ? Tok.rOpenBottom : 10))
         } else {
-            RoundedRectangle(cornerRadius: open ? Tok.rOpenBottom : 13, style: .continuous).fill(Tok.notch)
+            surface(open: open, shape: RoundedRectangle(cornerRadius: open ? Tok.rOpenBottom : 13, style: .continuous))
         }
+    }
+
+    /// Solid: the theme colour. Glass: behind-window blur with a tint. Closed is always solid, so the notch
+    /// still merges with the hardware camera housing.
+    /// Where the solid band ends, as a fraction of the open height (the notch line).
+    private var bandStop: CGFloat { model.metrics.notchSize.height / max(1, model.openSize.height) }
+
+    @ViewBuilder private func surface<S: Shape>(open: Bool, shape: S) -> some View {
+        ZStack {
+            if Tok.isGlass {
+                GlassBackground().clipShape(shape).opacity(open ? 1 : 0)
+                shape.fill(Tok.notch.opacity(open ? Tok.glassTint : 1))
+                // Solid band behind the camera housing, fading out below the notch line, so glass still merges with the
+                // hardware notch (functional, not decorative).
+                shape.fill(LinearGradient(stops: [.init(color: Tok.notch, location: 0),
+                                                  .init(color: Tok.notch, location: bandStop),
+                                                  .init(color: Tok.notch.opacity(0), location: min(1, bandStop * 1.8))],
+                                          startPoint: .top, endPoint: .bottom))
+                    .opacity(open ? 1 : 0)
+            } else {
+                shape.fill(Tok.notch)
+            }
+        }
+        .animation(Tok.reveal, value: open)
     }
 }
 

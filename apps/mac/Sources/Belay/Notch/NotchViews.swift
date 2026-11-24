@@ -24,8 +24,7 @@ struct WingView: View {
                 content
             }
         }
-        .transition(.opacity)
-        .animation(Tok.reveal, value: shots.justCopied)
+        .blurSwap(on: WingState(copied: shots.justCopied, playing: settings.equalizerWhilePlaying && music.isPlaying, wing: wing))
     }
 
     @ViewBuilder private var content: some View {
@@ -44,6 +43,9 @@ struct WingView: View {
     }
 }
 
+/// Identity of what a wing is showing, so changes blur-swap instead of popping.
+private struct WingState: Hashable { let copied: Bool; let playing: Bool; let wing: AppSettings.Wing }
+
 @MainActor func batteryInk(_ b: SystemStatus.Battery) -> Color {
     if b.onAC { return Tok.ink2 }
     return b.percent < 10 ? Tok.danger : b.percent <= 20 ? Tok.warning : Tok.ink2
@@ -59,21 +61,28 @@ struct ExpandedView: View {
     var openSettings: () -> Void
 
     var body: some View {
+        let rows = AppSettings.shared.theme.rows.filter(\.visible).map(\.kind)
         VStack(alignment: .leading, spacing: Tok.s1) {
             header
                 .padding(.bottom, Tok.s2)
-            NowPlayingRow(music: music)
-            WifiRow(status: status)
-            BatteryRow(status: status)
-            VolumeRow(status: status)
-            if let c = shots.lastCopied { ScreenshotRow(copied: c, shots: shots) }
+                .blurReveal(shown, delay: 0.03)
+            ForEach(Array(rows.enumerated()), id: \.element) { index, kind in
+                row(kind).blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
+            }
         }
         .padding(.horizontal, Tok.s4)
         .padding(.top, Tok.s2)
         .padding(.bottom, Tok.s4)
-        .opacity(shown ? 1 : 0)
-        .scaleEffect(shown ? 1 : 0.96, anchor: .top)
-        .animation(shown ? Tok.reveal.delay(0.04) : Tok.reveal, value: shown)
+    }
+
+    @ViewBuilder private func row(_ kind: Theme.RowKind) -> some View {
+        switch kind {
+        case .nowPlaying: NowPlayingRow(music: music)
+        case .wifi: WifiRow(status: status)
+        case .battery: BatteryRow(status: status)
+        case .volume: VolumeRow(status: status)
+        case .screenshot: if let c = shots.lastCopied { ScreenshotRow(copied: c, shots: shots) }
+        }
     }
 
     private var header: some View {
@@ -102,6 +111,7 @@ struct Row<Leading: View, Trailing: View>: View {
             leading.frame(width: Tok.gutter, height: Tok.gutter)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
+                    .blurSwap(on: title)
                 StatusLine(text: status, live: live)
             }
             Spacer(minLength: Tok.s2)
@@ -161,14 +171,13 @@ struct BatteryRow: View {
 
 struct VolumeRow: View {
     @ObservedObject var status: SystemStatus
-    @ObservedObject var settings = AppSettings.shared
     var body: some View {
         HStack(spacing: Tok.s3) {
             Image(systemName: "speaker.wave.3.fill", variableValue: status.volume)
                 .font(Tok.icon).foregroundStyle(Tok.ink).frame(width: Tok.gutter)
             Slider(value: Binding(get: { status.volume }, set: { status.setVolume($0) }), in: 0...1)
                 .controlSize(.small)
-                .tint(settings.accent.color)
+                .tint(Tok.accent)
                 .accessibilityLabel("Volume")
             Text("\(Int((status.volume * 100).rounded()))").font(Tok.digits).foregroundStyle(Tok.ink2)
                 .frame(width: 28, alignment: .trailing)

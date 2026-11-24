@@ -20,6 +20,9 @@ final class BelayApp: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let controller = NotchController()
         controller.onOpenSettings = { [weak self] in self?.settingsWindow.show() }
+        // Live preview: keep the notch open while Settings is open.
+        settingsWindow.onShow = { [weak controller] in if AppSettings.shared.previewWhileEditing { controller?.open() } }
+        settingsWindow.onClose = { [weak controller] in if AppSettings.shared.previewWhileEditing { controller?.close() } }
         notch = controller
         controller.start(openOnLaunch: CommandLine.arguments.contains("--expand"))
         installStatusItem()

@@ -30,7 +30,7 @@ final class SystemStatus: ObservableObject {
     init() {
         path.pathUpdateHandler = { [weak self] p in
             let ok = p.status == .satisfied
-            Task { @MainActor in self?.online = ok }
+            Task { @MainActor in if self?.online != ok { self?.online = ok } }
         }
         path.start(queue: .global(qos: .utility))
         refresh()
@@ -48,17 +48,23 @@ final class SystemStatus: ObservableObject {
         if active { refresh(); readVolume() }
     }
 
+    /// Publishes only values that actually changed, and the clock only when the minute changes: an unchanged
+    /// @Published assignment still redraws the whole notch (measured: 10-25% CPU spikes at 1 Hz).
     func refresh() {
-        now = Date()
-        battery = Self.readBattery()
+        let minute = Calendar.current.dateInterval(of: .minute, for: Date())?.start ?? Date()
+        if minute != now { now = minute }
+        let b = Self.readBattery()
+        if b != battery { battery = b }
+        var on = false, bars = 0, name: String? = nil
         if let wifi = CWWiFiClient.shared().interface() {
-            wifiOn = wifi.powerOn()
+            on = wifi.powerOn()
             let rssi = wifi.rssiValue()
-            wifiBars = !wifiOn || rssi == 0 ? 0 : rssi > -55 ? 3 : rssi > -70 ? 2 : 1
-            wifiName = wifi.ssid()
-        } else {
-            wifiOn = false; wifiBars = 0; wifiName = nil
+            bars = !on || rssi == 0 ? 0 : rssi > -55 ? 3 : rssi > -70 ? 2 : 1
+            name = wifi.ssid()
         }
+        if on != wifiOn { wifiOn = on }
+        if bars != wifiBars { wifiBars = bars }
+        if name != wifiName { wifiName = name }
     }
 
     func setVolume(_ value: Double) {

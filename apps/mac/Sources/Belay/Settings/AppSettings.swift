@@ -1,33 +1,12 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// User preferences for the shell (appearance and behaviour only; product logic lives in belayd, ADR 0001).
 /// Persisted in UserDefaults; every change applies live.
 @MainActor
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
-
-    enum Accent: String, CaseIterable, Identifiable {
-        case blue, green, orange, pink, purple, graphite
-        var id: String { rawValue }
-        var name: String { rawValue.capitalized }
-        var color: Color {
-            switch self {
-            case .blue: Color(red: 0.184, green: 0.482, blue: 0.949)
-            case .green: Color(red: 0.357, green: 0.816, blue: 0.541)
-            case .orange: Color(red: 1.0, green: 0.49, blue: 0.12)
-            case .pink: Color(red: 1.0, green: 0.36, blue: 0.62)
-            case .purple: Color(red: 0.55, green: 0.36, blue: 0.94)
-            case .graphite: Color(white: 0.62)
-            }
-        }
-    }
-
-    enum Width: String, CaseIterable, Identifiable {
-        case compact, standard, wide
-        var id: String { rawValue }
-        var name: String { rawValue.capitalized }
-        var points: CGFloat { switch self { case .compact: 400; case .standard: 440; case .wide: 500 } }
-    }
 
     enum Wing: String, CaseIterable, Identifiable {
         case climber, battery, time, none
@@ -41,8 +20,15 @@ final class AppSettings: ObservableObject {
         var name: String { switch self { case .instant: "Instant"; case .short: "Short"; case .relaxed: "Relaxed" } }
     }
 
-    @Published var accent: Accent { didSet { save(accent.rawValue, "accent") } }
-    @Published var width: Width { didSet { save(width.rawValue, "width") } }
+    /// The active theme (ADR 0015). Changing any field re-renders the notch.
+    @Published var theme: Theme { didSet { if theme != oldValue { themeRevision &+= 1; saveTheme() } } }
+    /// Bumped on every theme change; used as a view identity so every token is re-read.
+    @Published private(set) var themeRevision = 0
+    /// Themes the user saved under their own names.
+    @Published private(set) var savedThemes: [Theme]
+    /// Keep the notch open while Settings is in front, as a live preview.
+    @Published var previewWhileEditing = true
+
     @Published var leftWing: Wing { didSet { save(leftWing.rawValue, "leftWing") } }
     @Published var rightWing: Wing { didSet { save(rightWing.rawValue, "rightWing") } }
     @Published var equalizerWhilePlaying: Bool { didSet { save(equalizerWhilePlaying, "equalizerWhilePlaying") } }
@@ -53,8 +39,8 @@ final class AppSettings: ObservableObject {
     private let d = UserDefaults.standard
 
     private init() {
-        accent = Accent(rawValue: d.string(forKey: "accent") ?? "") ?? .blue
-        width = Width(rawValue: d.string(forKey: "width") ?? "") ?? .standard
+        theme = (d.data(forKey: "theme")).flatMap { try? JSONDecoder().decode(Theme.self, from: $0) } ?? .midnight
+        savedThemes = (d.data(forKey: "savedThemes")).flatMap { try? JSONDecoder().decode([Theme].self, from: $0) } ?? []
         leftWing = Wing(rawValue: d.string(forKey: "leftWing") ?? "") ?? .climber
         rightWing = Wing(rawValue: d.string(forKey: "rightWing") ?? "") ?? .battery
         equalizerWhilePlaying = d.object(forKey: "equalizerWhilePlaying") as? Bool ?? true
@@ -63,5 +49,46 @@ final class AppSettings: ObservableObject {
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
     }
 
+    // MARK: Themes
+
+    func apply(_ preset: Theme) { theme = preset }
+
+    func saveCurrentTheme(as name: String) {
+        var t = theme
+        t.name = name.trimmingCharacters(in: .whitespaces).isEmpty ? "My theme" : name
+        savedThemes.removeAll { $0.name == t.name }
+        savedThemes.append(t)
+        theme = t
+        persistSaved()
+    }
+
+    func deleteSavedTheme(named name: String) {
+        savedThemes.removeAll { $0.name == name }
+        persistSaved()
+    }
+
+    func exportTheme() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "\(theme.name).belaytheme.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try? enc.encode(theme).write(to: url)
+    }
+
+    /// Returns an error line for the UI, or nil on success.
+    func importTheme() -> String? {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        guard let data = try? Data(contentsOf: url), let t = try? JSONDecoder().decode(Theme.self, from: data) else {
+            return "That file isn't a Belay theme. Export one from Settings to see the format."
+        }
+        theme = t
+        return nil
+    }
+
+    private func saveTheme() { if let data = try? JSONEncoder().encode(theme) { d.set(data, forKey: "theme") } }
+    private func persistSaved() { if let data = try? JSONEncoder().encode(savedThemes) { d.set(data, forKey: "savedThemes") } }
     private func save(_ value: Any, _ key: String) { d.set(value, forKey: key) }
 }
