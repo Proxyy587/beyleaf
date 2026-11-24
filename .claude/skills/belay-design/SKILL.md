@@ -5,7 +5,7 @@ description: Belay's design system and anti-slop review. Use whenever creating o
 
 # Belay design
 
-The rules are in `docs/design.md`. **Read it before touching UI.** Tokens are in `apps/mac/Sources/Belay/Design/Tokens.swift`; never hard-code a colour, size, radius, font or animation in a view.
+The rules are in `docs/design.md`. **Read it before touching UI.** What exists and why is in `docs/ui-inventory.md`: every new element needs a row there and must pass its purpose test ("what user job does this do that the notch is uniquely good for?"). Tokens are in `apps/mac/Sources/Belay/Design/Tokens.swift`; never hard-code a colour, size, radius, font or animation in a view.
 
 ## The feel we're after
 - **Aria-like notch:** pure black. Rows are [app icon] title, with a quiet uppercase **mono status line** under it and a mono value on the right. One green, only for "live". Lots of air.

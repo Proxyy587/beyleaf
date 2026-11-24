@@ -6,6 +6,8 @@
 >   - **Aria** (joinariapp.com): a pure-black notch list; app icon, title and a quiet mono status line per row; right-aligned mono durations; one green for "running"; generous air; a dithered pixel backdrop and frosted pill navigation on the site.
 >   - **dusk bot** (dusk.bot): a clean sans paired with a pixel display face for brand moments; warm near-black and off-white neutrals; pill and 14–16 px radii.
 
+**What exists and why** (every element, its user job, states and status, plus the purpose test and the cut list) is in `docs/ui-inventory.md`. Nothing ships on the notch without a row there.
+
 These are rules, not suggestions. Every Belay surface follows them: the notch, cards, the Settings window and the website. If a rule stops you doing the right thing, change it in the same commit and say why.
 
 **Tokens live in one file:** `apps/mac/Sources/Belay/Design/Tokens.swift`. No view hard-codes a colour, size, radius, font or animation.
