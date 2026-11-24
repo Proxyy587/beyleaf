@@ -22,5 +22,8 @@ codesign --force --sign - "$APP" >/dev/null
 [ "${1:-}" = "--build-only" ] && { echo "Built $(pwd)/$APP"; exit 0; }
 pkill -x Belay 2>/dev/null || true
 for _ in $(seq 50); do pgrep -x Belay >/dev/null || break; sleep 0.1; done
-if [ "${1:-}" = "--expand" ]; then open "$APP" --args --expand; else open "$APP"; fi
+sleep 0.5   # LaunchServices still holds the old process briefly; opening too soon fails with error -600
+ARGS=(); [ -n "${1:-}" ] && ARGS=(--args "$1")
+for attempt in 1 2 3; do open "$APP" ${ARGS[@]+"${ARGS[@]}"} 2>/dev/null && break; sleep 1; done
+pgrep -x Belay >/dev/null || { echo "Belay did not start" >&2; exit 1; }
 echo "Launched $(pwd)/$APP"
