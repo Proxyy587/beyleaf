@@ -10,6 +10,10 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 
 **Tokens live in one file:** `apps/mac/Sources/Belay/Design/Tokens.swift`. No view hard-codes a colour, size, radius, font or animation.
 
+**Everything is customizable (ADR 0015).** Tokens resolve from the user's theme: fonts, colours, surface (solid or glass), roundness, width, density, row order, and motion (speed, blur, bounce). The values below are the **Midnight** defaults. Every built-in preset must pass §2. What a user does with their own theme is up to them.
+
+**Blur is part of the motion language:** content reveals with a subtle blur-in, and changing text (track names, wing contents) blur-swaps. Blur is 6–10 pt by default, ≤ 300 ms, and off under reduced motion.
+
 ## 1. Principles
 
 1. **Calm by default.** The closed notch is almost invisible. Nothing blinks, counts or moves unless something real is happening. When in doubt, leave it out.

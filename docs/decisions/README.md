@@ -19,3 +19,4 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0012](0012-converters-builtin-first.md) | Converters: macOS built-ins first, ship only permissive code, detect GPL-family tools | accepted |
 | [0013](0013-swiftpm-app-bundle.md) | Build the Mac shell with SwiftPM + a bundle script, not XcodeGen | accepted |
 | [0014](0014-own-notch-window.md) | Our own notch window instead of DynamicNotchKit (supersedes 0007) | accepted |
+| [0015](0015-user-themes.md) | Every visual token comes from a user theme (fonts, colours, surface, shape, layout, motion) | accepted |
