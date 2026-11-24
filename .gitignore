@@ -12,6 +12,8 @@ dist/
 
 # Swift / Xcode
 .build/
+apps/mac/build/
+Package.resolved
 DerivedData/
 *.xcuserstate
 xcuserdata/
