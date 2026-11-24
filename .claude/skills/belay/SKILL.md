@@ -37,6 +37,7 @@ You are working on **Belay**: a climber in the Mac notch who "holds the rope" fo
 | Make or change a decision | `playbooks/decision.md` |
 | Add a crew member, tool or runtime | `playbooks/crew.md` |
 | Find the right doc | `reference/docs-map.md` |
+| Any UI or design work | the `belay-design` skill + `docs/design.md` |
 | Climbing vocabulary and feature IDs | `reference/glossary.md` |
 | What's still unverified | `reference/open-questions.md` |
 

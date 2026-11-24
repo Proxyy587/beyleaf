@@ -9,6 +9,7 @@
 | Stack choices, Rust question, performance budgets | `docs/tech-stack.md` |
 | Day-by-day v0.1 plan and Day 1 spike | `docs/build-plan.md` |
 | Decisions | `docs/decisions/` |
+| Design rules, tokens, anti-slop list | `docs/design.md`, skill `belay-design` |
 | Full feature ideas, design principles, haptics and sound spec, brand world | `docs/features.md` |
 | Product concept, hero moment, audience | `docs/product.md` |
 | What we reuse from open source; AI-subscription rules | `docs/oss-reuse.md` |

@@ -39,6 +39,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Vendored:** OpenMausBot `DESIGN.md` (Apache-2.0), the upstream design rules behind the dusk bot look; basis for Belay's own design rules.
 
+- **Design rules:** `docs/design.md` (adapted from OpenMausBot's Apache-2.0 design rules; feel references from Aria's and dusk bot's public sites) and the `belay-design` Claude skill with an anti-slop review gate.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 
