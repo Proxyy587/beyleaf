@@ -10,7 +10,7 @@ Policy: `docs/decisions/0003-no-gpl-code.md`.
 | [Perch](https://github.com/asafofer/perch) | MIT | Copyright (c) 2026 Asaf Ofer and Perch contributors | `47ce905f` | Hook transport and installer, terminal focus, notch geometry, event parsing |
 | [Clicky](https://github.com/farzaa/clicky) | MIT | Copyright (c) 2026 Farza | `e71105ce` | Push-to-talk monitor, on-device speech provider, overlay window |
 | [Avo](https://github.com/Stu1124/avo) | MIT | Copyright (c) 2026 Aristu Sachdev | `8cd34c2f` | Spotify control, dictation waveform; edit-before-send card pattern |
-| [OpenMausBot](https://github.com/milind-soni/OpenMausBot) | Apache-2.0 | Copyright 2026 Milind Soni and OpenMausBot contributors | `310e731e` | Secret redaction; process-group stop for Crew members (engine layer is a v0.2 porting reference) |
+| [OpenMausBot](https://github.com/milind-soni/OpenMausBot) | Apache-2.0 | Copyright 2026 Milind Soni and OpenMausBot contributors | `310e731e` | Secret redaction; process-group stop for Crew members; design rules adapted into `docs/design.md` (engine layer is a v0.2 porting reference) |
 
 ### Dependencies (linked, not vendored)
 

@@ -37,6 +37,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Mac app v0.0 prototype** (`apps/mac`): our own notch panel and spring-animated notch shape with hover open/close and haptics; compact wings (climber, battery or equalizer); open panel with clock, Music/Spotify now playing and controls, Wi-Fi, battery, volume and a Convert drop-zone placeholder. Builds with SwiftPM and the Command Line Tools; idle CPU measured at 0.0%.
 
+- **Vendored:** OpenMausBot `DESIGN.md` (Apache-2.0), the upstream design rules behind the dusk bot look; basis for Belay's own design rules.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 
