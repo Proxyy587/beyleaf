@@ -54,6 +54,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Live activities (Dynamic Island style):** while music plays, the closed notch widens with album art and live bars (keep, brief or off). Short alerts for screenshot copied, charging, low battery and Wi-Fi online/offline. A jelly spring and blur swap on each new activity or track.
 - **Open panel:** the header moves into the band beside the camera; Now playing becomes a hero card with real album art (Music via AppleScript, Spotify artwork URL), a seekable progress bar with elapsed/remaining time, and centred controls.
 
+- **Prerequisites:** `docs/prerequisites.md`, a checklist of what only the human can do (installs, permissions, Apple Developer Program, naming, legal questions, broker accounts, launch accounts).
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 

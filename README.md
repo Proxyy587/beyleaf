@@ -13,6 +13,8 @@ Free, open source (MIT), local-only. **Status: pre-v0.1.** Docs, decisions and v
 
 ## Docs
 
+**What you (the human) need to do:** [docs/prerequisites.md](docs/prerequisites.md)
+
 | Doc | What's in it |
 |---|---|
 | [docs/features-final.md](docs/features-final.md) | **Locked build list (v0.1 / v0.2 / v0.3+)** with acceptance tests |

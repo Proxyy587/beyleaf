@@ -19,6 +19,7 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 | Borrowed code and its rules | `docs/oss-reuse.md`, `THIRD_PARTY_NOTICES.md`, `third_party/*/SOURCE.md` |
 | Sub-agents (Crew) design | `docs/crew.md` |
 | Design rules (UI, anti-slop) | `docs/design.md` |
+| What only the human can do (accounts, legal, hardware) | `docs/prerequisites.md` |
 | What changed recently | `CHANGELOG.md` |
 | Claude Code playbooks (commit, vendor, ADR, feature, crew) + repo checks | `.claude/skills/belay/` (project skill, loads automatically in Claude Code) |
 
