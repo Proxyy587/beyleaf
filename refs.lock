@@ -8,4 +8,5 @@ clicky          https://github.com/farzaa/clicky.git                  e71105ce09
 avo             https://github.com/Stu1124/avo.git                    8cd34c2f7c04d439941e5c70c3bbfb460e26dec8  MIT         -           Spotify control, dictation waveform, edit-before-send cards (pattern)
 DynamicNotchKit https://github.com/MrKai77/DynamicNotchKit.git        cd0b3e52d537db115ad3a9d89601f20e0bee8d27  MIT         -           notch window reference only (ADR 0014; not linked or vendored)
 openclicky      https://github.com/prasanthsasikumar/openclicky.git   66240278a3204b2c41b3a8f5a67d98958c0936fd  MIT         -           pointer from the notch, draw stage (v0.3 reference)
+mediaremote-adapter https://github.com/ungive/mediaremote-adapter.git 2ef957c736256cee7905c9f3f1c7e279087bf195 BSD-3-Clause - any-app now playing via MediaRemote (P3, v0.1)
 OpenMausBot     https://github.com/milind-soni/OpenMausBot.git        310e731edbf628ad2086bd782f0f6cfb7f3431cd  Apache-2.0  enterprise/ secret redaction now; engine layer (v0.2 reference)

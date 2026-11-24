@@ -10,6 +10,17 @@
 - "Built in" names the components in `architecture.md`.
 - "Done when" is the acceptance test.
 
+## Built so far (prototype on `initial-test`)
+
+| ID | Feature | State |
+|---|---|---|
+| B8, E3 | Own notch window; exact-fit closed notch; spring/blur motion | ✅ built, screenshot-verified |
+| P1, P2, P5 (part) | Music live activity, now playing hero with art and progress; charging, low-battery and Wi-Fi alerts | ✅ built; live playing state not yet tested on device |
+| B1 | Now playing (Music, Spotify) | ✅ |
+| N1 | Screenshot auto-copy | ✅ verified |
+| O1–O3 | Settings window, full theming (ADR 0015), AI-account detection | ✅ |
+| A1–A6 | **Agent supervision (the core)** | ❌ not started: the next priority (Day 1 hook spike) |
+
 ## v0.1: launch (2 weeks)
 
 The question v0.1 answers: *does the catch-and-steer moment work, feel native, and spread?*
@@ -83,6 +94,10 @@ The question v0.1 answers: *does the catch-and-steer moment work, feel native, a
 | L6–L9 | Convert: detected external tools (WebP, MP3, WebM, epub, office→pdf), OCR, paste-as, watch folders, Shortcuts action |
 | M1–M6 | Launcher and clipboard (Raycast competitor): command bar, clipboard history (replaces B4), snippets, quick maths, window layouts, plugin commands |
 | N2–N4, O2–O5 | Screenshot peek, more screenshot and appearance settings, skins, launch at login |
+| P3, P9, P14, P5 (rest) | Any-app now playing (mediaremote-adapter), gestures, Belay notifications, more system alerts |
+| P4, P6–P8, P10, P12 | Lyrics, HUD replacement, progress activities, timers and recording, calendar and reminders, shelf with AirDrop |
+| P11, P13 | Camera mirror, weather |
+| Q1–Q5 | Trading agent (exploration; legal review first, `trading.md`) |
 | K1, K4, K7, K8 | Crew: Sketch, custom members, group goals with plan cards, SceneSpec drawings, on-device routines; Scout's dedicated browser |
 | — | Rust `belay-core` + Tauri shells for Windows/Linux (`architecture.md` §10) |
 

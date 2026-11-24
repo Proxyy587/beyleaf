@@ -58,6 +58,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Trading agent design:** `docs/trading.md` and ADR 0016. Non-custodial, the model only proposes, deterministic risk engine, rope-card approvals, paper first, kill switch. Blocked on legal review.
 
+- **Features P and Q:** live activities and system HUD (inspired by DynamicNotch, Boring Notch and NotchNook: ideas only, no GPL code) and the trading agent, added to `features.md`; `features-final.md` gains a "Built so far" table and P/Q phasing. `mediaremote-adapter` (BSD-3) pinned in `refs.lock` for any-app now playing.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 

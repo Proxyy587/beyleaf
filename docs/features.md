@@ -312,6 +312,35 @@ The idea is that waiting on agents is dead time. Belay offers **small, optional,
 | O4 | **Skins** | Midnight (default) plus community skins as token sets (I3) | v0.3 |
 | O5 | **Launch at login, hover delay, open on click vs hover** | General preferences | v0.0 (hover delay), v0.1 (rest) |
 
+### P. Live activities and system HUD (inspired by DynamicNotch, Boring Notch, NotchNook; ideas only, no GPL code)
+
+| # | Feature | Detail | Phase |
+|---|---|---|---|
+| P1 | **Music live activity** | While music plays: album art + live bars beside the camera (keep, brief or off); jelly spring + blur swap on new tracks | **v0.0 prototype** |
+| P2 | **Now playing hero** | Big artwork, seekable progress bar with elapsed/remaining, centred controls | **v0.0 prototype** |
+| P3 | **Any-app now playing** | Browsers, YouTube, Podcasts… with artwork, via `mediaremote-adapter` (BSD-3; uses `/usr/bin/perl`'s MediaRemote entitlement; tested through macOS 27) | v0.1 |
+| P4 | **Synced lyrics** | Line-by-line lyrics under the track (LRCLIB; check its terms) | v0.2 |
+| P5 | **System alerts** | Charging, low battery, Wi-Fi online/offline (**v0.0**); Bluetooth device connected with battery (AirPods), VPN, Focus on/off, hotspot (v0.1) | v0.0 / v0.1 |
+| P6 | **HUD replacement** | Volume, brightness and keyboard-backlight changes shown in the notch instead of the system HUD (needs media-key interception) | v0.2 |
+| P7 | **Progress activities** | Downloads, AirDrop, file conversions (L), agent tasks, with a progress ring | v0.2 |
+| P8 | **Timers and screen recording** | A timer countdown; a red dot while recording | v0.2 |
+| P9 | **Gestures** | Swipe up to dismiss an activity, scroll on the notch for volume or skip, click to open, long-press for actions | v0.1 |
+| P10 | **Calendar and reminders** | Next event with a join button; reminders due today | v0.2 |
+| P11 | **Camera mirror** | A quick look at yourself before a call | v0.3 |
+| P12 | **Shelf with AirDrop** | Drag files onto the notch to hold them; AirDrop from there (B3) | v0.2 |
+| P13 | **Weather** | Current conditions in the open panel (WeatherKit needs a developer account) | v0.3 |
+| P14 | **Belay notifications** | Agent approvals, catches, summits, conversions, screenshot copied. (Other apps' notifications have no public API: **UNVERIFIED**, not planned.) | v0.1 |
+
+### Q. Trading agent ("Ledger") (exploration; design: `trading.md`)
+
+| # | Feature | Detail | Phase |
+|---|---|---|---|
+| Q1 | **Watch** | Portfolio, prices and rule triggers from your own broker; no orders | T1 |
+| Q2 | **Propose** | Ledger drafts orders; each is a rope card you approve | T2 |
+| Q3 | **Autopilot within limits** | Orders only inside a signed rule set (allow-list, size, daily spend and loss limits); everything else becomes a card | T3, after 30 days of paper trading |
+| Q4 | **Kill switch** | "Belay, stop trading": cancel open orders, disable autopilot | T1 |
+| Q5 | **Decision log** | Why every order happened; CSV export | T1 |
+
 ---
 
 ## 4. What we deliberately don't build
