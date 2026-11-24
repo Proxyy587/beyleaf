@@ -57,16 +57,43 @@ final class AppSettings: ObservableObject {
 
     private let d = UserDefaults.standard
 
+    // MARK: Defaults (one place, used by init and by Settings' per-section resets)
+    static let defaultClosedStyle = ClosedStyle.exactFit
+    static let defaultMusicActivity = MusicActivity.keep
+    static let defaultLeftWing = Wing.climber
+    static let defaultRightWing = Wing.battery
+
+    func resetHover() { openDelay = 0; closeDelay = 0 }
+    var hoverIsDefault: Bool { openDelay == 0 && closeDelay == 0 }
+    func resetLiveActivities() {
+        musicActivity = Self.defaultMusicActivity; equalizerWhilePlaying = true
+        alertCharging = true; alertLowBattery = true; alertWifi = true
+    }
+    var liveActivitiesAreDefault: Bool {
+        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertCharging && alertLowBattery && alertWifi
+    }
+    func resetClosedNotch() { closedStyle = Self.defaultClosedStyle; leftWing = Self.defaultLeftWing; rightWing = Self.defaultRightWing }
+    var closedNotchIsDefault: Bool {
+        closedStyle == Self.defaultClosedStyle && leftWing == Self.defaultLeftWing && rightWing == Self.defaultRightWing
+    }
+
+    /// The theme a section reset returns to: the saved theme or preset the current one is named after, else Midnight.
+    var themeBase: Theme {
+        savedThemes.first { $0.name == theme.name } ?? Theme.presets.first { $0.name == theme.name } ?? .midnight
+    }
+    func resetTheme(_ group: Theme.Group) { var t = theme; t.copy(group, from: themeBase); theme = t }
+    func themeIsDefault(_ group: Theme.Group) -> Bool { theme.matches(group, themeBase) }
+
     private init() {
         theme = (d.data(forKey: "theme")).flatMap { try? JSONDecoder().decode(Theme.self, from: $0) } ?? .midnight
         savedThemes = (d.data(forKey: "savedThemes")).flatMap { try? JSONDecoder().decode([Theme].self, from: $0) } ?? []
-        closedStyle = ClosedStyle(rawValue: d.string(forKey: "closedStyle") ?? "") ?? .exactFit
-        musicActivity = MusicActivity(rawValue: d.string(forKey: "musicActivity") ?? "") ?? .keep
+        closedStyle = ClosedStyle(rawValue: d.string(forKey: "closedStyle") ?? "") ?? Self.defaultClosedStyle
+        musicActivity = MusicActivity(rawValue: d.string(forKey: "musicActivity") ?? "") ?? Self.defaultMusicActivity
         alertCharging = d.object(forKey: "alertCharging") as? Bool ?? true
         alertLowBattery = d.object(forKey: "alertLowBattery") as? Bool ?? true
         alertWifi = d.object(forKey: "alertWifi") as? Bool ?? true
-        leftWing = Wing(rawValue: d.string(forKey: "leftWing") ?? "") ?? .climber
-        rightWing = Wing(rawValue: d.string(forKey: "rightWing") ?? "") ?? .battery
+        leftWing = Wing(rawValue: d.string(forKey: "leftWing") ?? "") ?? Self.defaultLeftWing
+        rightWing = Wing(rawValue: d.string(forKey: "rightWing") ?? "") ?? Self.defaultRightWing
         equalizerWhilePlaying = d.object(forKey: "equalizerWhilePlaying") as? Bool ?? true
         haptics = d.object(forKey: "haptics") as? Bool ?? true
         // Instant by default; an older "hoverDelay" preference carries over as the open delay.

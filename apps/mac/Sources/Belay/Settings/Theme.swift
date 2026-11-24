@@ -104,6 +104,33 @@ struct Theme: Codable, Equatable {
     static let presets: [Theme] = [midnight, smoke, terminal, soft]
 }
 
+// MARK: - Groups (for Settings' per-section resets)
+
+extension Theme {
+    /// The fields each Settings section edits. A section reset copies just its group from the base theme.
+    enum Group { case fonts, statusLines, text, accents, surface, shape, openNotch, rows, motion }
+
+    mutating func copy(_ g: Group, from o: Theme) {
+        switch g {
+        case .fonts: uiFont = o.uiFont; monoFont = o.monoFont; textScale = o.textScale
+        case .statusLines: statusUppercase = o.statusUppercase; statusTracking = o.statusTracking
+        case .text: ink = o.ink; ink2Opacity = o.ink2Opacity; ink3Opacity = o.ink3Opacity
+        case .accents: accent = o.accent; live = o.live
+        case .surface: background = o.background; backgroundColor = o.backgroundColor; glassTint = o.glassTint; shadow = o.shadow
+        case .shape: roundness = o.roundness
+        case .openNotch: width = o.width; density = o.density
+        case .rows: rows = Theme.defaultRows
+        case .motion: motion = o.motion; speed = o.speed; blur = o.blur; bounce = o.bounce
+        }
+    }
+
+    func matches(_ g: Group, _ o: Theme) -> Bool {
+        var a = self
+        a.copy(g, from: o)
+        return a == self
+    }
+}
+
 // MARK: - Colour ⇄ hex
 
 extension Color {
