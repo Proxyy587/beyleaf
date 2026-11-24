@@ -37,6 +37,10 @@ final class NotchController {
     private let music = NowPlaying()
     private let status = SystemStatus()
     private let shots = Screenshots()
+    private let beat = MusicBeat()
+    private var beatSubs: [Any] = []
+    private var screensAsleep = false
+    private var probing = false
     private let settings = AppSettings.shared
     private var settingsSub: Any?
     var onOpenSettings: () -> Void = {}
@@ -53,6 +57,14 @@ final class NotchController {
         let width = activity?.wingWidth ?? NotchModel.wing
         guard show != model.wingsVisible || width != model.wingWidth else { return }
         withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width }
+    }
+    /// Listen to the player's audio only while the bars are on screen: music playing, the music wing showing (closed
+    /// notch), bars on, motion allowed, screens awake. Everything else stops the tap (battery, privacy).
+    private func updateBeat() {
+        guard !probing else { return }
+        let visible = music.isPlaying && !model.isOpen && activities.current == .nowPlaying && !screensAsleep
+        let wanted = visible && settings.equalizerWhilePlaying && !Tok.reduceMotion
+        beat.listen(to: wanted ? music.player?.bundleID : nil)
     }
     private var model: NotchModel!
     private var panel: NotchPanel!
@@ -72,7 +84,7 @@ final class NotchController {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status, shots: shots, activities: activities,
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: Self.canvas)
@@ -90,11 +102,32 @@ final class NotchController {
                 self.updateWings()
             }
         }
-        activitySub = activities.$current.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings() } }
+        activitySub = activities.$current.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings(); self?.updateBeat() } }
+        beatSubs = [
+            music.$isPlaying.sink { [weak self] _ in DispatchQueue.main.async { self?.updateBeat() } },
+            music.$trackChange.sink { [weak self] _ in DispatchQueue.main.async { self?.beat.retry(); self?.updateBeat() } },
+            settings.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.updateBeat() } },
+        ]
+        let ws = NSWorkspace.shared.notificationCenter
+        for (name, asleep) in [(NSWorkspace.screensDidSleepNotification, true), (NSWorkspace.screensDidWakeNotification, false)] {
+            beatSubs.append(ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.screensAsleep = asleep; self?.updateBeat() }
+            })
+        }
         updateWings()
         music.refreshIfUnknown()
         status.setActive(false)
         startPolling()
+        #if DEBUG
+        // `--beat-probe <bundle id>`: start the tap on that (running, not necessarily playing) player for 5 s, then
+        // stop, to check the start/stop path and logs without playing anything. Nothing is played or recorded.
+        if let i = CommandLine.arguments.firstIndex(of: "--beat-probe"), CommandLine.arguments.indices.contains(i + 1) {
+            let id = CommandLine.arguments[i + 1]
+            probing = true
+            beat.listen(to: id)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.beat.listen(to: nil); self.probing = false; self.updateBeat() }
+        }
+        #endif
         if openOnLaunch { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.open() } }
     }
 
@@ -149,6 +182,7 @@ final class NotchController {
         music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
         withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open }
+        updateBeat()
     }
 
     // MARK: - Screens

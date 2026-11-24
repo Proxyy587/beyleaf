@@ -333,22 +333,26 @@ struct Thumbnail: View {
     }
 }
 
-/// Live only while audio plays (the one allowed loop, docs/design.md §7). Static under reduced motion.
-struct Equalizer: View {
+/// Music bars driven by the player's real audio (MusicBeat, ADR 0017): one bar per band, a small lift on each beat.
+/// Ink, not live green: the bars are content, and green is kept for status text and dots (docs/design.md §3).
+/// Static glyph under reduced motion, when the user turned the bars off, or when capture isn't available.
+struct BeatBars: View {
+    @ObservedObject var beat: MusicBeat
     var body: some View {
-        if Tok.reduceMotion {
-            Image(systemName: "waveform").font(Tok.icon).foregroundStyle(Tok.live)
-        } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { ctx in
-                let t = ctx.date.timeIntervalSinceReferenceDate
-                HStack(alignment: .bottom, spacing: 2) {
-                    ForEach(0..<4, id: \.self) { i in
-                        Capsule().fill(Tok.live)
-                            .frame(maxHeight: .infinity)
-                            .scaleEffect(x: 1, y: 0.3 + 0.7 * abs(sin(t * (2.0 + Double(i) * 0.6) + Double(i))), anchor: .bottom)
-                    }
+        if beat.state == .listening, !Tok.reduceMotion, AppSettings.shared.equalizerWhilePlaying {
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<beat.levels.count, id: \.self) { i in
+                    Capsule().fill(Tok.ink)
+                        .frame(maxHeight: .infinity)
+                        .scaleEffect(x: 1, y: CGFloat(0.2 + 0.8 * beat.levels[i]), anchor: .bottom)
                 }
             }
+            .scaleEffect(1 + 0.12 * CGFloat(beat.pulse), anchor: .bottom)
+            .animation(.linear(duration: 1.0 / 30.0), value: beat.levels)
+            .accessibilityLabel("Playing")
+        } else {
+            Image(systemName: "waveform").font(Tok.icon).foregroundStyle(Tok.ink2)
+                .accessibilityLabel("Playing")
         }
     }
 }

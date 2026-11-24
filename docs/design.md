@@ -119,9 +119,9 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 | `Tok.hover` | hover / pressed fills | ease-out 120 ms, colour and opacity only |
 
 - **300 ms ceiling.** Nothing scales from zero; content grows from 96% and fades.
-- **No idle loops.** Only really-live status animates: the equalizer while audio plays, a climber while an agent works.
+- **No idle loops.** Only really-live status animates: the music bars while audio plays (driven by the real audio, ADR 0017; ink, with a small lift on each beat), a climber while an agent works.
 - **The climber holds still at rest.**
-- **Reduced motion:** springs become 150 ms fades, and the equalizer becomes a static glyph.
+- **Reduced motion:** springs become 150 ms fades, and the music bars become a static glyph (no audio capture).
 
 ## 8. Feel (haptics and sound)
 

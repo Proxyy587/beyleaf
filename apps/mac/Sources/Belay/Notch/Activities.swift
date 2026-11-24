@@ -104,6 +104,7 @@ struct ActivityWing: View {
     let side: HorizontalEdge
     @ObservedObject var music: NowPlaying
     @ObservedObject var shots: Screenshots
+    @ObservedObject var beat: MusicBeat
 
     var body: some View {
         Group {
@@ -111,7 +112,7 @@ struct ActivityWing: View {
             case (.nowPlaying, .leading):
                 Artwork(image: music.artwork, size: 22)
             case (.nowPlaying, .trailing):
-                if music.isPlaying { Equalizer().frame(width: 16, height: 12) }
+                if music.isPlaying { BeatBars(beat: beat).frame(width: 16, height: 12) }
                 else { Image(systemName: "pause.fill").font(Tok.icon).foregroundStyle(Tok.ink2) }
             case (.copied, .leading):
                 if let c = shots.lastCopied { Thumbnail(url: c.url) } else { Image(systemName: "camera.viewfinder").font(Tok.icon).foregroundStyle(Tok.ink) }

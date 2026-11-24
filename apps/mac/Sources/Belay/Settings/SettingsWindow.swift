@@ -300,6 +300,7 @@ private struct LayoutPane: View {
                 Picker("While music plays", selection: $s.musicActivity) {
                     ForEach(AppSettings.MusicActivity.allCases) { Text($0.name).tag($0) }
                 }
+                Toggle("Music bars follow the beat", isOn: $s.equalizerWhilePlaying)
                 Toggle("Charging", isOn: $s.alertCharging)
                 Toggle("Low battery", isOn: $s.alertLowBattery)
                 Toggle("Wi-Fi connected or lost", isOn: $s.alertWifi)
@@ -316,7 +317,6 @@ private struct LayoutPane: View {
                 Picker("Right of the camera", selection: $s.rightWing) {
                     ForEach(AppSettings.Wing.allCases) { Text($0.name).tag($0) }
                 }
-                Toggle("Show the equalizer while music plays", isOn: $s.equalizerWhilePlaying)
                 }
             }
         }

@@ -8,6 +8,7 @@ struct NotchRoot: View {
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
     @ObservedObject var activities: ActivityCenter
+    var beat: MusicBeat
     @ObservedObject var settings = AppSettings.shared
     var openSettings: () -> Void
 
@@ -67,7 +68,7 @@ struct NotchRoot: View {
 
     @ViewBuilder private func wing(_ side: HorizontalEdge) -> some View {
         if let a = activities.current {
-            ActivityWing(activity: a, side: side, music: music, shots: shots)
+            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat)
                 .blurSwap(on: a)
         } else {
             WingView(wing: side == .leading ? settings.leftWing : settings.rightWing, side: side, music: music, status: status, shots: shots)

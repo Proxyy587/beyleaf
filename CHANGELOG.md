@@ -66,6 +66,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 - **Notch header:** no brand text. The open notch's header is just the time (left of the camera) and the Settings gear (right); the climber and the "Belay" title are gone.
 - **Calm defaults:** a new theme shows now playing (the hero when a track is known, otherwise one line: "Not playing", with Play when a player is paused) and the last-screenshot row, which appears only after a copy. Wi-Fi, battery and volume are off by default and one toggle away in Settings → Layout; saved themes keep their rows, and applying a preset no longer replaces your rows.
+- **Music bars:** the looping green equalizer is gone. While music plays, the closed notch's bars follow the player's real audio (4 bands, a small lift on each beat), in ink. Belay listens only to Music or Spotify, only while the bars are on screen, in memory only (ADR 0017). Without permission, or under reduced motion, a still glyph shows instead.
 - **Settings:** essentials first (General, Layout, Screenshots, AI accounts, About). Theme, typography, colours, surface and motion appear with "Show advanced settings" in General (remembered). "Keep the notch open while Settings is open" moved to General.
 
 ### Open (Day 1 checks)

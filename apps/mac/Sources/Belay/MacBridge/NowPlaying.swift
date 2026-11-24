@@ -9,7 +9,10 @@ import Foundation
 /// Planned: any-app now playing via mediaremote-adapter (BSD-3) — see docs/features-final.md.
 @MainActor
 final class NowPlaying: ObservableObject {
-    enum Player: String { case music = "Music", spotify = "Spotify" }
+    enum Player: String {
+        case music = "Music", spotify = "Spotify"
+        var bundleID: String { self == .music ? "com.apple.Music" : "com.spotify.client" }
+    }
 
     @Published private(set) var title: String?
     @Published private(set) var artist: String?
