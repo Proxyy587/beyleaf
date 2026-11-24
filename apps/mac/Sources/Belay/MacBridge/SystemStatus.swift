@@ -7,7 +7,7 @@ import Network
 /// Wi-Fi, battery, volume and clock for the notch's status row.
 @MainActor
 final class SystemStatus: ObservableObject {
-    struct Battery: Equatable { var percent: Int; var charging: Bool; var onAC: Bool }
+    struct Battery: Equatable { var percent: Int; var charging: Bool; var onAC: Bool; var minutesToEmpty: Int? }
 
     @Published private(set) var battery: Battery?
     @Published private(set) var wifiOn = false
@@ -17,6 +17,12 @@ final class SystemStatus: ObservableObject {
     @Published private(set) var online = true
     @Published var volume: Double = 0.5
     @Published private(set) var now = Date()
+
+    /// "3h 12m" while on battery, when macOS has an estimate.
+    var timeLeft: String? {
+        guard let m = battery?.minutesToEmpty, m > 0, battery?.onAC == false else { return nil }
+        return m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m"
+    }
 
     private let path = NWPathMonitor()
     private var timer: Timer?
@@ -81,7 +87,9 @@ final class SystemStatus: ObservableObject {
                   let cur = d[kIOPSCurrentCapacityKey] as? Int, let max = d[kIOPSMaxCapacityKey] as? Int, max > 0 else { continue }
             let charging = d[kIOPSIsChargingKey] as? Bool ?? false
             let onAC = (d[kIOPSPowerSourceStateKey] as? String) == kIOPSACPowerValue
-            return Battery(percent: Int((Double(cur) / Double(max) * 100).rounded()), charging: charging, onAC: onAC)
+            let tte = d[kIOPSTimeToEmptyKey] as? Int
+            return Battery(percent: Int((Double(cur) / Double(max) * 100).rounded()), charging: charging, onAC: onAC,
+                           minutesToEmpty: (tte ?? -1) > 0 ? tte : nil)
         }
         return nil
     }

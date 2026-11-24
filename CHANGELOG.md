@@ -43,6 +43,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Features:** M (launcher and clipboard, competing with Raycast), N (screenshot auto-copy and peek), O (settings and appearance), added to `features.md` and `features-final.md`.
 
+- **Mac app:** notch redesigned to `docs/design.md` (tokens, Aria-style rows, no plates or gradients); **screenshot auto-copy** (N1); **Settings window** (O1: general, appearance, screenshots, AI-account detection, about).
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 

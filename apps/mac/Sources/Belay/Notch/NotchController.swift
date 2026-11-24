@@ -1,5 +1,6 @@
 // Cursor polling cadence adapted from Perch (MIT), Sources/Perch/NotchController.swift @ 47ce905f. See third_party/perch/.
 import AppKit
+import Combine
 import SwiftUI
 
 /// UI state for the notch. Swift renders; when agent features arrive, *what* to show comes from belayd (ADR 0001).
@@ -9,17 +10,15 @@ final class NotchModel: ObservableObject {
     @Published var metrics: NotchMetrics
     /// Height of the open content, measured by SwiftUI.
     @Published var openContentHeight: CGFloat = 230
+    @Published var openWidth: CGFloat = AppSettings.shared.width.points
 
-    static let openWidth: CGFloat = 476
-    /// Inward curve of the open shape's top corners; content must sit inside it.
-    static let openEar: CGFloat = 14
     /// Room for the compact "wings" either side of the hardware notch.
-    static let wing: CGFloat = 38
+    static let wing: CGFloat = 40
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
     var closedSize: CGSize { CGSize(width: metrics.notchSize.width + 2 * Self.wing, height: metrics.notchSize.height) }
-    var openSize: CGSize { CGSize(width: Self.openWidth, height: metrics.notchSize.height + openContentHeight) }
+    var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
 
 /// Owns the panel and decides when the notch opens and closes.
@@ -30,6 +29,11 @@ final class NotchModel: ObservableObject {
 final class NotchController {
     private let music = NowPlaying()
     private let status = SystemStatus()
+    private let shots = Screenshots()
+    private let settings = AppSettings.shared
+    private var settingsSub: Any?
+    var onOpenSettings: () -> Void = {}
+    private var hoverSince: Date?
     private var model: NotchModel!
     private var panel: NotchPanel!
 
@@ -47,7 +51,8 @@ final class NotchController {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status)
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots,
+                             openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: Self.canvas)
         panel.contentView = host
@@ -55,6 +60,13 @@ final class NotchController {
 
         screenObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.relayout() }
+        }
+        settingsSub = settings.objectWillChange.sink { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                withAnimation(Tok.open) { self.model.openWidth = self.settings.width.points }
+                self.shots.apply()
+            }
         }
         music.refreshIfUnknown()
         status.setActive(false)
@@ -83,7 +95,11 @@ final class NotchController {
         if fast != fastPolling { fastPolling = fast; startPolling(); return }
 
         if !model.isOpen {
-            if rectOnScreen(model.closedSize, grow: 10).contains(p) { pinned = false; setOpen(true) }
+            // Hover delay (Settings → General) avoids opening when the pointer just passes the menu bar.
+            if rectOnScreen(model.closedSize, grow: 10).contains(p) {
+                if hoverSince == nil { hoverSince = Date() }
+                if let s = hoverSince, Date().timeIntervalSince(s) >= settings.hoverDelay.rawValue { hoverSince = nil; pinned = false; setOpen(true) }
+            } else { hoverSince = nil }
             return
         }
         if rectOnScreen(model.openSize, grow: 6).contains(p) {
@@ -104,10 +120,10 @@ final class NotchController {
     private func setOpen(_ open: Bool) {
         guard model.isOpen != open else { return }
         leftAt = nil
-        if open { Feel.tap(); music.refreshIfUnknown() }
+        if open { Tok.haptic(.alignment); music.refreshIfUnknown() }
         status.setActive(open)
         panel.ignoresMouseEvents = !open
-        withAnimation(open ? Feel.open : Feel.close) { model.isOpen = open }
+        withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open }
     }
 
     // MARK: - Screens

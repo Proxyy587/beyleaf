@@ -5,18 +5,24 @@ Renders, listens and touches macOS; **no product logic** (ADR 0001). A SwiftPM p
 ```sh
 apps/mac/scripts/run.sh            # build, bundle, ad-hoc sign, launch (menu bar climber icon → Quit)
 apps/mac/scripts/run.sh --expand   # launch with the notch open (testing, screenshots)
+apps/mac/scripts/run.sh --settings # launch and open Settings
 CONFIG=release apps/mac/scripts/run.sh --build-only
 ```
 
-**Status: v0.0 prototype.**
-- Our own notch window (ADR 0014) springs open on hover. Compact wings show the climber and battery, or equalizer bars while music plays.
-- The open panel has: clock/date; now playing for Music and Spotify with play/pause/skip; Wi-Fi; battery; a volume slider; and a placeholder drop zone for Convert.
-- Idle CPU measured at 0.0% (budget < 1%).
+**Status: v0.0 prototype**, designed to `docs/design.md` (tokens in `Sources/Belay/Design/Tokens.swift`).
+- Our own notch window (ADR 0014) springs open on hover, with a configurable hover delay.
+- **Compact wings** are configurable (climber / battery / time / nothing). The equalizer shows while music plays, and a green check appears for 2 s after a screenshot is copied.
+- **Open panel:** Aria-style rows (icon, then title over a mono status line, then a value) for now playing (Music/Spotify, with controls), Wi-Fi, battery (with time left), volume and the last copied screenshot. A gear opens Settings.
+- **Screenshot auto-copy** (N1): a Spotlight query on `kMDItemIsScreenCapture` copies every new screenshot (PNG + TIFF + file URL), wherever it's saved.
+- **Settings** (O1): General (hover delay, haptics), Appearance (open width, wings, equalizer, accent), Screenshots (auto-copy), AI accounts (detects the `claude`/`codex` CLIs and versions; never credentials), About.
+- Idle CPU measured at 0.0–0.2% (budget < 1%).
 - No agent features yet.
 
 | Folder (planned) | Responsibility | Feature IDs | Adapt from |
 |---|---|---|---|
 | `Belay/App/` | App entry, `Supervisor` (launch/restart `belayd`), Settings | — | — |
+| `Sources/Belay/Design/` | `Tokens.swift` (colour, type, shape, space, motion, haptics) + `StatusLine` | all UI | `docs/design.md` |
+| `Sources/Belay/Settings/` | `AppSettings` (persisted prefs), `SettingsWindow` | O1–O3, N3 | — |
 | `Sources/Belay/Notch/` | `NotchPanel`, `NotchShape`, `NotchRoot`, `NotchController` (hover polling, open/close), views | A1, B8, E3 | `third_party/perch/Sources/PerchCore/NotchGeometry.swift`, `NotchMachine.swift` |
 | `Belay/Cards/` | RopeCard, QuestCard, Logbook views | A2, F*, G* | — |
 | `Belay/Character/` | Sprite atlas + state machine | A1, A3 | — |
@@ -25,4 +31,4 @@ CONFIG=release apps/mac/scripts/run.sh --build-only
 | `Belay/MacBridge/` | NowPlaying, WindowLocator, Overlay, Mac actions | B1, A7, A8, J3 | `third_party/avo/Avo/Tools/SpotifyTools.swift`; `third_party/perch/Sources/Perch/Terminals.swift`; `third_party/clicky/…/OverlayWindow.swift` |
 | `Belay/Protocol/` | `Generated.swift` (from `core/packages/protocol`, never hand-edited) + CoreClient | — | — |
 
-No package dependencies (ADR 0014). Minimum macOS 14 (`docs/tech-stack.md` §3). Built paths so far: `Sources/Belay/{App,Notch,MacBridge,Feel}`; the remaining folders above are planned.
+No package dependencies (ADR 0014). Minimum macOS 14 (`docs/tech-stack.md` §3). Built paths so far: `Sources/Belay/{App,Notch,MacBridge,Design,Settings}`; the remaining folders above are planned.
