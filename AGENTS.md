@@ -22,6 +22,7 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 | What only the human can do (accounts, legal, hardware) | `docs/prerequisites.md` |
 | What changed recently | `CHANGELOG.md` |
 | Claude Code playbooks (commit, vendor, ADR, feature, crew) + repo checks | `.claude/skills/belay/` (project skill, loads automatically in Claude Code) |
+| Which Claude Code skills we use, and why | `docs/claude-skills.md` |
 
 ## Repo map
 
