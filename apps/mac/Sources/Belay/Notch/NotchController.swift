@@ -98,7 +98,7 @@ final class NotchController {
             // Hover delay (Settings → General) avoids opening when the pointer just passes the menu bar.
             if rectOnScreen(model.closedSize, grow: 10).contains(p) {
                 if hoverSince == nil { hoverSince = Date() }
-                if let s = hoverSince, Date().timeIntervalSince(s) >= settings.hoverDelay.rawValue { hoverSince = nil; pinned = false; setOpen(true) }
+                if let s = hoverSince, Date().timeIntervalSince(s) >= settings.openDelay { hoverSince = nil; pinned = false; setOpen(true) }
             } else { hoverSince = nil }
             return
         }
@@ -106,7 +106,7 @@ final class NotchController {
             pointerVisited = true; leftAt = nil
         } else if !pinned || pointerVisited {
             if leftAt == nil { leftAt = Date() }
-            if let t = leftAt, Date().timeIntervalSince(t) > 0.35 { pinned = false; setOpen(false) }
+            if let t = leftAt, Date().timeIntervalSince(t) >= settings.closeDelay { pinned = false; setOpen(false) }
         }
     }
 

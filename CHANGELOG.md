@@ -47,6 +47,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Themes (ADR 0015):** every visual token comes from a user theme. Fonts (any installed), text size, status style, colours, solid or glass surface, roundness, width, density, row order and visibility, and motion speed, blur and bounce. Four presets; save, export and import as JSON; live preview while Settings is open. Subtle blur reveals and blur swaps.
 
+- **Open and close delays:** Settings → General has two sliders, 0–1 s, both instant by default. Replaces the fixed 0.35 s close delay and the open-delay presets.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 

@@ -14,11 +14,6 @@ final class AppSettings: ObservableObject {
         var name: String { self == .none ? "Nothing" : rawValue.capitalized }
     }
 
-    enum HoverDelay: Double, CaseIterable, Identifiable {
-        case instant = 0, short = 0.15, relaxed = 0.35
-        var id: Double { rawValue }
-        var name: String { switch self { case .instant: "Instant"; case .short: "Short"; case .relaxed: "Relaxed" } }
-    }
 
     /// The active theme (ADR 0015). Changing any field re-renders the notch.
     @Published var theme: Theme { didSet { if theme != oldValue { themeRevision &+= 1; saveTheme() } } }
@@ -33,7 +28,10 @@ final class AppSettings: ObservableObject {
     @Published var rightWing: Wing { didSet { save(rightWing.rawValue, "rightWing") } }
     @Published var equalizerWhilePlaying: Bool { didSet { save(equalizerWhilePlaying, "equalizerWhilePlaying") } }
     @Published var haptics: Bool { didSet { save(haptics, "haptics") } }
-    @Published var hoverDelay: HoverDelay { didSet { save(hoverDelay.rawValue, "hoverDelay") } }
+    /// Seconds the pointer must rest on the notch before it opens (0 = instant).
+    @Published var openDelay: Double { didSet { save(openDelay, "openDelay") } }
+    /// Seconds after the pointer leaves before the notch closes (0 = instant).
+    @Published var closeDelay: Double { didSet { save(closeDelay, "closeDelay") } }
     @Published var screenshotAutoCopy: Bool { didSet { save(screenshotAutoCopy, "screenshotAutoCopy") } }
 
     private let d = UserDefaults.standard
@@ -45,7 +43,9 @@ final class AppSettings: ObservableObject {
         rightWing = Wing(rawValue: d.string(forKey: "rightWing") ?? "") ?? .battery
         equalizerWhilePlaying = d.object(forKey: "equalizerWhilePlaying") as? Bool ?? true
         haptics = d.object(forKey: "haptics") as? Bool ?? true
-        hoverDelay = HoverDelay(rawValue: d.object(forKey: "hoverDelay") as? Double ?? 0.15) ?? .short
+        // Instant by default; an older "hoverDelay" preference carries over as the open delay.
+        openDelay = d.object(forKey: "openDelay") as? Double ?? d.object(forKey: "hoverDelay") as? Double ?? 0
+        closeDelay = d.object(forKey: "closeDelay") as? Double ?? 0
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
     }
 

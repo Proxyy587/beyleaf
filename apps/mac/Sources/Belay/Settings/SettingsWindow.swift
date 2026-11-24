@@ -127,14 +127,15 @@ private struct SliderRow: View {
 
 // MARK: - Panes
 
+private func delayLabel(_ s: Double) -> String { s < 0.025 ? "Instant" : "\(Int((s * 1000).rounded())) ms" }
+
 private struct GeneralPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
         Form {
             Section {
-                Picker("Open on hover", selection: $s.hoverDelay) {
-                    ForEach(AppSettings.HoverDelay.allCases) { Text($0.name).tag($0) }
-                }
+                SliderRow(title: "Open after hovering", value: $s.openDelay, range: 0...1, step: 0.05) { delayLabel($0) }
+                SliderRow(title: "Close after leaving", value: $s.closeDelay, range: 0...1, step: 0.05) { delayLabel($0) }
                 Toggle("Haptics", isOn: $s.haptics)
             } footer: {
                 Text("Haptics are felt on Force Touch trackpads while your finger rests on them.").foregroundStyle(.secondary)
