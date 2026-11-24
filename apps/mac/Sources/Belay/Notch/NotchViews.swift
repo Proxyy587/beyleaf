@@ -148,6 +148,7 @@ struct NotchHeader: View {
                 .font(Tok.digits).foregroundStyle(Tok.ink2).lineLimit(1)
             Spacer()
             IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
+                .padding(.trailing, -Tok.buttonInset)
         }
     }
 }
@@ -159,7 +160,7 @@ struct NowPlayingHero: View {
         VStack(spacing: Tok.s2) {
             HStack(spacing: Tok.s3) {
                 Artwork(image: music.artwork, size: 48)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(music.title ?? "").font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
                         .blurSwap(on: music.title)
                     StatusLine(text: [music.isPlaying ? "Playing" : "Paused", music.artist, music.player?.rawValue].compactMap { $0 }.joined(separator: " · "),
@@ -174,7 +175,7 @@ struct NowPlayingHero: View {
                 IconButton(symbol: "forward.fill", label: "Next track") { music.next() }
             }
         }
-        .padding(.vertical, Tok.s2)
+        .padding(.top, Tok.s1)
     }
 }
 
@@ -185,8 +186,9 @@ struct ProgressBar: View {
     @State private var hover = false
     var body: some View {
         let f = dragging ?? (music.duration > 0 ? music.position / music.duration : 0)
-        HStack(spacing: Tok.s2) {
-            Text(clock(f * music.duration)).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 40, alignment: .leading)
+        // Labels are as wide as the artwork, so the bar starts on the title's column (artwork 48 + 12).
+        HStack(spacing: Tok.s3) {
+            Text(clock(f * music.duration)).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 48, alignment: .leading)
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Tok.ink.opacity(0.14))
@@ -201,7 +203,7 @@ struct ProgressBar: View {
                 .onHover { h in withAnimation(Tok.hover) { hover = h } }
             }
             .frame(height: 14)
-            Text("-" + clock(max(0, (1 - f) * music.duration))).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 44, alignment: .trailing)
+            Text("-" + clock(max(0, (1 - f) * music.duration))).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 48, alignment: .trailing)
         }
         .accessibilityElement()
         .accessibilityLabel("Playback position")

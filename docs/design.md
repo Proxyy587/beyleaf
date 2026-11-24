@@ -53,7 +53,7 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 | Hairline | `Tok.hairline` | ink at 10% |
 | Primary text | `Tok.ink` | `#F5F5F3` (warm off-white) |
 | Secondary text | `Tok.ink2` | ink at 62% |
-| Tertiary text | `Tok.ink3` | ink at 40% |
+| Tertiary text | `Tok.ink3` | ink at 48% (4.6:1 on black; 40% was 3.4:1) |
 | Accent | `Tok.accent` | user-selectable, default `#2F7BF2` |
 | Live / running | `Tok.live` | soft green `#5BD08A`, **only** for "running / playing / connected" status text and dots |
 | Warning / danger | `Tok.warning` / `Tok.danger` | amber / red, only for real warnings and errors |

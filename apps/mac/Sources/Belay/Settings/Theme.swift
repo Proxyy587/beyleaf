@@ -76,7 +76,7 @@ struct Theme: Codable, Equatable {
 
     static let midnight = Theme(
         name: "Midnight", uiFont: "System", monoFont: "System Mono", textScale: 1, statusUppercase: true, statusTracking: 0.8,
-        ink: "#F5F5F3", ink2Opacity: 0.62, ink3Opacity: 0.40, accent: "#2F7BF2", live: "#5BD08A",
+        ink: "#F5F5F3", ink2Opacity: 0.62, ink3Opacity: 0.48, accent: "#2F7BF2", live: "#5BD08A",
         background: .solid, backgroundColor: "#000000", glassTint: 0.55, shadow: 0.5,
         width: 440, roundness: 1, density: .regular, rows: defaultRows,
         speed: 1, blur: 6, bounce: 0.12, motion: .system)

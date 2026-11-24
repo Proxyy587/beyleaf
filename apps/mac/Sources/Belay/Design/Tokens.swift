@@ -57,6 +57,9 @@ enum Tok {
     static var rowHeight: CGFloat { t.density.rowHeight }
     static var gutter: CGFloat { 20 * t.textScale }
     static var button: CGFloat { 28 * min(1.15, t.textScale) }
+    /// Space between an icon button's edge and its glyph. Buttons at a row's edge pull out by this much, so the glyph
+    /// (not the invisible hit area) lines up with text and values above and below.
+    static var buttonInset: CGFloat { (button - 15 * t.textScale) / 2 }
     static var openWidth: CGFloat { CGFloat(t.width) }
 
     // MARK: Motion (300 ms ceiling at speed 1; blur is subtle and off for reduced motion)
