@@ -16,8 +16,8 @@
 | Layer | Choice | Why |
 |---|---|---|
 | **Mac app (shell)** | **Swift 6 + SwiftUI, with AppKit where needed** (`NSPanel`, `NSEvent`, `NSHapticFeedbackManager`, Accessibility API) | The notch, haptics, global hotkeys, on-device speech and Accessibility are native-only. This is the polish we compete on (`feasibility.md` §4). |
-| Notch window | **DynamicNotchKit** (MIT) | Notch and floating-island windows already solved (`oss-reuse.md` §4) |
-| Project generation | **XcodeGen** (`project.yml`) | No hand-edited `.xcodeproj` merge pain; Avo uses the same |
+| Notch window | **Our own** `NotchPanel` + animatable `NotchShape` (ADR 0014, supersedes DynamicNotchKit) | DynamicNotchKit needs full Xcode's SwiftUI macros; owning the motion is our differentiator anyway |
+| Project generation | **SwiftPM** + `apps/mac/scripts/run.sh` bundle script (ADR 0013) | Builds with the Command Line Tools alone; the pattern comes from Perch |
 | Auto-update | **Sparkle** | The de facto standard for signed Mac updates outside the App Store |
 | **Core (`belayd`)** | **TypeScript on Bun**, shipped as a **single compiled binary** (`bun build --compile`) inside the `.app` | Your strongest language. MausBot's engine layer (Apache-2.0) is TypeScript. Fastest path to the 2-week ship. |
 | Core HTTP/WS server | **Hono** on `Bun.serve`, listening on **0600 Unix sockets** (hook shim + WebSocket to the shell; ADR 0006) | Small, typed, fast. No ports or tokens in agent configs. |

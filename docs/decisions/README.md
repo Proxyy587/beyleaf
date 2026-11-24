@@ -11,9 +11,11 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0004](0004-engines-not-logins.md) | Use AI subscriptions only through the user's own CLIs | accepted |
 | [0005](0005-fail-open.md) | Fail open to the agent's own prompt; never auto-allow | accepted |
 | [0006](0006-unix-socket-hook-transport.md) | Hooks reach the core over a Unix socket via a command-hook shim | accepted |
-| [0007](0007-dynamicnotchkit-dependency.md) | DynamicNotchKit as a pinned SwiftPM dependency, not vendored | accepted |
+| [0007](0007-dynamicnotchkit-dependency.md) | DynamicNotchKit as a pinned SwiftPM dependency, not vendored | superseded by 0014 |
 | [0008](0008-source-available-inspiration-only.md) | Source-available projects (e.g. dusk bot) are product inspiration only: not cloned, not read for code | accepted |
 | [0009](0009-crew-hub-and-tool-surface.md) | Crew is hub-and-spoke through CrewService; one ToolHost exposed to CLI engines via a capability-scoped MCP proxy | accepted |
 | [0010](0010-runtimes-and-turns.md) | Members think through pluggable runtimes, in bounded turns | accepted |
 | [0011](0011-untrusted-content-cannot-grant-permission.md) | Untrusted content can't grant permission (taint tracking) | accepted |
 | [0012](0012-converters-builtin-first.md) | Converters: macOS built-ins first, ship only permissive code, detect GPL-family tools | accepted |
+| [0013](0013-swiftpm-app-bundle.md) | Build the Mac shell with SwiftPM + a bundle script, not XcodeGen | accepted |
+| [0014](0014-own-notch-window.md) | Our own notch window instead of DynamicNotchKit (supersedes 0007) | accepted |

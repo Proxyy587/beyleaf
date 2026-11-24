@@ -24,7 +24,7 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 ## Repo map
 
 ```
-apps/mac/        Swift shell (Belay.app): notch, cards, voice, haptics, Mac bridge. XcodeGen project.yml.
+apps/mac/        Swift shell (Belay.app): notch, cards, voice, haptics, Mac bridge. SwiftPM; build+run with scripts/run.sh.
 apps/web/        Next.js landing page + docs.
 core/            Bun workspace: protocol (zod, source of truth), belayd (all product logic), rules, cards.
 rules/           Community danger-rule packs (YAML).
@@ -44,6 +44,7 @@ scripts/         fetch-refs.sh, vendor.sh.
 5. **No GPL code, ever.** Only repos in `refs.lock`, only through `scripts/vendor.sh`. Adapted files get a provenance header. (ADR 0003)
 6. **Hooks go over 0600 Unix sockets via the `belay-hook` shim.** No TCP ports. (ADR 0006)
 7. **No vendor names or logos in Belay's branding.** Plain-text "works with Claude Code and Codex" is fine.
+7b. **The notch window is ours** (ADR 0014). Don't add DynamicNotchKit back without a new ADR.
 8. **Untrusted content can't grant permission.** Tainted chains always drop the rope for outward, write-outside or shortcut actions. Only the user approves. (ADR 0011)
 9. **Source-available code is off-limits** (PolyForm, BSL, "personal use", e.g. dusk bot): product inspiration from public pages only. (ADR 0008)
 
@@ -65,5 +66,5 @@ scripts/         fetch-refs.sh, vendor.sh.
 
 - Xcode with Swift 6.x (present on the dev machine: Swift 6.2.3)
 - Bun (**not installed yet**). Pin it in `.bun-version` when the core is scaffolded.
-- XcodeGen (**not installed yet**): `brew install xcodegen`
+- Xcode is **not required** for the Mac app (SwiftPM + Command Line Tools, ADR 0013). XcodeGen is no longer used.
 - Claude Code and Codex CLIs for e2e tests

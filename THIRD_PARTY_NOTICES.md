@@ -14,15 +14,14 @@ Policy: `docs/decisions/0003-no-gpl-code.md`.
 
 ### Dependencies (linked, not vendored)
 
-| Project | Licence | Copyright | Pinned commit | Used for |
-|---|---|---|---|---|
-| [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | MIT | Copyright (c) 2025 Kai Azim | `cd0b3e52` | Notch and floating-island window (SwiftPM, ADR 0007). Its licence text is added below once it is linked into a release build. |
+None. DynamicNotchKit was planned (ADR 0007) and is now reference-only (ADR 0014).
 
 ### Reference only (read, not copied yet)
 
 | Project | Licence | Pinned commit | Planned use |
 |---|---|---|---|
 | [OpenClicky](https://github.com/prasanthsasikumar/openclicky) | MIT | `66240278` | Pointer from the notch and draw stage (v0.3, D2–D4). Vendor through `scripts/vendor.sh` when work starts. |
+| [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | MIT | `cd0b3e52` | Studied for the notch panel and shape; Belay's notch window is its own implementation (ADR 0014). |
 
 ---
 

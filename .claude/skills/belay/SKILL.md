@@ -24,7 +24,8 @@ You are working on **Belay**: a climber in the Mac notch who "holds the rope" fo
 7. **Crew goes through CrewService; one ToolHost; capability-scoped MCP proxy.** [0009, 0010]
 8. **Untrusted content can't grant permission.** Tainted chains always drop the rope for outward, write-outside or shortcut actions. [0011]
 9. **No vendor names or logos in Belay's branding.**
-10. **Unknowns stay marked UNVERIFIED.** Verify before saying done: run the test or build, or say you didn't.
+10. **The notch window is ours** (ADR 0014); the Mac app builds with SwiftPM via `apps/mac/scripts/run.sh` (ADR 0013).
+11. **Unknowns stay marked UNVERIFIED.** Verify before saying done: run the test or build, or say you didn't.
 
 ## Pick the playbook for the task
 

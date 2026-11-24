@@ -33,6 +33,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Decision:** ADR 0012 (converters: built-ins first, permissive bundles only, GPL-family tools detected, never shipped).
 
+- **Decisions:** ADR 0013 (SwiftPM + bundle script instead of XcodeGen) and ADR 0014 (own notch window; supersedes 0007).
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 
