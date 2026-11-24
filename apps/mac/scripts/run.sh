@@ -23,7 +23,7 @@ codesign --force --sign - "$APP" >/dev/null
 pkill -x Belay 2>/dev/null || true
 for _ in $(seq 50); do pgrep -x Belay >/dev/null || break; sleep 0.1; done
 sleep 0.5   # LaunchServices still holds the old process briefly; opening too soon fails with error -600
-ARGS=(); [ -n "${1:-}" ] && ARGS=(--args "$1")
+ARGS=(); [ $# -gt 0 ] && ARGS=(--args "$@")
 for attempt in 1 2 3; do open "$APP" ${ARGS[@]+"${ARGS[@]}"} 2>/dev/null && break; sleep 1; done
 pgrep -x Belay >/dev/null || { echo "Belay did not start" >&2; exit 1; }
 echo "Launched $(pwd)/$APP"

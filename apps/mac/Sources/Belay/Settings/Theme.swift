@@ -60,7 +60,17 @@ struct Theme: Codable, Equatable {
         }
     }
 
-    static let defaultRows: [RowSetting] = RowKind.allCases.map { RowSetting(kind: $0, visible: true) }
+    /// Calm by default (docs/design.md §1): a first open shows one thing, now playing. The last-screenshot row is on too,
+    /// but it only appears after Belay copies a screenshot, so it costs nothing until it has something to say.
+    /// Wi-Fi, battery and volume repeat the menu bar; they stay one toggle away in Settings → Layout.
+    /// Saved themes keep the rows they were saved with (they decode their own `rows`).
+    static let defaultRows: [RowSetting] = [
+        RowSetting(kind: .nowPlaying, visible: true),
+        RowSetting(kind: .screenshot, visible: true),
+        RowSetting(kind: .wifi, visible: false),
+        RowSetting(kind: .battery, visible: false),
+        RowSetting(kind: .volume, visible: false),
+    ]
 
     // MARK: Presets (each passes the anti-slop list in docs/design.md)
 

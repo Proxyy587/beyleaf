@@ -27,7 +27,17 @@ final class NowPlaying: ObservableObject {
     private var progressTimer: Timer?
     private var artworkFor: String?
 
+    /// Debug builds: `--no-player` ignores the players, to check the "Not playing" state while music plays.
+    private static let ignorePlayers: Bool = {
+        #if DEBUG
+        CommandLine.arguments.contains("--no-player")
+        #else
+        false
+        #endif
+    }()
+
     init() {
+        if Self.ignorePlayers { return }
         let center = DistributedNotificationCenter.default()
         let names: [(String, Player)] = [("com.apple.Music.playerInfo", .music), ("com.spotify.client.PlaybackStateChanged", .spotify)]
         for (name, player) in names {
@@ -45,7 +55,7 @@ final class NowPlaying: ObservableObject {
 
     /// Ask a running player once for its current track (on launch / when the notch opens and we know nothing yet).
     func refreshIfUnknown() {
-        guard title == nil, let running = runningPlayer() else { return }
+        guard !Self.ignorePlayers, title == nil, let running = runningPlayer() else { return }
         let script = """
         tell application "\(running.rawValue)"
             if player state is stopped then return "stopped"

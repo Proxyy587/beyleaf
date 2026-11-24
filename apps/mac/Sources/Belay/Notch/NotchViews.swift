@@ -55,6 +55,10 @@ struct ExpandedView: View {
             ForEach(Array(rows.enumerated()), id: \.element) { index, kind in
                 row(kind).blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
             }
+            if rows.isEmpty {
+                EmptyLine(symbol: "rectangle.grid.1x2", text: "Nothing shown. Choose rows in Settings.")
+                    .blurReveal(shown, delay: 0.05)
+            }
         }
         .padding(.horizontal, Tok.s4)
         .padding(.top, Tok.s2)
@@ -63,7 +67,7 @@ struct ExpandedView: View {
 
     @ViewBuilder private func row(_ kind: Theme.RowKind) -> some View {
         switch kind {
-        case .nowPlaying: if music.title != nil { NowPlayingHero(music: music) } else { NowPlayingRow(music: music) }
+        case .nowPlaying: if music.title != nil { NowPlayingHero(music: music) } else { NowPlayingEmpty(music: music) }
         case .wifi: WifiRow(status: status)
         case .battery: BatteryRow(status: status)
         case .volume: VolumeRow(status: status)
@@ -100,25 +104,35 @@ struct Row<Leading: View, Trailing: View>: View {
     }
 }
 
-struct NowPlayingRow: View {
+/// Nothing playing: one quiet line, plus Play when a player is open (docs/design.md §10).
+struct NowPlayingEmpty: View {
     @ObservedObject var music: NowPlaying
     var body: some View {
-        Row(title: music.title ?? "Not playing",
-            status: music.title == nil
-                ? (music.player == nil ? "Idle" : "Paused · \(music.player!.rawValue)")
-                : [music.isPlaying ? "Playing" : "Paused", music.artist, music.player?.rawValue].compactMap { $0 }.joined(separator: " · "),
-            live: music.isPlaying) {
-            AppIcon(bundleID: music.player.map { $0 == .spotify ? "com.spotify.client" : "com.apple.Music" }, fallback: "music.note")
-        } trailing: {
-            HStack(spacing: 0) {
-                IconButton(symbol: "backward.fill", label: "Previous track") { music.previous() }
-                IconButton(symbol: music.isPlaying ? "pause.fill" : "play.fill", label: music.isPlaying ? "Pause" : "Play") { music.playPause() }
-                IconButton(symbol: "forward.fill", label: "Next track") { music.next() }
-            }
-            .disabled(music.player == nil)
-            .opacity(music.player == nil ? 0.4 : 1)
+        EmptyLine(symbol: "music.note", text: music.player.map { "\($0.rawValue) is paused" } ?? "Not playing") {
+            if music.player != nil { IconButton(symbol: "play.fill", label: "Play") { music.playPause() } }
         }
     }
+}
+
+/// A one-line empty state in the row grid: [bare symbol in the gutter] 12 [text in ink2] … [optional action].
+struct EmptyLine<Action: View>: View {
+    let symbol: String
+    let text: String
+    @ViewBuilder var action: Action
+    var body: some View {
+        HStack(spacing: Tok.s3) {
+            Image(systemName: symbol).font(Tok.icon).foregroundStyle(Tok.ink3).frame(width: Tok.gutter)
+            Text(text).font(Tok.body).foregroundStyle(Tok.ink2).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: Tok.s2)
+            action
+        }
+        .frame(height: Tok.rowHeight)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+extension EmptyLine where Action == EmptyView {
+    init(symbol: String, text: String) { self.init(symbol: symbol, text: text) { EmptyView() } }
 }
 
 /// The open panel's header: [time]  (camera)  [gear]. No brand text: the notch is recognised by feel, not a label

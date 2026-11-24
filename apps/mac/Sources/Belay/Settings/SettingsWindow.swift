@@ -48,6 +48,10 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case general = "General", theme = "Theme", typography = "Typography", colours = "Colours", surface = "Surface and shape",
          layout = "Layout", motion = "Motion", screenshots = "Screenshots", accounts = "AI accounts", about = "About"
     var id: String { rawValue }
+    /// Shown to everyone. The rest (look and motion) appear with "Show advanced settings".
+    static let essentials: [SettingsSection] = [.general, .layout, .screenshots, .accounts, .about]
+    static let advanced: [SettingsSection] = [.theme, .typography, .colours, .surface, .motion]
+    var isAdvanced: Bool { Self.advanced.contains(self) }
     var symbol: String {
         switch self {
         case .general: "gearshape"
@@ -66,17 +70,27 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @ObservedObject var accounts: AIAccounts
-    @State private var section: SettingsSection? = .theme
+    @ObservedObject private var settings = AppSettings.shared
+    @State private var section: SettingsSection? = .general
 
     var body: some View {
         NavigationSplitView {
-            List(SettingsSection.allCases, selection: $section) { s in
-                Label(s.rawValue, systemImage: s.symbol).tag(s)
+            List(selection: $section) {
+                // Always a section, so the list keeps the same top inset when the advanced group appears.
+                Section { ForEach(SettingsSection.essentials) { s in Label(s.rawValue, systemImage: s.symbol).tag(s) } }
+                if settings.showAdvanced {
+                    Section("Appearance") {
+                        ForEach(SettingsSection.advanced) { s in Label(s.rawValue, systemImage: s.symbol).tag(s) }
+                    }
+                }
             }
             .navigationSplitViewColumnWidth(200)
+            .onChange(of: settings.showAdvanced) { _, on in
+                if !on, section?.isAdvanced == true { section = .general }
+            }
         } detail: {
             Group {
-                switch section ?? .theme {
+                switch section ?? .general {
                 case .general: GeneralPane()
                 case .theme: ThemePane()
                 case .typography: TypographyPane()
@@ -90,7 +104,7 @@ struct SettingsView: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle((section ?? .theme).rawValue)
+            .navigationTitle((section ?? .general).rawValue)
         }
         .frame(minWidth: 700, minHeight: 500)
     }
@@ -140,6 +154,12 @@ private struct GeneralPane: View {
             } footer: {
                 Text("Haptics are felt on Force Touch trackpads while your finger rests on them.").foregroundStyle(.secondary)
             }
+            Section {
+                Toggle("Keep the notch open while Settings is open", isOn: $s.previewWhileEditing)
+                Toggle("Show advanced settings", isOn: $s.showAdvanced)
+            } footer: {
+                Text("Advanced settings add theme, typography, colours, surface and motion.").foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -172,7 +192,6 @@ private struct ThemePane: View {
                     Button("Reset to Midnight") { s.apply(.midnight) }
                 }
                 if let importError { Text(importError).foregroundStyle(.red) }
-                Toggle("Keep the notch open while Settings is open", isOn: $s.previewWhileEditing)
             }
         }
     }

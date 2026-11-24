@@ -52,6 +52,8 @@ final class AppSettings: ObservableObject {
     /// Seconds after the pointer leaves before the notch closes (0 = instant).
     @Published var closeDelay: Double { didSet { save(closeDelay, "closeDelay") } }
     @Published var screenshotAutoCopy: Bool { didSet { save(screenshotAutoCopy, "screenshotAutoCopy") } }
+    /// Settings shows the essentials by default; theme, type, colour, surface and motion sit behind this.
+    @Published var showAdvanced: Bool { didSet { save(showAdvanced, "showAdvancedSettings") } }
 
     private let d = UserDefaults.standard
 
@@ -71,11 +73,17 @@ final class AppSettings: ObservableObject {
         openDelay = d.object(forKey: "openDelay") as? Double ?? d.object(forKey: "hoverDelay") as? Double ?? 0
         closeDelay = d.object(forKey: "closeDelay") as? Double ?? 0
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
+        showAdvanced = d.object(forKey: "showAdvancedSettings") as? Bool ?? false
     }
 
     // MARK: Themes
 
-    func apply(_ preset: Theme) { theme = preset }
+    /// Applying a preset changes the look, not what the notch shows: the user's rows (which, in what order) stay.
+    func apply(_ preset: Theme) {
+        var t = preset
+        t.rows = theme.rows
+        theme = t
+    }
 
     func saveCurrentTheme(as name: String) {
         var t = theme
