@@ -11,40 +11,23 @@ struct WingView: View {
     @ObservedObject var music: NowPlaying
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
-    @ObservedObject var settings = AppSettings.shared
 
     var body: some View {
         Group {
-            if side == .trailing, shots.justCopied {
-                Image(systemName: "checkmark").font(Tok.icon).foregroundStyle(Tok.live)
-                    .accessibilityLabel("Screenshot copied")
-            } else if side == .trailing, settings.equalizerWhilePlaying, music.isPlaying {
-                Equalizer().frame(width: 14, height: 11)
-            } else {
-                content
+            switch wing {
+            case .climber:
+                Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink2)
+            case .battery:
+                if let b = status.battery { Text("\(b.percent)%").font(Tok.digits).foregroundStyle(batteryInk(b)) }
+            case .time:
+                Text(status.now, format: .dateTime.hour().minute()).font(Tok.digits).foregroundStyle(Tok.ink2)
+            case .none:
+                EmptyView()
             }
         }
-        .blurSwap(on: WingState(copied: shots.justCopied, playing: settings.equalizerWhilePlaying && music.isPlaying, wing: wing))
-    }
-
-    @ViewBuilder private var content: some View {
-        switch wing {
-        case .climber:
-            Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink2)
-        case .battery:
-            if let b = status.battery {
-                Text("\(b.percent)%").font(Tok.digits).foregroundStyle(batteryInk(b))
-            }
-        case .time:
-            Text(status.now, format: .dateTime.hour().minute()).font(Tok.digits).foregroundStyle(Tok.ink2)
-        case .none:
-            EmptyView()
-        }
+        .blurSwap(on: wing)
     }
 }
-
-/// Identity of what a wing is showing, so changes blur-swap instead of popping.
-private struct WingState: Hashable { let copied: Bool; let playing: Bool; let wing: AppSettings.Wing }
 
 @MainActor func batteryInk(_ b: SystemStatus.Battery) -> Color {
     if b.onAC { return Tok.ink2 }
@@ -58,14 +41,17 @@ struct ExpandedView: View {
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
     var shown: Bool
+    var showHeader: Bool
     var openSettings: () -> Void
 
     var body: some View {
         let rows = AppSettings.shared.theme.rows.filter(\.visible).map(\.kind)
         VStack(alignment: .leading, spacing: Tok.s1) {
-            header
-                .padding(.bottom, Tok.s2)
-                .blurReveal(shown, delay: 0.03)
+            if showHeader {
+                header
+                    .padding(.bottom, Tok.s2)
+                    .blurReveal(shown, delay: 0.03)
+            }
             ForEach(Array(rows.enumerated()), id: \.element) { index, kind in
                 row(kind).blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
             }
@@ -77,7 +63,7 @@ struct ExpandedView: View {
 
     @ViewBuilder private func row(_ kind: Theme.RowKind) -> some View {
         switch kind {
-        case .nowPlaying: NowPlayingRow(music: music)
+        case .nowPlaying: if music.title != nil { NowPlayingHero(music: music) } else { NowPlayingRow(music: music) }
         case .wifi: WifiRow(status: status)
         case .battery: BatteryRow(status: status)
         case .volume: VolumeRow(status: status)
@@ -140,6 +126,79 @@ struct NowPlayingRow: View {
             .opacity(music.player == nil ? 0.4 : 1)
         }
     }
+}
+
+/// The open panel's header in the band beside the camera: [climber Belay]  (camera)  [time  ⚙].
+struct BandHeader: View {
+    @ObservedObject var status: SystemStatus
+    var openSettings: () -> Void
+    var body: some View {
+        HStack(spacing: Tok.s2) {
+            Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink)
+            Text("Belay").font(Tok.title).foregroundStyle(Tok.ink).lineLimit(1)
+            Spacer()
+            Text(status.now, format: .dateTime.hour().minute()).font(Tok.digits).foregroundStyle(Tok.ink2).lineLimit(1)
+            IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
+        }
+    }
+}
+
+/// Now playing as the panel's hero: artwork, title/status, a seekable progress bar, centred controls.
+struct NowPlayingHero: View {
+    @ObservedObject var music: NowPlaying
+    var body: some View {
+        VStack(spacing: Tok.s2) {
+            HStack(spacing: Tok.s3) {
+                Artwork(image: music.artwork, size: 48)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(music.title ?? "").font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
+                        .blurSwap(on: music.title)
+                    StatusLine(text: [music.isPlaying ? "Playing" : "Paused", music.artist, music.player?.rawValue].compactMap { $0 }.joined(separator: " · "),
+                               live: music.isPlaying)
+                }
+                Spacer(minLength: 0)
+            }
+            if music.duration > 0 { ProgressBar(music: music) }
+            HStack(spacing: Tok.s4) {
+                IconButton(symbol: "backward.fill", label: "Previous track") { music.previous() }
+                IconButton(symbol: music.isPlaying ? "pause.fill" : "play.fill", label: music.isPlaying ? "Pause" : "Play") { music.playPause() }
+                IconButton(symbol: "forward.fill", label: "Next track") { music.next() }
+            }
+        }
+        .padding(.vertical, Tok.s2)
+    }
+}
+
+/// Thin progress line; click or drag to seek. Times in mono digits.
+struct ProgressBar: View {
+    @ObservedObject var music: NowPlaying
+    @State private var dragging: Double?
+    @State private var hover = false
+    var body: some View {
+        let f = dragging ?? (music.duration > 0 ? music.position / music.duration : 0)
+        HStack(spacing: Tok.s2) {
+            Text(clock(f * music.duration)).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 40, alignment: .leading)
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Tok.ink.opacity(0.14))
+                    Capsule().fill(Tok.ink).frame(width: max(0, min(1, f)) * g.size.width)
+                }
+                .frame(height: hover || dragging != nil ? 5 : 3)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { v in dragging = max(0, min(1, v.location.x / g.size.width)) }
+                    .onEnded { _ in if let d = dragging { music.seek(toFraction: d) }; dragging = nil })
+                .onHover { h in withAnimation(Tok.hover) { hover = h } }
+            }
+            .frame(height: 14)
+            Text("-" + clock(max(0, (1 - f) * music.duration))).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 44, alignment: .trailing)
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Playback position")
+        .accessibilityValue(clock(f * music.duration))
+    }
+    private func clock(_ s: Double) -> String { let s = Int(s.rounded()); return String(format: "%d:%02d", s / 60, s % 60) }
 }
 
 struct WifiRow: View {

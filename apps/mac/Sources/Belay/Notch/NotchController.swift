@@ -14,6 +14,8 @@ final class NotchModel: ObservableObject {
 
     /// Room for the compact "wings" either side of the hardware notch, when shown.
     static let wing: CGFloat = 40
+    /// Current wing width: per activity, or the standard width for "With info beside".
+    @Published var wingWidth: CGFloat = 40
     /// Wings are shown when the user chose "With info beside", or briefly for a live activity (e.g. screenshot copied).
     @Published var wingsVisible = false
 
@@ -21,7 +23,7 @@ final class NotchModel: ObservableObject {
 
     /// Exactly the hardware notch unless wings are visible.
     var closedSize: CGSize {
-        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * Self.wing : 0), height: metrics.notchSize.height)
+        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height)
     }
     var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
@@ -39,14 +41,18 @@ final class NotchController {
     private var settingsSub: Any?
     var onOpenSettings: () -> Void = {}
     private var hoverSince: Date?
-    private var shotsSub: Any?
-    private var musicSub: Any?
+    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots)
+    private var activitySub: Any?
+    private var pulseSub: Any?
 
+    /// Wings show for a live activity, or always with "With info beside". New activities and tracks get a
+    /// jelly spring (more bounce than the open/close spring); reduced motion keeps it a fade.
     private func updateWings() {
-        let show = settings.closedStyle == .withInfo
-            || shots.justCopied
-            || (settings.closedStyle == .withInfo && settings.equalizerWhilePlaying && music.isPlaying)
-        if show != model.wingsVisible { withAnimation(Tok.open) { model.wingsVisible = show } }
+        let activity = activities.current
+        let show = activity != nil || settings.closedStyle == .withInfo
+        let width = activity?.wingWidth ?? NotchModel.wing
+        guard show != model.wingsVisible || width != model.wingWidth else { return }
+        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width }
     }
     private var model: NotchModel!
     private var panel: NotchPanel!
@@ -66,7 +72,7 @@ final class NotchController {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status, shots: shots,
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots, activities: activities,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: Self.canvas)
@@ -84,8 +90,7 @@ final class NotchController {
                 self.updateWings()
             }
         }
-        shotsSub = shots.$justCopied.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings() } }
-        musicSub = music.$isPlaying.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings() } }
+        activitySub = activities.$current.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings() } }
         updateWings()
         music.refreshIfUnknown()
         status.setActive(false)
@@ -141,6 +146,7 @@ final class NotchController {
         leftAt = nil
         if open { Tok.haptic(.alignment); music.refreshIfUnknown() }
         status.setActive(open)
+        music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
         withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open }
     }

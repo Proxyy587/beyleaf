@@ -73,6 +73,10 @@ enum Tok {
     static var close: Animation {
         reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.28 / t.speed, dampingFraction: 1.0)
     }
+    /// Live-activity morph: squash-and-stretch with a touch more bounce than opening (Dynamic Island feel).
+    static var jelly: Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42 / t.speed, dampingFraction: max(0.55, 0.72 - t.bounce))
+    }
     static var reveal: Animation { .easeOut(duration: (reduceMotion ? 0.1 : 0.2) / t.speed) }
     static var hover: Animation { .easeOut(duration: 0.12 / t.speed) }
     static var blur: CGFloat { reduceMotion ? 0 : CGFloat(t.blur) }

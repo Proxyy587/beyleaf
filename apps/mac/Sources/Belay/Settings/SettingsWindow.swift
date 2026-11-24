@@ -277,6 +277,14 @@ private struct LayoutPane: View {
                     }
                 }
             }
+            Section("Live activities") {
+                Picker("While music plays", selection: $s.musicActivity) {
+                    ForEach(AppSettings.MusicActivity.allCases) { Text($0.name).tag($0) }
+                }
+                Toggle("Charging", isOn: $s.alertCharging)
+                Toggle("Low battery", isOn: $s.alertLowBattery)
+                Toggle("Wi-Fi connected or lost", isOn: $s.alertWifi)
+            }
             Section("Closed notch") {
                 Picker("Size", selection: $s.closedStyle) {
                     ForEach(AppSettings.ClosedStyle.allCases) { Text($0.name).tag($0) }

@@ -14,6 +14,12 @@ final class AppSettings: ObservableObject {
         var name: String { self == .exactFit ? "Exact fit" : "With info beside" }
     }
 
+    enum MusicActivity: String, CaseIterable, Identifiable {
+        case keep, brief, off
+        var id: String { rawValue }
+        var name: String { switch self { case .keep: "Keep showing"; case .brief: "Show briefly"; case .off: "Don't show" } }
+    }
+
     enum Wing: String, CaseIterable, Identifiable {
         case climber, battery, time, none
         var id: String { rawValue }
@@ -32,6 +38,11 @@ final class AppSettings: ObservableObject {
 
     /// Closed notch: exactly the hardware notch (default), or widened with info beside the camera.
     @Published var closedStyle: ClosedStyle { didSet { save(closedStyle.rawValue, "closedStyle") } }
+    /// What the closed notch does while music plays (Dynamic Island style).
+    @Published var musicActivity: MusicActivity { didSet { save(musicActivity.rawValue, "musicActivity") } }
+    @Published var alertCharging: Bool { didSet { save(alertCharging, "alertCharging") } }
+    @Published var alertLowBattery: Bool { didSet { save(alertLowBattery, "alertLowBattery") } }
+    @Published var alertWifi: Bool { didSet { save(alertWifi, "alertWifi") } }
     @Published var leftWing: Wing { didSet { save(leftWing.rawValue, "leftWing") } }
     @Published var rightWing: Wing { didSet { save(rightWing.rawValue, "rightWing") } }
     @Published var equalizerWhilePlaying: Bool { didSet { save(equalizerWhilePlaying, "equalizerWhilePlaying") } }
@@ -48,6 +59,10 @@ final class AppSettings: ObservableObject {
         theme = (d.data(forKey: "theme")).flatMap { try? JSONDecoder().decode(Theme.self, from: $0) } ?? .midnight
         savedThemes = (d.data(forKey: "savedThemes")).flatMap { try? JSONDecoder().decode([Theme].self, from: $0) } ?? []
         closedStyle = ClosedStyle(rawValue: d.string(forKey: "closedStyle") ?? "") ?? .exactFit
+        musicActivity = MusicActivity(rawValue: d.string(forKey: "musicActivity") ?? "") ?? .keep
+        alertCharging = d.object(forKey: "alertCharging") as? Bool ?? true
+        alertLowBattery = d.object(forKey: "alertLowBattery") as? Bool ?? true
+        alertWifi = d.object(forKey: "alertWifi") as? Bool ?? true
         leftWing = Wing(rawValue: d.string(forKey: "leftWing") ?? "") ?? .climber
         rightWing = Wing(rawValue: d.string(forKey: "rightWing") ?? "") ?? .battery
         equalizerWhilePlaying = d.object(forKey: "equalizerWhilePlaying") as? Bool ?? true

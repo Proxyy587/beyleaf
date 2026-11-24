@@ -7,8 +7,14 @@ struct NotchRoot: View {
     @ObservedObject var music: NowPlaying
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
+    @ObservedObject var activities: ActivityCenter
     @ObservedObject var settings = AppSettings.shared
     var openSettings: () -> Void
+
+    /// Room either side of the camera in the open panel, for the header (inside the ears and the content inset).
+    private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s4 }
+    /// Put the header beside the camera when there's room; otherwise it sits below the notch line.
+    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 84 }
 
     var body: some View {
         let open = model.isOpen
@@ -20,18 +26,25 @@ struct NotchRoot: View {
                 background(open: open).frame(width: size.width, height: size.height)
 
                 HStack(spacing: 0) {
-                    WingView(wing: settings.leftWing, side: .leading, music: music, status: status, shots: shots)
-                        .frame(width: NotchModel.wing)
+                    wing(.leading).frame(width: model.wingWidth)
                     Spacer(minLength: 0)
-                    WingView(wing: settings.rightWing, side: .trailing, music: music, status: status, shots: shots)
-                        .frame(width: NotchModel.wing)
+                    wing(.trailing).frame(width: model.wingWidth)
                 }
-                .frame(width: model.metrics.notchSize.width + 2 * NotchModel.wing, height: notchH)
+                .frame(width: model.metrics.notchSize.width + 2 * model.wingWidth, height: notchH)
                 .id(settings.themeRevision)
                 .opacity(open || !model.wingsVisible ? 0 : 1)
+                .blur(radius: open || !model.wingsVisible ? Tok.blur : 0)
                 .animation(Tok.reveal, value: open)
 
-                ExpandedView(music: music, status: status, shots: shots, shown: open, openSettings: openSettings)
+                if headerInBand {
+                    BandHeader(status: status, openSettings: openSettings)
+                        .frame(width: model.openWidth - 2 * (Tok.rOpenEar + Tok.s4), height: notchH)
+                        .blurReveal(open, delay: 0.03)
+                        .allowsHitTesting(open)
+                        .id(settings.themeRevision)
+                }
+
+                ExpandedView(music: music, status: status, shots: shots, shown: open, showHeader: !headerInBand, openSettings: openSettings)
                     .padding(.horizontal, Tok.rOpenEar)
                     .padding(.top, notchH)
                     .fixedSize(horizontal: false, vertical: true)
@@ -49,6 +62,15 @@ struct NotchRoot: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onPreferenceChange(ContentHeight.self) { h in
             if h > 0, abs(h - model.openContentHeight) > 0.5 { model.openContentHeight = h }
+        }
+    }
+
+    @ViewBuilder private func wing(_ side: HorizontalEdge) -> some View {
+        if let a = activities.current {
+            ActivityWing(activity: a, side: side, music: music, shots: shots)
+                .blurSwap(on: a)
+        } else {
+            WingView(wing: side == .leading ? settings.leftWing : settings.rightWing, side: side, music: music, status: status, shots: shots)
         }
     }
 
