@@ -20,3 +20,4 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0013](0013-swiftpm-app-bundle.md) | Build the Mac shell with SwiftPM + a bundle script, not XcodeGen | accepted |
 | [0014](0014-own-notch-window.md) | Our own notch window instead of DynamicNotchKit (supersedes 0007) | accepted |
 | [0015](0015-user-themes.md) | Every visual token comes from a user theme (fonts, colours, surface, shape, layout, motion) | accepted |
+| [0016](0016-trading-non-custodial.md) | Trading agent is non-custodial; the LLM never places orders | accepted for design |

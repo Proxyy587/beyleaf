@@ -56,6 +56,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Prerequisites:** `docs/prerequisites.md`, a checklist of what only the human can do (installs, permissions, Apple Developer Program, naming, legal questions, broker accounts, launch accounts).
 
+- **Trading agent design:** `docs/trading.md` and ADR 0016. Non-custodial, the model only proposes, deterministic risk engine, rope-card approvals, paper first, kill switch. Blocked on legal review.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 
