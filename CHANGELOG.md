@@ -62,6 +62,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Product-designer agent:** `.claude/agents/product-designer.md`, a reusable subagent that owns UI/UX polish and Claude Code skills setup.
 
+- **Fixed:** opening the notch could launch Spotify (or Music). `tell application` starts an app that isn't running, and the position, artwork, seek and controls calls used the last-known player without checking. All player AppleScript now goes through one guard (checked in Swift and inside the script), and a player is forgotten the moment it quits.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 - **Notch header:** no brand text. The open notch's header is just the time (left of the camera) and the Settings gear (right); the climber and the "Belay" title are gone.

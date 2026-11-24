@@ -54,27 +54,34 @@ final class NowPlaying: ObservableObject {
             }
             observers.append(token)
         }
+        // Forget a player the moment it quits, so nothing ever talks to it (and relaunches it) afterwards.
+        let quit = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+            let id = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+            MainActor.assumeIsolated { self?.playerQuit(bundleID: id) }
+        }
+        observers.append(quit)
+    }
+
+    private func playerQuit(bundleID: String?) {
+        guard let p = player, bundleIDs[p] == bundleID else { return }
+        player = nil; title = nil; artist = nil; artwork = nil; artworkFor = nil
+        isPlaying = false; position = 0; duration = 0
     }
 
     /// Ask a running player once for its current track (on launch / when the notch opens and we know nothing yet).
     func refreshIfUnknown() {
         guard !Self.ignorePlayers, title == nil, let running = runningPlayer() else { return }
-        let script = """
-        tell application "\(running.rawValue)"
-            if player state is stopped then return "stopped"
-            return (player state as text) & "|||" & (name of current track) & "|||" & (artist of current track) & "|||" & (duration of current track)
-        end tell
+        let body = """
+        if player state is stopped then return "stopped"
+        return (player state as text) & "|||" & (name of current track) & "|||" & (artist of current track) & "|||" & (duration of current track)
         """
-        Task.detached {
-            let result = Self.runAppleScript(script)?.stringValue
-            await MainActor.run {
-                guard let result, result != "stopped" else { return }
-                let p = result.components(separatedBy: "|||")
-                guard p.count == 4 else { return }
-                var d = Double(p[3].replacingOccurrences(of: ",", with: ".")) ?? 0
-                if running == .spotify { d /= 1000 }        // Spotify reports milliseconds
-                self.apply(player: running, state: p[0].capitalized, title: p[1], artist: p[2], duration: d)
-            }
+        send(running, body) { d in
+            guard let result = d?.stringValue, result != "stopped" else { return }
+            let p = result.components(separatedBy: "|||")
+            guard p.count == 4 else { return }
+            var duration = Double(p[3].replacingOccurrences(of: ",", with: ".")) ?? 0
+            if running == .spotify { duration /= 1000 }        // Spotify reports milliseconds
+            self.apply(player: running, state: p[0].capitalized, title: p[1], artist: p[2], duration: duration)
         }
     }
 
@@ -101,15 +108,35 @@ final class NowPlaying: ObservableObject {
         guard let target = player, duration > 0 else { return }
         let seconds = max(0, min(duration, f * duration))
         position = seconds
-        let script = "tell application \"\(target.rawValue)\" to set player position to \(seconds)"
-        Task.detached { _ = Self.runAppleScript(script) }
+        send(target, "set player position to \(seconds)")
     }
 
     private func command(_ verb: String) {
-        guard let target = player ?? runningPlayer() else { return }
-        let script = "tell application \"\(target.rawValue)\" to \(verb)"
-        Task.detached { _ = Self.runAppleScript(script) }
+        guard let target = runningPlayer() else { return }
+        send(target, verb)
         if verb == "playpause" { isPlaying.toggle() }
+    }
+
+    /// Never launch a player: `tell application` starts an app that isn't running. Every AppleScript goes through here,
+    /// checked in Swift and again inside the script (`is running` itself never launches anything).
+    private func isRunning(_ p: Player) -> Bool {
+        guard let id = bundleIDs[p] else { return false }
+        return !NSRunningApplication.runningApplications(withBundleIdentifier: id).isEmpty
+    }
+
+    private func send(_ p: Player, _ body: String, done: (@MainActor (NSAppleEventDescriptor?) -> Void)? = nil) {
+        guard isRunning(p), let id = bundleIDs[p] else { done?(nil); return }
+        let script = """
+        if application id "\(id)" is running then
+            tell application id "\(id)"
+                \(body)
+            end tell
+        end if
+        """
+        Task.detached {
+            let result = Self.runAppleScript(script)
+            await MainActor.run { done?(result) }
+        }
     }
 
     private func runningPlayer() -> Player? {
@@ -135,10 +162,8 @@ final class NowPlaying: ObservableObject {
 
     private func readPosition() {
         guard let target = player else { return }
-        let script = "tell application \"\(target.rawValue)\" to return player position"
-        Task.detached {
-            let v = Self.runAppleScript(script)?.stringValue.flatMap { Double($0.replacingOccurrences(of: ",", with: ".")) }
-            await MainActor.run { if let v { self.position = v } }
+        send(target, "return player position") { d in
+            if let v = d?.stringValue.flatMap({ Double($0.replacingOccurrences(of: ",", with: ".")) }) { self.position = v }
         }
     }
 
@@ -146,17 +171,16 @@ final class NowPlaying: ObservableObject {
         artworkFor = title
         switch player {
         case .music:
-            let script = "tell application \"Music\" to if (count of artworks of current track) > 0 then return data of artwork 1 of current track"
-            Task.detached {
-                let data = Self.runAppleScript(script)?.data
-                await MainActor.run { if self.artworkFor == title { self.artwork = data.flatMap { NSImage(data: $0) } } }
+            send(.music, "if (count of artworks of current track) > 0 then return data of artwork 1 of current track") { d in
+                if self.artworkFor == title { self.artwork = d.flatMap { NSImage(data: $0.data) } }
             }
         case .spotify:
-            let script = "tell application \"Spotify\" to return artwork url of current track"
-            Task.detached {
-                guard let s = Self.runAppleScript(script)?.stringValue, let url = URL(string: s), url.scheme == "https",
-                      let (data, _) = try? await URLSession.shared.data(from: url) else { return }
-                await MainActor.run { if self.artworkFor == title { self.artwork = NSImage(data: data) } }
+            send(.spotify, "return artwork url of current track") { d in
+                guard let s = d?.stringValue, let url = URL(string: s), url.scheme == "https" else { return }
+                Task {
+                    guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
+                    if self.artworkFor == title { self.artwork = NSImage(data: data) }
+                }
             }
         }
     }
