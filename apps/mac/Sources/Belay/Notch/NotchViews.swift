@@ -15,8 +15,9 @@ struct WingView: View {
     var body: some View {
         Group {
             switch wing {
-            case .climber:
-                Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink2)
+            case .mark:
+                // The notch alone: the point is reserved for "something needs you" (brand/README.md).
+                BelayMarkView(ink: Tok.ink2, showsPoint: false).frame(width: 24, height: 24)
             case .battery:
                 if let b = status.battery { Text("\(b.percent)%").font(Tok.digits).foregroundStyle(batteryInk(b)) }
             case .time:

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+  <!-- B · Drop: a solid notch, a rope, a point. "The rope drops when an agent needs you." -->
+  <path d="M14 10 H50 V18 A8 8 0 0 1 42 26 H22 A8 8 0 0 1 14 18 Z" fill="#F5F5F3"/>
+  <line x1="32" y1="26" x2="32" y2="44" stroke="#F5F5F3" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="32" cy="50" r="5" fill="#F5F5F3"/>
+</svg>

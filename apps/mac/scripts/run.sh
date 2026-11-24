@@ -13,6 +13,7 @@ APP=build/Belay.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp ../../brand/export/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"   # brand/README.md
 # SwiftPM records the deployment target as the SDK version; record the real SDK so macOS 26 gives Belay the current look.
 vtool -set-build-version macos "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' Resources/Info.plist)" "$(xcrun --show-sdk-version)" \
   -replace -output "$APP/Contents/MacOS/Belay" ".build/$CONFIG/Belay"

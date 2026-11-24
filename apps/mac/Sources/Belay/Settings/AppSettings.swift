@@ -21,9 +21,14 @@ final class AppSettings: ObservableObject {
     }
 
     enum Wing: String, CaseIterable, Identifiable {
-        case climber, battery, time, none
+        case mark, battery, time, none
         var id: String { rawValue }
         var name: String { self == .none ? "Nothing" : rawValue.capitalized }
+        /// Reads saved values, including "climber" from before the mark replaced the climber glyph.
+        init?(saved: String?) {
+            guard let saved else { return nil }
+            self.init(rawValue: saved == "climber" ? "mark" : saved)
+        }
     }
 
 
@@ -60,7 +65,7 @@ final class AppSettings: ObservableObject {
     // MARK: Defaults (one place, used by init and by Settings' per-section resets)
     static let defaultClosedStyle = ClosedStyle.exactFit
     static let defaultMusicActivity = MusicActivity.keep
-    static let defaultLeftWing = Wing.climber
+    static let defaultLeftWing = Wing.mark
     static let defaultRightWing = Wing.battery
 
     func resetHover() { openDelay = 0; closeDelay = 0 }
@@ -92,8 +97,8 @@ final class AppSettings: ObservableObject {
         alertCharging = d.object(forKey: "alertCharging") as? Bool ?? true
         alertLowBattery = d.object(forKey: "alertLowBattery") as? Bool ?? true
         alertWifi = d.object(forKey: "alertWifi") as? Bool ?? true
-        leftWing = Wing(rawValue: d.string(forKey: "leftWing") ?? "") ?? Self.defaultLeftWing
-        rightWing = Wing(rawValue: d.string(forKey: "rightWing") ?? "") ?? Self.defaultRightWing
+        leftWing = Wing(saved: d.string(forKey: "leftWing")) ?? Self.defaultLeftWing
+        rightWing = Wing(saved: d.string(forKey: "rightWing")) ?? Self.defaultRightWing
         equalizerWhilePlaying = d.object(forKey: "equalizerWhilePlaying") as? Bool ?? true
         haptics = d.object(forKey: "haptics") as? Bool ?? true
         // Instant by default; an older "hoverDelay" preference carries over as the open delay.

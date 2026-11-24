@@ -617,6 +617,14 @@ private struct AboutPane: View {
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
         Form {
             Section {
+                VStack(spacing: 8) {
+                    BelayMarkView(ink: .primary).frame(width: 64, height: 64)
+                    Text("Belay").font(.title3.weight(.semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+            Section {
                 LabeledContent("Version", value: "\(v) (\(b))")
                 LabeledContent("Licence", value: "MIT")
                 LabeledContent("Built on", value: "Perch, Clicky, Avo, OpenMausBot")

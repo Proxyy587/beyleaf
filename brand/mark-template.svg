@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Template (monochrome black) for the macOS menu bar; macOS tints it for light/dark. -->
+  <path d="M8 20 Q13 20 13 24.5 V25 A5 5 0 0 0 18 30 H46 A5 5 0 0 0 51 25 V24.5 Q51 20 56 20 Z" fill="#000000"/>
+  <circle cx="32" cy="41" r="4.5" fill="#000000"/>
+</svg>

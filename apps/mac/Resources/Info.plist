@@ -6,6 +6,8 @@
 	<string>Belay</string>
 	<key>CFBundleExecutable</key>
 	<string>Belay</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>app.belay.mac</string>
 	<key>CFBundleName</key>

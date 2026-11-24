@@ -32,7 +32,7 @@ final class BelayApp: NSObject, NSApplicationDelegate {
     /// A small menu bar item so a dock-less app can be opened, configured and quit.
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "figure.climbing", accessibilityDescription: "Belay")
+        item.button?.image = BelayMark.templateImage()
         let menu = NSMenu()
         menu.addItem(withTitle: "Open notch", action: #selector(openNotch), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
