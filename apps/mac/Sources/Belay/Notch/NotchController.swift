@@ -12,12 +12,17 @@ final class NotchModel: ObservableObject {
     @Published var openContentHeight: CGFloat = 230
     @Published var openWidth: CGFloat = Tok.openWidth
 
-    /// Room for the compact "wings" either side of the hardware notch.
+    /// Room for the compact "wings" either side of the hardware notch, when shown.
     static let wing: CGFloat = 40
+    /// Wings are shown when the user chose "With info beside", or briefly for a live activity (e.g. screenshot copied).
+    @Published var wingsVisible = false
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
-    var closedSize: CGSize { CGSize(width: metrics.notchSize.width + 2 * Self.wing, height: metrics.notchSize.height) }
+    /// Exactly the hardware notch unless wings are visible.
+    var closedSize: CGSize {
+        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * Self.wing : 0), height: metrics.notchSize.height)
+    }
     var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
 
@@ -34,6 +39,15 @@ final class NotchController {
     private var settingsSub: Any?
     var onOpenSettings: () -> Void = {}
     private var hoverSince: Date?
+    private var shotsSub: Any?
+    private var musicSub: Any?
+
+    private func updateWings() {
+        let show = settings.closedStyle == .withInfo
+            || shots.justCopied
+            || (settings.closedStyle == .withInfo && settings.equalizerWhilePlaying && music.isPlaying)
+        if show != model.wingsVisible { withAnimation(Tok.open) { model.wingsVisible = show } }
+    }
     private var model: NotchModel!
     private var panel: NotchPanel!
 
@@ -45,7 +59,8 @@ final class NotchController {
     private var screenObserver: NSObjectProtocol?
 
     /// The panel is sized for the largest state; the SwiftUI shape animates inside it.
-    private static let canvas = CGSize(width: 560, height: 360)
+    /// Large enough for the widest, tallest theme plus its shadow; transparent areas pass clicks through.
+    private static let canvas = CGSize(width: 720, height: 620)
 
     func start(openOnLaunch: Bool) {
         let screen = Self.screen
@@ -66,8 +81,12 @@ final class NotchController {
                 guard let self else { return }
                 withAnimation(Tok.open) { self.model.openWidth = Tok.openWidth }
                 self.shots.apply()
+                self.updateWings()
             }
         }
+        shotsSub = shots.$justCopied.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings() } }
+        musicSub = music.$isPlaying.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings() } }
+        updateWings()
         music.refreshIfUnknown()
         status.setActive(false)
         startPolling()

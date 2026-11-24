@@ -8,6 +8,12 @@ import UniformTypeIdentifiers
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
+    enum ClosedStyle: String, CaseIterable, Identifiable {
+        case exactFit, withInfo
+        var id: String { rawValue }
+        var name: String { self == .exactFit ? "Exact fit" : "With info beside" }
+    }
+
     enum Wing: String, CaseIterable, Identifiable {
         case climber, battery, time, none
         var id: String { rawValue }
@@ -24,6 +30,8 @@ final class AppSettings: ObservableObject {
     /// Keep the notch open while Settings is in front, as a live preview.
     @Published var previewWhileEditing = true
 
+    /// Closed notch: exactly the hardware notch (default), or widened with info beside the camera.
+    @Published var closedStyle: ClosedStyle { didSet { save(closedStyle.rawValue, "closedStyle") } }
     @Published var leftWing: Wing { didSet { save(leftWing.rawValue, "leftWing") } }
     @Published var rightWing: Wing { didSet { save(rightWing.rawValue, "rightWing") } }
     @Published var equalizerWhilePlaying: Bool { didSet { save(equalizerWhilePlaying, "equalizerWhilePlaying") } }
@@ -39,6 +47,7 @@ final class AppSettings: ObservableObject {
     private init() {
         theme = (d.data(forKey: "theme")).flatMap { try? JSONDecoder().decode(Theme.self, from: $0) } ?? .midnight
         savedThemes = (d.data(forKey: "savedThemes")).flatMap { try? JSONDecoder().decode([Theme].self, from: $0) } ?? []
+        closedStyle = ClosedStyle(rawValue: d.string(forKey: "closedStyle") ?? "") ?? .exactFit
         leftWing = Wing(rawValue: d.string(forKey: "leftWing") ?? "") ?? .climber
         rightWing = Wing(rawValue: d.string(forKey: "rightWing") ?? "") ?? .battery
         equalizerWhilePlaying = d.object(forKey: "equalizerWhilePlaying") as? Bool ?? true

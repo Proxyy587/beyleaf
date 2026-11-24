@@ -26,9 +26,9 @@ struct NotchRoot: View {
                     WingView(wing: settings.rightWing, side: .trailing, music: music, status: status, shots: shots)
                         .frame(width: NotchModel.wing)
                 }
-                .frame(width: model.closedSize.width, height: notchH)
+                .frame(width: model.metrics.notchSize.width + 2 * NotchModel.wing, height: notchH)
                 .id(settings.themeRevision)
-                .opacity(open ? 0 : 1)
+                .opacity(open || !model.wingsVisible ? 0 : 1)
                 .animation(Tok.reveal, value: open)
 
                 ExpandedView(music: music, status: status, shots: shots, shown: open, openSettings: openSettings)
@@ -54,7 +54,8 @@ struct NotchRoot: View {
 
     @ViewBuilder private func background(open: Bool) -> some View {
         if model.metrics.hasNotch {
-            surface(open: open, shape: NotchShape(earRadius: open ? Tok.rOpenEar : 6, bottomRadius: open ? Tok.rOpenBottom : 10))
+            // Closed: no outward flare, so the shape sits exactly on the hardware notch; bottom corners match it.
+            surface(open: open, shape: NotchShape(earRadius: open ? Tok.rOpenEar : 0, bottomRadius: open ? Tok.rOpenBottom : 9))
         } else {
             surface(open: open, shape: RoundedRectangle(cornerRadius: open ? Tok.rOpenBottom : 13, style: .continuous))
         }

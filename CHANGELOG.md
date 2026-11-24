@@ -49,6 +49,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Open and close delays:** Settings → General has two sliders, 0–1 s, both instant by default. Replaces the fixed 0.35 s close delay and the open-delay presets.
 
+- **Exact-fit closed notch (default):** the closed shape is exactly the hardware notch (measured: 208 × 37 pt, x 856–1064 on a MacBook Air display), with no side wings or top flares. A live activity (screenshot copied) briefly widens it, then it snaps back. "With info beside" in Settings → Layout restores the climber, battery, time and equalizer wings. The canvas is larger so wide or tall themes and their shadow never clip.
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 

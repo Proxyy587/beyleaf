@@ -278,6 +278,11 @@ private struct LayoutPane: View {
                 }
             }
             Section("Closed notch") {
+                Picker("Size", selection: $s.closedStyle) {
+                    ForEach(AppSettings.ClosedStyle.allCases) { Text($0.name).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                if s.closedStyle == .withInfo {
                 Picker("Left of the camera", selection: $s.leftWing) {
                     ForEach(AppSettings.Wing.allCases) { Text($0.name).tag($0) }
                 }
@@ -285,6 +290,7 @@ private struct LayoutPane: View {
                     ForEach(AppSettings.Wing.allCases) { Text($0.name).tag($0) }
                 }
                 Toggle("Show the equalizer while music plays", isOn: $s.equalizerWhilePlaying)
+                }
             }
         }
     }
