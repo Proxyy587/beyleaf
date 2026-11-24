@@ -16,3 +16,4 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0009](0009-crew-hub-and-tool-surface.md) | Crew is hub-and-spoke through CrewService; one ToolHost exposed to CLI engines via a capability-scoped MCP proxy | accepted |
 | [0010](0010-runtimes-and-turns.md) | Members think through pluggable runtimes, in bounded turns | accepted |
 | [0011](0011-untrusted-content-cannot-grant-permission.md) | Untrusted content can't grant permission (taint tracking) | accepted |
+| [0012](0012-converters-builtin-first.md) | Converters: macOS built-ins first, ship only permissive code, detect GPL-family tools | accepted |

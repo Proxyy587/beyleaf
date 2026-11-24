@@ -30,6 +30,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Convert spec:** `docs/conversions.md`, local file conversion (drop-on-notch wheel, Finder right-click, voice, Porter) across images, documents, PDF, audio, video and archives, grounded in a smoke test of the macOS built-in converters.
 
+- **Decision:** ADR 0012 (converters: built-ins first, permissive bundles only, GPL-family tools detected, never shipped).
+
 ### Changed
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 
