@@ -90,7 +90,7 @@ struct ExpandedView: View {
     /// is the user's choice (its span), never decided here (ADR 0023).
     private func isPresent(_ kind: WidgetKind) -> Bool {
         switch kind {
-        case .clock, .timer, .stopwatch, .notes: return true
+        case .clock, .timer, .stopwatch, .notes, .system, .keepAwake, .moon, .roll: return true
         case .nowPlaying: return music.title != nil || music.availablePlayer != nil
         case .calendar:
             // A free day isn't news: with access and nothing in the next 24 h, the widget is gone.
@@ -122,6 +122,10 @@ struct ExpandedView: View {
         case .notes: NotesCard(notes: notes, columns: p.columns)
         case .calendar: CalendarCard(calendar: calendar, size: p.size, ticking: shown)
         case .weather: WeatherCard(weather: weather, city: settings.weatherCity, fahrenheit: settings.weatherUnits.isFahrenheit(), size: p.size, openSettings: openSettings)
+        case .system: SystemCard(size: p.size, ticking: shown)
+        case .keepAwake: KeepAwakeCard(size: p.size)
+        case .moon: MoonCard(size: p.size, ticking: shown)
+        case .roll: RollCard(size: p.size)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }

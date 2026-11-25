@@ -98,7 +98,9 @@ check(Pages.page(of: .timer, in: pages) == .day, "a widget listed twice keeps it
 check(Pages.decode(Data("nonsense".utf8)) == nil, "garbage is rejected")
 
 // 10b. Spans in saved pages (ADR 0023). Pages saved before spans existed are laid out once as the old rule packed them.
-func spanMap(_ pages: [PageSetting], _ page: PageKind) -> String { pages.first { $0.kind == page }!.widgets.map { "\($0.kind.rawValue):\($0.span.rawValue)" }.joined(separator: " ") }
+// Only the widgets that existed when these layouts were saved; later kinds are appended hidden with their own default span.
+let originalKinds: Set<WidgetKind> = [.clock, .nowPlaying, .timer, .stopwatch, .screenshot, .notes, .weather, .calendar]
+func spanMap(_ pages: [PageSetting], _ page: PageKind) -> String { pages.first { $0.kind == page }!.widgets.filter { originalKinds.contains($0.kind) }.map { "\($0.kind.rawValue):\($0.span.rawValue)" }.joined(separator: " ") }
 let legacy = #"[{"kind":"now","enabled":true,"widgets":[{"kind":"clock","enabled":true},{"kind":"nowPlaying","enabled":true},{"kind":"timer","enabled":true},{"kind":"stopwatch","enabled":false},{"kind":"screenshot","enabled":true}]},{"kind":"notes","enabled":true,"widgets":[{"kind":"notes","enabled":true}]},{"kind":"day","enabled":true,"widgets":[{"kind":"calendar","enabled":true},{"kind":"weather","enabled":true}]}]"#
 let lp = Pages.decode(Data(legacy.utf8)) ?? []
 check(spanMap(lp, .now) == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:1", "migration: old Now (clock alone, music, then a pair) keeps its old look as spans")
@@ -134,7 +136,7 @@ check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the rem
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
 var stepped = Pages.defaults
 Pages.step(.screenshot, by: -1, skippingDisabled: false, in: &stepped)
-check(stepped[0].widgets.map(\.kind) == [.clock, .nowPlaying, .timer, .screenshot, .stopwatch], "step moves within the page")
+check(Array(stepped[0].widgets.map(\.kind).prefix(5)) == [.clock, .nowPlaying, .timer, .screenshot, .stopwatch], "step moves within the page")
 check(!Pages.canStep(.clock, by: -1, in: Pages.defaults), "step stops at the page's start")
 
 // 12. Overflow: a page taller than the room scrolls inside it; otherwise it hugs its rows.
@@ -387,6 +389,106 @@ do {
     check(CalendarLogic.nextWake([ev("y", "y", start: 30), ev("z", "z", start: 10)], now: t0) == t0.addingTimeInterval(5 * 60), "calendar: one wake-up, at the next window opening")
     check(CalendarLogic.nextWake([ev("y", "y", start: 2)], now: t0) == t0.addingTimeInterval(3 * 60), "calendar: inside a window the next wake is its close")
     check(CalendarLogic.nextWake([past, day], now: t0) == nil, "calendar: nothing to wake for")
+}
+
+// System widget logic (docs/widget-hub.md §3.9): ticks to percentages, counters to rates, bytes to text.
+MainActor.assumeIsolated {
+    let a = CPUTicks(user: 100, system: 50, idle: 850, nice: 0)
+    let b = CPUTicks(user: 130, system: 60, idle: 910, nice: 0)   // +40 busy, +60 idle
+    check(abs(SystemLogic.coreUsage(a, b) - 0.4) < 1e-9, "system: core usage is busy over elapsed ticks")
+    check(SystemLogic.coreUsage(a, a) == 0, "system: no elapsed ticks reads 0, never NaN")
+    let wrapped = CPUTicks(user: 10, system: 0, idle: 20, nice: 0)   // 32-bit counters wrapped past UInt32.max
+    check(abs(SystemLogic.coreUsage(CPUTicks(user: UInt32.max - 9, system: 0, idle: UInt32.max - 79, nice: 0), wrapped) - 20.0 / 120.0) < 1e-9, "system: CPU counters wrap safely")
+    let two = SystemLogic.cpuUsage(prev: [a, a], cur: [b, CPUTicks(user: 100, system: 50, idle: 950, nice: 0)])
+    check(two != nil && abs(two!.overall - 0.2) < 1e-9 && two!.perCore.count == 2 && two!.perCore[1] == 0, "system: overall is the ticks-weighted mean of the cores")
+    check(SystemLogic.cpuUsage(prev: [], cur: [a]) == nil && SystemLogic.cpuUsage(prev: [a], cur: [a, a]) == nil, "system: first sample or a core-count change has no usage yet")
+    check(SystemLogic.coreUsage(CPUTicks(user: 0, system: 0, idle: 0, nice: 0), CPUTicks(user: 0, system: 0, idle: 50, nice: 50)) == 0.5, "system: nice time counts as busy")
+
+    let mem = MemoryPages(internalPages: 1000, purgeable: 200, wired: 300, compressed: 100, pageSize: 16384)
+    check(SystemLogic.memoryUsed(mem) == (800 + 300 + 100) * 16384, "system: memory used = app + wired + compressed")
+    check(SystemLogic.memoryUsed(MemoryPages(internalPages: 5, purgeable: 9, wired: 1, compressed: 1, pageSize: 4096)) == 2 * 4096, "system: purgeable above internal never underflows")
+    check(SystemLogic.pressure(fromSysctl: 1) == .normal && SystemLogic.pressure(fromSysctl: 2) == .warning && SystemLogic.pressure(fromSysctl: 4) == .critical && SystemLogic.pressure(fromSysctl: 9) == .normal, "system: pressure levels, unknown reads normal")
+
+    check(SystemLogic.rate(prev: 1_000, cur: 3_000, seconds: 2) == 1_000, "system: network rate is bytes over seconds")
+    check(SystemLogic.rate(prev: UInt32.max - 99, cur: 100, seconds: 1) == 200, "system: network counter wraps safely")
+    check(SystemLogic.rate(prev: 0, cur: 10, seconds: 0) == 0, "system: zero elapsed time gives 0")
+
+    check(SystemLogic.bytes(0) == "0 B" && SystemLogic.bytes(512) == "512 B" && SystemLogic.bytes(1_200) == "1.2 KB", "system: bytes, small")
+    check(SystemLogic.bytes(12_400_000) == "12 MB" && SystemLogic.bytes(1_240_000_000) == "1.2 GB", "system: bytes, one decimal under 10 only")
+    check(SystemLogic.bytes(999_950) == "1.0 MB" && SystemLogic.bytes(-5) == "0 B", "system: bytes carries 1000 up a unit, clamps negatives")
+    check(SystemLogic.rateText(1_200_000) == "1.2 MB/s" && SystemLogic.rateText(0) == "0 B/s", "system: rate text")
+    check(SystemLogic.percent(0.234) == "23%" && SystemLogic.percent(1.4) == "100%" && SystemLogic.percent(-1) == "0%", "system: percent clamps")
+    check(SystemLogic.duration(minutes: 45) == "45 min" && SystemLogic.duration(minutes: 60) == "1 h" && SystemLogic.duration(minutes: 184) == "3 h 4 min", "system: durations")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 50, charging: true, pluggedIn: true, minutes: 80)) == "Charging · 1 h 20 min to full", "system: charging with an estimate")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 50, charging: true, pluggedIn: true, minutes: nil)) == "Charging", "system: charging while calculating")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 100, charging: false, pluggedIn: true, minutes: nil)) == "Charged" && SystemLogic.batteryStatus(BatteryInfo(percent: 80, charging: false, pluggedIn: true, minutes: nil)) == "Plugged in", "system: plugged in")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 40, charging: false, pluggedIn: false, minutes: 184)) == "3 h 4 min left" && SystemLogic.batteryStatus(BatteryInfo(percent: 40, charging: false, pluggedIn: false, minutes: nil)) == "On battery", "system: on battery")
+    check(SystemLogic.about(chip: "Apple M2", cores: 8, memoryBytes: 17_179_869_184) == "Apple M2 · 8 cores · 16 GB" && SystemLogic.about(chip: "", cores: 0, memoryBytes: 0) == "", "system: about line, with gaps")
+    check(SystemLogic.spoken(cpu: 0.23, memUsed: 8_000_000_000, memTotal: 16_000_000_000, pressure: .warning, diskFree: 200_000_000_000, down: 1_200_000, up: 0, battery: nil)
+          == "CPU 23%. Memory 8.0 GB of 16 GB, pressure high. Disk 200 GB free. Network down 1.2 MB/s, up 0 B/s.", "system: spoken label")
+}
+
+// Keep awake logic (docs/widget-hub.md §3.10).
+MainActor.assumeIsolated {
+    check(AwakeLength.allCases.map(\.label) == ["30m", "1h", "2h", "4h", "∞"], "awake: the choices and their chips")
+    check(AwakeLength.m30.next == .h1 && AwakeLength.unlimited.next == .m30, "awake: one click cycles the length and wraps")
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    check(AwakeLength.h2.end(from: t0) == t0.addingTimeInterval(7200) && AwakeLength.unlimited.end(from: t0) == nil, "awake: the end time, none for no limit")
+    let utc = TimeZone(identifier: "UTC")!
+    check(KeepAwakeLogic.status(endsAt: t0.addingTimeInterval(3600), is24: true, zone: utc) == "Until 23:13" && KeepAwakeLogic.status(endsAt: nil, is24: true) == "No limit", "awake: status is a clock time, so nothing has to tick")
+    check(KeepAwakeLogic.isExpired(t0, now: t0) && !KeepAwakeLogic.isExpired(t0.addingTimeInterval(1), now: t0) && !KeepAwakeLogic.isExpired(nil, now: t0), "awake: expiry, never for no limit")
+    check(KeepAwakeLogic.spoken(active: false, endsAt: nil, length: .h1, is24: true) == "Keep awake, off. Length 1h." && KeepAwakeLogic.spoken(active: true, endsAt: nil, length: .h1, is24: true) == "Keep awake, on. no limit.", "awake: spoken")
+}
+
+// Moon logic (docs/widget-hub.md §3.11): fixtures are real new and full moons (UTC), allowed the mean-month error of about a day.
+MainActor.assumeIsolated {
+    func utc(_ y: Int, _ mo: Int, _ d: Int, _ h: Int = 0, _ mi: Int = 0) -> Date {
+        var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!
+        return c.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: mi))!
+    }
+    check(MoonLogic.illumination(utc(2000, 1, 6, 18, 14)) < 0.001 && MoonLogic.phase(utc(2000, 1, 6, 18, 14)) == .new, "moon: the reference new moon is new, 0% lit")
+    check(MoonLogic.illumination(utc(2024, 1, 11, 11, 57)) < 0.02 && MoonLogic.phase(utc(2024, 1, 11, 11, 57)) == .new, "moon: new moon 2024-01-11")
+    check(MoonLogic.illumination(utc(2024, 1, 25, 17, 54)) > 0.98 && MoonLogic.phase(utc(2024, 1, 25, 17, 54)) == .full, "moon: full moon 2024-01-25")
+    check(MoonLogic.phase(utc(2024, 1, 18, 3, 52)) == .firstQuarter && abs(MoonLogic.illumination(utc(2024, 1, 18, 3, 52)) - 0.5) < 0.1, "moon: first quarter 2024-01-18, about half lit")
+    check(MoonLogic.phase(utc(2024, 2, 2, 23, 18)) == .lastQuarter, "moon: last quarter 2024-02-02")
+    check(MoonLogic.phase(utc(2024, 1, 14)) == .waxingCrescent && MoonLogic.phase(utc(2024, 1, 21)) == .waxingGibbous && MoonLogic.phase(utc(2024, 1, 29)) == .waningGibbous && MoonLogic.phase(utc(2024, 2, 7)) == .waningCrescent, "moon: the four in-between phases")
+    check(MoonLogic.age(utc(1990, 6, 1)) >= 0 && MoonLogic.age(utc(1990, 6, 1)) < MoonLogic.synodic, "moon: age is in range before the reference date too")
+    let nf = MoonLogic.next(cycle: 0.5, after: utc(2024, 1, 20))
+    check(abs(nf.timeIntervalSince(utc(2024, 1, 25, 17, 54))) < 36 * 3600, "moon: the next full moon is found within a day and a half")
+    check(MoonLogic.next(cycle: 0, after: utc(2024, 1, 11, 11, 57)) > utc(2024, 2, 1), "moon: asking at the moment itself returns the next one, not now")
+    let zone = TimeZone(identifier: "UTC")!
+    check(MoonLogic.nextLine(utc(2024, 1, 21, 12), zone: zone) == "Full moon in 5 days", "moon: the line names the next full moon with days to go")
+    check(MoonLogic.nextLine(utc(2024, 1, 26, 1), zone: zone).hasPrefix("Full moon today") && MoonLogic.nextLine(utc(2024, 1, 25, 6), zone: zone) == "Full moon tomorrow" && MoonLogic.nextLine(utc(2024, 1, 5), zone: zone).hasPrefix("New moon in"), "moon: today, and new moon when it is the nearer one")
+    check(MoonLogic.litText(utc(2024, 1, 25, 17, 54)) == "100% lit", "moon: lit text")
+    let wax = MoonLogic.litOutline(cycle: 0.1), wane = MoonLogic.litOutline(cycle: 0.9)
+    check(wax.allSatisfy { $0.x >= -1e-9 } && wane.allSatisfy { $0.x <= 1e-9 }, "moon: waxing is lit on the right, waning on the left")
+    let full = MoonLogic.litOutline(cycle: 0.5)
+    check(full.allSatisfy { abs($0.x * $0.x + $0.y * $0.y - 1) < 1e-9 }, "moon: at full the outline is the whole limb")
+    check(MoonLogic.litOutline(cycle: 0.0).allSatisfy { abs($0.x) < 1e-9 || abs($0.x * $0.x + $0.y * $0.y - 1) < 1e-9 }, "moon: at new the outline is a sliver on the limb")
+}
+
+// Roll logic (docs/widget-hub.md §3.12): a seeded generator makes the rolls repeatable.
+struct SplitMix: RandomNumberGenerator {
+    var s: UInt64
+    mutating func next() -> UInt64 { s &+= 0x9E37_79B9_7F4A_7C15; var z = s; z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9; z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB; return z ^ (z >> 31) }
+}
+MainActor.assumeIsolated {
+    var rng = SplitMix(s: 42)
+    for mode in RollMode.allCases {
+        var seen = Set<Int>(), inRange = true
+        for _ in 0..<2_000 { let v = RollLogic.roll(mode, using: &rng); seen.insert(v); if !(0..<mode.sides).contains(v) { inRange = false } }
+        check(inRange && seen.count == mode.sides, "roll: \(mode.label) stays in range and reaches every face")
+    }
+    var counts = [Int](repeating: 0, count: 2)
+    for _ in 0..<10_000 { counts[RollLogic.roll(.coin, using: &rng)] += 1 }
+    check(abs(counts[0] - 5_000) < 300, "roll: the coin is fair within noise (\(counts[0]) heads of 10000)")
+    var a = SplitMix(s: 7), b = SplitMix(s: 7)
+    check((0..<20).map { _ in RollLogic.roll(.d20, using: &a) } == (0..<20).map { _ in RollLogic.roll(.d20, using: &b) }, "roll: the same seed gives the same rolls")
+    check(RollLogic.text(.coin, 0) == "Heads" && RollLogic.text(.coin, 1) == "Tails" && RollLogic.text(.d6, 0) == "1" && RollLogic.text(.d20, 19) == "20", "roll: outcome text, faces count from 1")
+    check(RollMode.coin.next == .d6 && RollMode.d20.next == .coin, "roll: the mode cycles and wraps")
+    let h = (1...7).reduce([String]()) { RollLogic.pushed($0, String($1)) }
+    check(h == ["7", "6", "5", "4", "3"] && RollLogic.historyText(["4", "3"]) == "4 · 3", "roll: history keeps the newest five")
+    check(RollLogic.spoken(.d6, last: "4") == "D6 roll: 4." && RollLogic.spoken(.coin, last: nil) == "Roll a coin.", "roll: spoken")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")

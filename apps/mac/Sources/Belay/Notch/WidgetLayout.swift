@@ -26,6 +26,7 @@ enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
 /// Every widget the open notch can show. Order of cases is the default order within each home page.
 enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, nowPlaying, timer, stopwatch, screenshot, notes, weather, calendar
+    case system, keepAwake, moon, roll
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -37,6 +38,10 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .weather: "Weather"
         case .calendar: "Calendar"
         case .screenshot: "Last screenshot"
+        case .system: "System"
+        case .keepAwake: "Keep awake"
+        case .moon: "Moon"
+        case .roll: "Roll"
         }
     }
     var symbol: String {
@@ -49,30 +54,34 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .weather: "cloud.sun"
         case .calendar: "calendar"
         case .screenshot: "camera.viewfinder"
+        case .system: "cpu"
+        case .keepAwake: "cup.and.saucer"
+        case .moon: "moon.stars"
+        case .roll: "dice"
         }
     }
     /// The page a widget starts on (and returns to on Reset).
     var home: PageKind {
         switch self {
-        case .clock, .nowPlaying, .timer, .stopwatch, .screenshot: .now
+        case .clock, .nowPlaying, .timer, .stopwatch, .screenshot, .system, .keepAwake, .moon, .roll: .now
         case .notes: .notes
         case .weather, .calendar: .day
         }
     }
     /// Side options start off (owner, 2026-11-25: the timer is a convenience, not the product; the stopwatch follows it).
-    var onByDefault: Bool { self != .timer && self != .stopwatch }
+    var onByDefault: Bool { self != .timer && self != .stopwatch && self != .system && self != .keepAwake && self != .moon && self != .roll }
 
     // MARK: Sizes (ADR 0023). A new kind declares its sizes here and nowhere else in this file.
     /// The span a widget gets when it is first placed (and on Reset). Exhaustive on purpose: a new kind must choose.
     var defaultSpan: WidgetSpan {
         switch self {
-        case .nowPlaying, .notes, .calendar: .wide
-        case .clock, .timer, .stopwatch, .screenshot, .weather: .small
+        case .nowPlaying, .notes, .calendar, .system: .wide
+        case .clock, .timer, .stopwatch, .screenshot, .weather, .keepAwake, .moon, .roll: .small
         }
     }
     /// The narrowest span the widget's design supports. Every kind designs a `.tile` form (span 1) and a `.wide` form
     /// (span 2 and 3), so today every kind goes down to `.small`; raise this only for a widget that truly can't.
-    var minSpan: WidgetSpan { .small }
+    var minSpan: WidgetSpan { self == .system ? .wide : .small }   // the System card's per-core bars need two columns
     /// The spans the user may pick for this widget, narrowest first.
     var spans: [WidgetSpan] { WidgetSpan.allCases.filter { $0.rawValue >= minSpan.rawValue } }
 }
