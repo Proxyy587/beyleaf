@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 154 121" width="154" height="121" data-buddy="toby" data-style="smooth" data-eye-y="62.72">
+  <title>toby</title>
+  <g class="buddy-body">
+    <path class="buddy-body" fill="#222057" d="M69.45 2.51C78.12 0.99 87.76 2.38 96.11 4.73C125.29 12.93 140.14 32.79 148.39 60.85C152.13 73.59 154.72 90.82 145.97 102.12C136.69 114.11 112.24 117.29 98 118.06C93.33 118.31 88.68 118.11 84.02 118.21C80.69 118.29 77.36 118.66 74.05 118.71C59.5 118.97 44.6 117.53 30.48 114.25C21.82 112.24 13.13 108.71 7.28 101.74C-0.9 92 1.93 77.57 3.81 66.23C7.97 41.16 23.36 19.38 46.54 8.66C49.5 7.29 52.58 5.88 55.76 5.06C60.31 3.89 64.84 3.31 69.45 2.51Z"/>
+    <path class="buddy-notch" fill="#66648A" d="M82.5 105.5L89 118L76.5 118Z"/>
+  </g>
+  <g class="buddy-eyes" fill="#9DD8F2">
+    <rect x="48.42" y="50.42" width="11.19" height="24.59" rx="5.59"/>
+    <rect x="93.55" y="50.42" width="11.19" height="24.59" rx="5.59"/>
+  </g>
+  <g class="buddy-eyes-happy" fill="none" stroke="#9DD8F2" stroke-width="8.73" stroke-linecap="round" stroke-linejoin="round" display="none">
+    <path d="M43.38 65.67Q54.02 49.44 64.65 65.67"/>
+    <path d="M88.51 65.67Q99.14 49.44 109.78 65.67"/>
+  </g>
+</svg>

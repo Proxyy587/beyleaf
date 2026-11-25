@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 21" width="128" height="168" shape-rendering="crispEdges" data-buddy="willo" data-style="pixel">
+  <title>willo</title>
+  <g class="buddy-body">
+    <path fill="#F9C016" d="M8 2h1v1h-1zM7 3h2v1h-2zM7 4h2v1h-2zM6 5h3v1h-3zM6 6h4v1h-4zM12 6h1v1h-1zM3 7h1v1h-1zM5 7h6v1h-6zM12 7h1v1h-1zM2 8h2v1h-2zM5 8h2v1h-2zM8 8h3v1h-3zM12 8h2v1h-2zM2 9h5v1h-5zM9 9h5v1h-5zM2 10h4v1h-4zM9 10h5v1h-5zM1 11h2v1h-2zM4 11h2v1h-2zM11 11h4v1h-4zM1 12h2v1h-2zM13 12h2v1h-2zM1 13h2v1h-2zM13 13h2v1h-2zM1 14h2v1h-2zM13 14h2v1h-2zM1 15h2v1h-2zM13 15h2v1h-2zM1 16h2v1h-2zM13 16h2v1h-2zM2 17h1v1h-1zM13 17h1v1h-1zM2 18h2v1h-2zM12 18h2v1h-2zM4 19h8v1h-8z"/>
+    <path fill="#FCD14B" d="M7 8h1v1h-1zM7 9h2v1h-2zM6 10h3v1h-3zM3 11h1v1h-1zM6 11h5v1h-5zM3 12h10v1h-10zM3 13h10v1h-10zM3 14h10v1h-10zM3 15h10v1h-10zM3 16h10v1h-10zM3 17h10v1h-10zM4 18h8v1h-8z"/>
+    <path fill="#E48612" d="M9 0h1v1h-1zM9 1h1v1h-1zM9 2h1v1h-1zM9 3h1v1h-1zM6 4h1v1h-1zM9 4h1v1h-1zM5 5h1v1h-1zM9 5h1v1h-1zM12 5h1v1h-1zM2 6h2v1h-2zM5 6h1v1h-1zM2 7h1v1h-1zM4 7h1v1h-1zM11 7h1v1h-1zM13 7h1v1h-1zM4 8h1v1h-1zM11 8h1v1h-1zM1 9h1v1h-1zM14 9h1v1h-1zM1 10h1v1h-1zM0 12h1v1h-1zM15 12h1v1h-1zM0 13h1v1h-1zM15 13h1v1h-1zM0 14h1v1h-1zM15 14h1v1h-1zM0 15h1v1h-1zM15 15h1v1h-1zM1 17h1v1h-1zM14 17h1v1h-1zM3 19h1v1h-1zM12 19h1v1h-1zM4 20h7v1h-7z"/>
+    <path fill="#E08623" d="M8 1h1v1h-1zM7 2h1v1h-1zM6 3h1v1h-1zM2 5h1v1h-1zM10 6h1v1h-1zM13 6h1v1h-1zM1 8h1v1h-1zM14 8h1v1h-1zM14 10h1v1h-1zM0 11h1v1h-1zM15 11h1v1h-1zM0 16h1v1h-1zM15 16h1v1h-1zM1 18h1v1h-1zM14 18h1v1h-1zM2 19h1v1h-1zM13 19h1v1h-1zM11 20h1v1h-1z"/>
+  </g>
+  <g class="buddy-eyes">
+    <path fill="#BA6A05" d="M4 13h2v1h-2zM10 13h2v1h-2zM4 14h2v1h-2zM10 14h2v1h-2zM4 15h2v1h-2zM10 15h2v1h-2z"/>
+  </g>
+  <g class="buddy-eyes-closed" display="none">
+    <path fill="#BA6A05" d="M4 14h2v1h-2zM10 14h2v1h-2z"/>
+  </g>
+  <g class="buddy-eyes-happy" display="none">
+    <path fill="#BA6A05" d="M4 13h2v1h-2zM10 13h2v1h-2zM3 14h1v1h-1zM6 14h1v1h-1zM9 14h1v1h-1zM12 14h1v1h-1z"/>
+  </g>
+</svg>

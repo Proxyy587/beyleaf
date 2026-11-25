@@ -36,7 +36,7 @@
 ```
 
 **The band** (beside the camera, the notch line's height):
-- **Left: the brand slot.** `BrandSlot` shows the Belay mark in ink3. It's reserved for the logo (being designed separately) and, from A1, it becomes the agents' status light: the mark's point turns live green while an agent works.
+- **Left: the brand slot.** `BrandSlot` shows beepo, the temporary logo (`brand/buddies/`), at 16 pt in its own purple: an ink3 silhouette read as a grey blob on the black notch. From A1 it becomes the agents' status light: beepo's eyes turn live green while an agent works.
   - The slot has a fixed size (16 pt glyph in a 28 pt box), so a new logo drops in without a layout change.
 - **Right:** "Edit widgets" (`square.grid.2x2`) and Settings (`gearshape`), both bare 28 pt icon buttons.
 - **No notch** (external display): the band becomes the panel's first line, with the same contents.

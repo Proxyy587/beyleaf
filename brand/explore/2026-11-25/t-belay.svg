@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- T · Belay: the notch as a belayer. Ear flares, cutout eyes, rope catch below. -->
+  <path fill="#F5F5F3" fill-rule="evenodd" d="
+    M6 18
+    Q12 18 12 24
+    V28
+    A8 8 0 0 0 20 36
+    H44
+    A8 8 0 0 0 52 28
+    V24
+    Q52 18 58 18
+    H62
+    V22
+    Q56 22 56 28
+    V29
+    A12 12 0 0 1 44 41
+    H36
+    V46
+    C36 49.314 33.314 52 30 52
+    H28
+    C24.686 52 22 49.314 22 46
+    V41
+    H20
+    A12 12 0 0 1 8 29
+    V28
+    Q8 22 2 22
+    V18
+    Z
+    M22 28
+    A4.5 4.5 0 1 0 22.01 28
+    Z
+    M42 28
+    A4.5 4.5 0 1 0 42.01 28
+    Z
+  "/>
+</svg>

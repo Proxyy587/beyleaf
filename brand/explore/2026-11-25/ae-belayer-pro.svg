@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- AE · Belayer pro: unique head  soft top, fuller cheeks, chin rope nub, eye cutouts. -->
+  <path fill="#F5F5F3" fill-rule="evenodd" d="
+    M20 8
+    H44
+    C54 8 60 15 60 25
+    V40
+    C60 50 52 56 42 56
+    H35
+    C35 56 35 60 32 60
+    C29 60 29 56 29 56
+    H22
+    C12 56 4 50 4 40
+    V25
+    C4 15 10 8 20 8
+    Z
+    M22.5 31
+    A5.4 5.4 0 1 0 22.51 31
+    Z
+    M41.5 31
+    A5.4 5.4 0 1 0 41.51 31
+    Z
+  "/>
+</svg>

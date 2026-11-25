@@ -15,6 +15,8 @@ Belay sits on screen all day, so it must cost nothing at rest and very little wh
 | Open, idle | ≤ 0.5% | ~0.1% | `--expand --no-player` |
 | Open, timer ticking | ≤ 1% | ~0.7% (was ~10%) | `--expand --start-timer 25` |
 | Open/close animation | ≤ 8.3 ms CPU per frame (120 Hz) | ~3 ms per frame (~70 ms per transition) | `--cycle-open` |
+| Buddies at rest (beepo in the notch and About) | 0.0% | 0.0–0.2% (`--buddies --one`); 64 buddies on screen settle to 0.1% | `--buddies [--one]` |
+| Buddy motion (blink, look, hop) | ≤ 5% while moving | 2.2–3.8% with one buddy per style moving every 0.5 s (worst case); 7–20% with 64 buddies moving at once | `--buddies-cycle [--one]` |
 | Memory at rest | ≤ 40 MB | 17 MB physical footprint | `footprint $(pgrep -x Belay)` |
 | Launch, warm | our setup ≤ 100 ms | ~60 ms ours + ~210 ms OS before `main()` | log `app.belay.mac:perf` "ready … ms" |
 
@@ -24,7 +26,7 @@ Belay sits on screen all day, so it must cost nothing at rest and very little wh
 - **Memory:** `footprint <pid>`, the same number as Activity Monitor's Memory column.
 - **Launch:** `/usr/bin/log show --last 1m --predicate 'subsystem == "app.belay.mac" AND category == "perf"'`.
 - **Live in the app:** Settings → General → Performance shows Belay's own CPU and memory every 2 s.
-- **Debug flags** (all `#if DEBUG`, via `apps/mac/scripts/run.sh`): `--no-player`, `--expand`, `--start-timer <min>`, `--beat-demo`, `--cycle-open`, `--flash-copied`, `--edit-widgets`, `--beat-probe <bundle id>`.
+- **Debug flags** (all `#if DEBUG`, via `apps/mac/scripts/run.sh`): `--no-player`, `--expand`, `--start-timer <min>`, `--beat-demo`, `--cycle-open`, `--flash-copied`, `--edit-widgets`, `--beat-probe <bundle id>`, `--buddies [mood] [--one]` (every buddy at 16–256 pt), `--buddies-cycle [--one]` (buddy motion every 0.5 s, for `top`).
 
 ## Rules that keep it fast (each one was a measured fix)
 1. **Nothing continuous goes through `@Published`.**

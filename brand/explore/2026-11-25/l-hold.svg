@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- L · Hold: a climbing hold / flake that also reads as a notch ear silhouette. Solid, bold. -->
+  <path fill="#F5F5F3" d="
+    M8 22
+    C8 14 16 8 28 8
+    H42
+    C50 8 56 14 56 22
+    V28
+    C56 34 52 38 46 40
+    L38 56
+    C36.5 59 31.5 59 30 56
+    L26 40
+    C18 38 8 32 8 22
+    Z"/>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- M · Face: the notch as a head  cutout eyes, rope-drop chin. Grokbot energy, Belay shape. -->
+  <!-- island / head -->
+  <path fill="#F5F5F3" d="
+    M10 16
+    H54
+    C57 16 59 18 59 21
+    V28
+    C59 35 53.5 40.5 46.5 40.5
+    H36
+    V46
+    C36 49.3 33.3 52 30 52
+    H28
+    C24.7 52 22 49.3 22 46
+    V40.5
+    H17.5
+    C10.5 40.5 5 35 5 28
+    V21
+    C5 18 7 16 10 16
+    Z"/>
+  <!-- eye cutouts -->
+  <circle cx="22" cy="27" r="4" fill="#000000"/>
+  <circle cx="42" cy="27" r="4" fill="#000000"/>
+</svg>

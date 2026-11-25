@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- O · Helmet: climbing helmet belayer. Cutout eyes. Rope drop is the chin. -->
+  <!-- helmet dome + brim as one solid -->
+  <path fill="#F5F5F3" d="
+    M12 28
+    C12 14 20 6 32 6
+    C44 6 52 14 52 28
+    V34
+    H56
+    V40
+    H8
+    V34
+    H12
+    Z"/>
+  <!-- eyes -->
+  <circle cx="23" cy="24" r="4.2" fill="#000000"/>
+  <circle cx="41" cy="24" r="4.2" fill="#000000"/>
+  <!-- rope from chin -->
+  <rect x="29" y="40" width="6" height="12" rx="3" fill="#F5F5F3"/>
+  <!-- belay loop -->
+  <circle cx="32" cy="56" r="5.5" fill="none" stroke="#F5F5F3" stroke-width="4"/>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Round cheeks + two soft circular ears united into one pet. -->
+  <path fill="#F5F5F3" fill-rule="evenodd" d="
+    M22 16
+    A10 10 0 0 1 32 8
+    A10 10 0 0 1 42 16
+    C52 18 58 28 56 40
+    C54 52 44 58 32 58
+    C20 58 10 52 8 40
+    C6 28 12 18 22 16
+    Z
+    M21 34
+    a 3.2 5.5 0 1 0 6.4 0
+    a 3.2 5.5 0 1 0 -6.4 0
+    Z
+    M36.6 34
+    a 3.2 5.5 0 1 0 6.4 0
+    a 3.2 5.5 0 1 0 -6.4 0
+    Z
+  "/>
+</svg>

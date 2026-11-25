@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Z · Notchface: MacBook notch silhouette as the head  ears + eyes. Unique to notch apps. -->
+  <path fill="#F5F5F3" fill-rule="evenodd" d="
+    M4 16
+    H14
+    C14 16 14 22 20 26
+    H44
+    C50 22 50 16 50 16
+    H60
+    V22
+    C54 22 52 26 52 30
+    V34
+    C52 42 45.5 48 37 48
+    H27
+    C18.5 48 12 42 12 34
+    V30
+    C12 26 10 22 4 22
+    Z
+    M23 34
+    A5 5 0 1 0 23.01 34
+    Z
+    M41 34
+    A5 5 0 1 0 41.01 34
+    Z
+  "/>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- AB · Helmet pro: climbing helmet silhouette  dome + brim shelf + eyes. Belay, not a bot. -->
+  <!-- dome -->
+  <path fill="#F5F5F3" d="
+    M12 34
+    C12 16 20 8 32 8
+    C44 8 52 16 52 34
+    Z"/>
+  <!-- brim -->
+  <rect x="6" y="32" width="52" height="10" rx="3" fill="#F5F5F3"/>
+  <!-- chin / face plate under brim -->
+  <path fill="#F5F5F3" d="
+    M14 40
+    H50
+    C50 40 48 54 32 54
+    C16 54 14 40 14 40
+    Z"/>
+  <!-- eyes on the face plate -->
+  <circle cx="23" cy="44" r="4.5" fill="#000000"/>
+  <circle cx="41" cy="44" r="4.5" fill="#000000"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 127" width="144" height="127" data-buddy="crush" data-style="smooth" data-eye-y="58.5">
+  <title>crush</title>
+  <g class="buddy-body">
+    <path class="buddy-body" fill="#EF799D" d="M38.31 2.5C46.63 1.79 54.93 5.07 61.5 10.01C63.91 11.83 69.12 17.4 71.71 17.79C75.49 18.37 81.56 11.24 84.6 9.04C92.23 3.51 102.75 0.87 112.04 3.16C134.84 8.78 147.31 34.82 140.82 56.78C134.94 76.67 120.12 92.75 104.74 105.99C98.22 111.6 81.14 125.2 72.77 125.43C65.13 125.65 56.04 118.03 49.96 113.94C29.98 100.5 5.96 74.47 2.21 50C1.29 44.02 2.21 38 3.78 32.24C8.32 15.63 21.02 3.98 38.31 2.5Z"/>
+  </g>
+  <g class="buddy-eyes" fill="#34211B">
+    <rect x="47.53" y="46.08" width="11.91" height="24.85" rx="5.96"/>
+    <rect x="84.99" y="46.08" width="11.91" height="24.85" rx="5.96"/>
+  </g>
+  <g class="buddy-eyes-happy" fill="none" stroke="#34211B" stroke-width="9.29" stroke-linecap="round" stroke-linejoin="round" display="none">
+    <path d="M42.17 61.49Q53.48 45.09 64.8 61.49"/>
+    <path d="M79.63 61.49Q90.94 45.09 102.26 61.49"/>
+  </g>
+</svg>

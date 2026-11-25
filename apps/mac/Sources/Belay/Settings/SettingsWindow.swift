@@ -736,6 +736,19 @@ private struct AccountsPane: View {
     }
 }
 
+/// beepo, the temporary logo. Hover lifts it, a click blinks, a double-click is a happy hop. Still otherwise.
+private struct AboutBuddy: View {
+    @State private var buddy = BuddyAnimator()
+    var body: some View {
+        BuddyView(id: .beepo, mood: buddy.mood, size: 64, hop: buddy.hop)
+            .contentShape(Rectangle())
+            .onHover { buddy.set($0 ? .hover : .idle) }
+            .onTapGesture(count: 2) { buddy.cheer() }
+            .onTapGesture { buddy.blink() }
+            .help("beepo")
+    }
+}
+
 private struct AboutPane: View {
     var body: some View {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
@@ -743,7 +756,7 @@ private struct AboutPane: View {
         Group {
             Section {
                 VStack(spacing: 8) {
-                    BelayMarkView(ink: .primary).frame(width: 64, height: 64)
+                    AboutBuddy()
                     Text("Belay").font(.title3.weight(.semibold))
                 }
                 .frame(maxWidth: .infinity)

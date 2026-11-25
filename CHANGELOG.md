@@ -7,6 +7,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- **Buddies in the Mac app:** `BuddyView` draws any buddy in either style at any size (16–256 pt checked), from art generated out of `brand/buddies/buddies.json`: smooth as vector paths, pixel as cells with anti-aliasing off (nearest neighbour, whole-cell motion). Moods: idle, blink, look left/right, hover, sleep, happy (^ ^ and one hop), all ≤ 280 ms, nothing at rest, reduced motion honoured. Debug: `--buddies [mood]`, `--buddies-cycle`.
+- **Logo (temporary):** beepo replaces the mark in the notch's brand slot (its own purple; eyes turn live green from A1) and in Settings → About, where hover lifts it, a click blinks and a double-click hops. App icon and menu bar icon unchanged for now.
+- **Buddies:** 15 buddies in two styles, traced from the owner's reference sheets (`brand/buddies/`). Smooth: vector SVGs with silhouette IoU 0.993–0.997 against the sheet. Pixel: each sprite's grid recovered and sampled cell by cell, faces redrawn on the grid, SVG + lossless PNG (IoU 0.953–0.993; the sheet's own grid drifts). Eyes are separate parts for blink, look, sleep and a happy ^ ^ with a hop. `comparison.png` shows reference beside ours for all 30; `preview/index.html` plays every animation; `tools/run.sh` rebuilds it all.
 - **Research:** competitive landscape, evidence of pain, technical feasibility, verdict, market growth (`docs/`).
 - **Product:** concept and hero moment, full ecosystem spec, locked v0.1/v0.2/v0.3 feature list, 2-week build plan, launch plan.
 - **Engineering:** tech stack, architecture, open-source reuse and AI-subscription rules.
