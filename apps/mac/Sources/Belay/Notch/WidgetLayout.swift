@@ -25,7 +25,7 @@ enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
 
 /// Every widget the open notch can show. Order of cases is the default order within each home page.
 enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
-    case clock, nowPlaying, timer, stopwatch, screenshot, notes, weather
+    case clock, nowPlaying, timer, stopwatch, screenshot, notes, weather, calendar
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -35,6 +35,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stopwatch: "Stopwatch"
         case .notes: "Notes"
         case .weather: "Weather"
+        case .calendar: "Calendar"
         case .screenshot: "Last screenshot"
         }
     }
@@ -46,6 +47,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .stopwatch: "stopwatch"
         case .notes: "square.and.pencil"
         case .weather: "cloud.sun"
+        case .calendar: "calendar"
         case .screenshot: "camera.viewfinder"
         }
     }
@@ -54,7 +56,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .clock, .nowPlaying, .timer, .stopwatch, .screenshot: .now
         case .notes: .notes
-        case .weather: .day
+        case .weather, .calendar: .day
         }
     }
     /// Side options start off (owner, 2026-11-25: the timer is a convenience, not the product; the stopwatch follows it).

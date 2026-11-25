@@ -54,6 +54,8 @@ final class AppSettings: ObservableObject {
     @Published var weatherUnits: WeatherUnits { didSet { if persistsWeather { save(weatherUnits.rawValue, "weatherUnits") } } }
     /// Debug flags that set a city or forecast turn this off, so nothing they set is saved.
     var persistsWeather: Bool { persistsPages }
+    /// Show "meeting soon" in the closed notch 5 minutes before an event.
+    @Published var upcomingActivity: Bool { didSet { save(upcomingActivity, "upcomingActivity") } }
     /// ⌃⌥N opens the notch on Notes with the field focused (docs/widget-hub.md §3.4).
     @Published var notesShortcut: Bool { didSet { save(notesShortcut, "notesShortcut") } }
     /// Another app owns ⌃⌥N (set by the controller; not saved).
@@ -76,10 +78,10 @@ final class AppSettings: ObservableObject {
     var hoverIsDefault: Bool { openDelay == 0 && closeDelay == 0 && !openOnClick }
     func resetLiveActivities() {
         musicActivity = Self.defaultMusicActivity; equalizerWhilePlaying = true
-        alertLowBattery = true; alertWifi = true; timerActivity = true; stopwatchActivity = true
+        alertLowBattery = true; alertWifi = true; timerActivity = true; stopwatchActivity = true; upcomingActivity = true
     }
     var liveActivitiesAreDefault: Bool {
-        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi && timerActivity && stopwatchActivity
+        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi && timerActivity && stopwatchActivity && upcomingActivity
     }
 
     // MARK: Performance
@@ -167,6 +169,7 @@ final class AppSettings: ObservableObject {
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
         stopwatchActivity = d.object(forKey: "stopwatchActivity") as? Bool ?? true
+        upcomingActivity = d.object(forKey: "upcomingActivity") as? Bool ?? true
         weatherCity = d.data(forKey: "weatherCity").flatMap { try? JSONDecoder().decode(WeatherCity.self, from: $0) }
         weatherUnits = WeatherUnits(rawValue: d.string(forKey: "weatherUnits") ?? "") ?? .auto
         notesShortcut = d.object(forKey: "notesShortcut") as? Bool ?? true

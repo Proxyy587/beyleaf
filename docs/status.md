@@ -33,7 +33,7 @@
 - **Band beside the camera:**
   - left: brand slot, the future agent status light;
   - right: Expand/Compact, Edit widgets, Settings.
-- **Widgets in the user's order,** packed with no holes (ADR 0019). **Only Clock, Now playing, Timer, Stopwatch, Notes, Weather and Last screenshot exist in code;** Calendar is specified in `docs/widget-hub.md` and not built:
+- **Widgets in the user's order,** packed with no holes (ADR 0019). **Only Clock, Now playing, Timer, Stopwatch, Notes, Weather, Calendar and Last screenshot exist in code;** all eight widgets are built (Phase 1b), though by-hand checks remain UNVERIFIED (see open-questions) specified in `docs/widget-hub.md` and not built:
   - **Now playing:** art, title, artist, a seekable progress bar, prev/play/next;
   - **Last screenshot:** copy again, show in Finder;
   - **Timer:** optional, 1–180 min.

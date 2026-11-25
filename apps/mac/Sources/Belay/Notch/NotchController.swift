@@ -136,6 +136,7 @@ final class NotchController {
         panel.orderFrontRegardless()
 
         notes.onCaptured = { [weak self] in self?.close() }
+        CalendarService.shared.start()   // loads only if access was already granted; never prompts
         syncNotesShortcut()
         settingsSub2 = settings.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.syncNotesShortcut() } }
 
@@ -183,6 +184,7 @@ final class NotchController {
             let name = a[i + 1]
             Task { @MainActor in self.settings.weatherCity = await WeatherService.shared.search(name)?.first }
         }
+        if a.contains("--calendar-demo") { CalendarService.shared.loadDemo() }
         if a.contains("--start-stopwatch") { stopwatch.start() }
         if a.contains("--demo-stopwatch") { stopwatch.demo() }
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }

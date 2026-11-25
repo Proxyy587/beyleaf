@@ -13,6 +13,7 @@ struct ExpandedView: View {
     @ObservedObject var stopwatch: NotchStopwatch
     @ObservedObject var notes: NotesStore
     @ObservedObject var weather = WeatherService.shared
+    @ObservedObject var calendar = CalendarService.shared
     @ObservedObject var settings = AppSettings.shared
     var shown: Bool
     /// No notch (external display): the band is the panel's first line instead of sitting beside the camera.
@@ -97,6 +98,10 @@ struct ExpandedView: View {
             return stopwatch.state.laps.isEmpty ? .tile : .wide
         case .notes:
             return .wide
+        case .calendar:
+            // A free day isn't news: with access and nothing in the next 24 h, the widget is gone.
+            if calendar.access == .full { return CalendarLogic.upcoming(calendar.events, now: Date()).isEmpty ? nil : .wide }
+            return .tile
         case .weather:
             // Gone, not stale: offline with a forecast older than 3 hours takes no space (docs/widget-hub.md §3.7).
             if settings.weatherCity != nil, weather.failed, let f = weather.forecast, WeatherLogic.isTooStale(f, now: Date()) { return nil }
@@ -122,6 +127,7 @@ struct ExpandedView: View {
         case .timer: TimerCard(timer: timer, size: p.size, ticking: shown)
         case .stopwatch: StopwatchCard(stopwatch: stopwatch, size: p.size, ticking: shown)
         case .notes: NotesCard(notes: notes, expanded: settings.expanded)
+        case .calendar: CalendarCard(calendar: calendar, size: p.size, ticking: shown)
         case .weather: WeatherCard(weather: weather, city: settings.weatherCity, fahrenheit: settings.weatherUnits.isFahrenheit(), size: p.size, openSettings: openSettings)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
@@ -452,6 +458,72 @@ struct ClockCard: View {
             Text(ClockLogic.time(now, in: z, is24: is24)).font(Tok.digits).foregroundStyle(Tok.ink)
             Text(ClockLogic.note(now, zone: z)).font(Tok.status).foregroundStyle(Tok.ink3)
         }
+    }
+}
+
+// MARK: - Calendar
+
+/// The next events and how long until the first; Join when a video link is found. Asked for access once, on click.
+struct CalendarCard: View {
+    @ObservedObject var calendar: CalendarService
+    let size: WidgetSize
+    var ticking = true
+
+    var body: some View {
+        switch calendar.access {
+        case .notDetermined:
+            ready(status: "", label: "Calendar") {
+                PillButton(title: "Show events") { Task { await calendar.requestAccess() } }
+            }
+        case .writeOnly:
+            ready(status: "Needs full access", label: "Calendar needs full access") { PillButton(title: "Open Settings", action: Self.openPrivacy) }
+        case .denied:
+            ready(status: "Access is off", label: "Calendar access is off") { PillButton(title: "Open Settings", action: Self.openPrivacy) }
+        case .full:
+            // Countdown text changes once a minute, only while this page is on screen.
+            Ticking(seconds: 60, active: ticking) { now in live(now) }
+                .task { calendar.refresh() }
+        }
+    }
+
+    private func ready<A: View>(status: String, label: String, @ViewBuilder action: () -> A) -> some View {
+        WidgetCard(size: size, status: status) {
+            Image(systemName: "calendar").font(Tok.icon).foregroundStyle(Tok.ink2)
+        } title: {
+            Text("Calendar").font(Tok.rowTitle).foregroundStyle(Tok.ink)
+        } actions: { action() }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(label)
+    }
+
+    private func live(_ now: Date) -> some View {
+        let is24 = ClockLogic.system24Hour
+        let list = CalendarLogic.upcoming(calendar.events, now: now)
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(list.enumerated()), id: \.element.id) { index, e in
+                let link = CalendarLogic.joinLink(url: e.url, location: e.location, notes: e.notes)
+                HStack(spacing: Tok.s2) {
+                    Circle().fill(Color(hex: e.colorHex)).frame(width: 8, height: 8).frame(width: Tok.gutter)
+                    Text(e.title).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
+                    Spacer(minLength: Tok.s2)
+                    if index == 0, let c = CalendarLogic.countdown(e, now: now) {
+                        Text(c).font(Tok.status).foregroundStyle(CalendarLogic.isImminent(e, now: now) ? Tok.live : Tok.ink2)
+                    }
+                    Text(CalendarLogic.timeRange(e, is24: is24)).font(Tok.status).foregroundStyle(Tok.ink3)
+                    if let link { IconButton(symbol: "video", label: "Join call") { NSWorkspace.shared.open(link) } }
+                }
+                .frame(height: Tok.button)
+                .padding(.trailing, link == nil ? 0 : -Tok.buttonInset)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(CalendarLogic.spoken(e, now: now, is24: is24))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+    }
+
+    private static func openPrivacy() {
+        if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") { NSWorkspace.shared.open(u) }
     }
 }
 

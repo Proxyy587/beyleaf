@@ -268,5 +268,43 @@ do {
     check(WeatherLogic.condition(0).symbol == "sun.max" && WeatherLogic.condition(63).symbol == "cloud.rain" && WeatherLogic.condition(95).symbol == "cloud.bolt.rain" && WeatherLogic.condition(999).symbol == "cloud", "weather: condition symbols, unknown codes fall back to cloud")
 }
 
+// Calendar (docs/widget-hub.md §3.8)
+do {
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    func ev(_ id: String, _ title: String, start: Double, mins: Double = 30, allDay: Bool = false, url: String? = nil, loc: String? = nil, notes: String? = nil) -> CalEvent {
+        CalEvent(id: id, title: title, start: t0.addingTimeInterval(start * 60), end: t0.addingTimeInterval((start + mins) * 60), allDay: allDay,
+                 url: url.flatMap(URL.init(string:)), location: loc, notes: notes)
+    }
+    // Join links
+    check(CalendarLogic.joinLink(url: URL(string: "https://zoom.us/j/123"), location: nil, notes: nil)?.host == "zoom.us", "calendar: the event URL wins when it is a meeting host")
+    check(CalendarLogic.joinLink(url: URL(string: "https://example.com/agenda"), location: "Room 4 https://meet.google.com/abc-defg-hij", notes: nil)?.host == "meet.google.com", "calendar: a meeting link in the location is found")
+    check(CalendarLogic.joinLink(url: nil, location: nil, notes: "Agenda: https://example.com/doc\nJoin: https://acme.zoom.us/j/9?pwd=x")?.host == "acme.zoom.us", "calendar: a subdomain of a meeting host counts; the first non-meeting link is skipped")
+    check(CalendarLogic.joinLink(url: nil, location: "http://zoom.us/j/1", notes: "https://notzoom.us/j/1 https://example.com/zoom.us") == nil, "calendar: http, look-alike hosts and paths are not joinable")
+    check(CalendarLogic.joinLink(url: nil, location: nil, notes: nil) == nil, "calendar: no link, no Join")
+    // Which events
+    let past = ev("a", "Past", start: -90), now1 = ev("b", "On now", start: -10), soon = ev("c", "Soon", start: 12), later = ev("d", "Later", start: 300)
+    let far = ev("e", "Tomorrow noon", start: 1500), day = ev("f", "Holiday", start: -60, mins: 1440, allDay: true), x4 = ev("g", "Fourth", start: 400)
+    check(CalendarLogic.upcoming([far, later, past, soon, now1, day, x4], now: t0).map(\.id) == ["b", "c", "d"], "calendar: not-ended timed events within 24 h, soonest first, at most 3")
+    check(CalendarLogic.upcoming([far, day, past], now: t0).isEmpty, "calendar: nothing in 24 h (or only all-day) is empty, so the widget is gone")
+    check(CalendarLogic.upcoming([later, x4, soon, now1], now: t0, limit: 10).count == 4, "calendar: the limit is a parameter")
+    // Countdown
+    check(CalendarLogic.countdown(soon, now: t0) == "in 12 min" && CalendarLogic.countdown(now1, now: t0) == "now" && CalendarLogic.countdown(past, now: t0) == nil, "calendar: countdown, now, and none once ended")
+    check(CalendarLogic.countdown(ev("h", "h", start: 120), now: t0) == "in 2 h" && CalendarLogic.countdown(ev("i", "i", start: 65), now: t0) == "in 1 h 5 min", "calendar: hours in the countdown")
+    check(CalendarLogic.countdown(ev("j", "j", start: 0.2), now: t0) == "in 1 min", "calendar: seconds round up to a minute, never 'in 0 min'")
+    check(CalendarLogic.isImminent(ev("k", "k", start: 5), now: t0) && !CalendarLogic.isImminent(ev("l", "l", start: 5.1), now: t0) && !CalendarLogic.isImminent(now1, now: t0), "calendar: live green within 5 minutes before the start only")
+    let utc = TimeZone(identifier: "UTC")!
+    check(CalendarLogic.timeRange(ev("m", "m", start: 0), is24: true, zone: utc) == "\(ClockLogic.time(t0, in: utc, is24: true))–\(ClockLogic.time(t0.addingTimeInterval(1800), in: utc, is24: true))", "calendar: time range")
+    check(CalendarLogic.spoken(ev("n", "Design review", start: 12, url: "https://zoom.us/j/1"), now: t0, is24: true, zone: utc).hasSuffix("in 12 minutes. Join call."), "calendar: spoken label includes the countdown and Join call")
+    // Closed notch
+    check(CalendarLogic.soon([ev("o", "o", start: 6)], now: t0) == nil && CalendarLogic.soon([ev("p", "p", start: 5)], now: t0)?.id == "p", "calendar: the wing opens 5 minutes before")
+    check(CalendarLogic.soon([ev("q", "q", start: -1)], now: t0)?.id == "q" && CalendarLogic.soon([ev("r", "r", start: -1.1)], now: t0) == nil, "calendar: the wing closes 1 minute after the start")
+    check(CalendarLogic.soon([ev("s", "s", start: 3, allDay: true)], now: t0) == nil, "calendar: all-day events never trigger the wing")
+    check(CalendarLogic.soon([ev("u", "late", start: 4), ev("t", "early", start: 2)], now: t0)?.id == "t", "calendar: the earliest event owns the wing")
+    check(CalendarLogic.wingLabel(ev("v", "v", start: 4.2), now: t0) == "5m" && CalendarLogic.wingLabel(ev("w", "w", start: 0.5), now: t0) == "<1m" && CalendarLogic.wingLabel(ev("x", "x", start: -0.5), now: t0) == "now", "calendar: wing label counts down to now")
+    check(CalendarLogic.nextWake([ev("y", "y", start: 30), ev("z", "z", start: 10)], now: t0) == t0.addingTimeInterval(5 * 60), "calendar: one wake-up, at the next window opening")
+    check(CalendarLogic.nextWake([ev("y", "y", start: 2)], now: t0) == t0.addingTimeInterval(3 * 60), "calendar: inside a window the next wake is its close")
+    check(CalendarLogic.nextWake([past, day], now: t0) == nil, "calendar: nothing to wake for")
+}
+
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")
 exit(failures == 0 ? 0 : 1)

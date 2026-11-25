@@ -331,6 +331,7 @@ private struct GeneralPane: View {
                 Toggle("Internet lost or back", isOn: $s.alertWifi)
                 Toggle("Timer", isOn: $s.timerActivity)
                 Toggle("Stopwatch", isOn: $s.stopwatchActivity)
+                Toggle("Upcoming events", isOn: $s.upcomingActivity)
             } header: {
                 ResetHeader(title: "Live activities", isDefault: s.liveActivitiesAreDefault) { s.resetLiveActivities() }
             } footer: {

@@ -32,8 +32,8 @@
 
 | # | Phase | Branch | State |
 |---|---|---|---|
-| 1 | **Polish pages + widgets** | `feat/widget-hub` | **Partly done.** Paging + overflow committed (`149f106`). Five of eight widgets don't exist yet (§3). Not merged, not pushed |
-| 1b | **Build the missing widgets** (Clock, Stopwatch, Notes, Weather, Calendar) per `docs/widget-hub.md` §3, one commit each | `feat/widget-hub` | **In progress** (owner go-ahead 2026-11-26): Clock, Stopwatch, Notes and Weather done; Calendar next |
+| 1 | **Polish pages + widgets** | `feat/widget-hub` | **Done in code.** Paging + overflow committed (`149f106`). All eight widgets exist (§3). Not merged, not pushed |
+| 1b | **Build the missing widgets** (Clock, Stopwatch, Notes, Weather, Calendar) per `docs/widget-hub.md` §3, one commit each | `feat/widget-hub` | **Built** (owner go-ahead 2026-11-26): all five widgets, one commit each, self-tests pass; by-hand checks still UNVERIFIED (`open-questions.md`). Not merged, not pushed |
 | 2 | **Buddy core:** a buddy = persistent character + own thread + memory notes + personality + engine choice; shown in the notch with the 30 traced sprites | `feat/buddy-core` | Not started |
 | 3 | **Chat + Agents page:** 1:1 and group threads; the Agents page reserved in `widget-hub.md` §6 | `feat/buddy-chat` | Not started |
 | 4 | **Routines:** cron-style schedules per buddy, run by `belayd`; missed runs shown after sleep | `feat/buddy-routines` | Not started |
