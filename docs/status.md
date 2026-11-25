@@ -94,6 +94,7 @@
   - the low-battery alert visuals;
   - the menu bar mark in light mode;
   - Spotify behaviour after it quits.
+- **Possible small cost while the pointer moves:** 1–4% in `top` while the profile looks idle. Open item in `docs/performance.md`.
 - **Several activities at once:** only one wing shows; the rest wait. Agents will need the minimal-presentation idea (`notch-comparison.md` §4).
 
 ## 6. How we work

@@ -48,5 +48,10 @@ Belay sits on screen all day, so it must cost nothing at rest and very little wh
 | Smoothest | display max | on | Always |
 
 ## Open
+- **Pointer moving (not near the notch):**
+  - `top` read 1–4% with `--no-player` while the owner moved the pointer 240–590 pt below the top. At rest it reads 0.0%.
+  - A 4 s `sample` in the same window showed every thread idle, plus a few SwiftUI layout passes (~1.5% of samples) reached from the hover tick.
+  - Suspect: SwiftUI hover tracking areas in the 720×620 transparent canvas, or the tick causing layout.
+  - Next step: shrink the panel to the closed shape while closed, then re-measure while moving the pointer on purpose.
 - Measure the real tap with music playing and record it here.
 - Launch: about 210 ms happens before `main()` (frameworks). It could shrink by deferring CoreWLAN and Network until first use. UNVERIFIED gain.
