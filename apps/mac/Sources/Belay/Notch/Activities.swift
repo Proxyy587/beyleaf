@@ -76,7 +76,6 @@ final class ActivityCenter: ObservableObject {
 
     private func timerDone() {
         guard settings.timerActivity else { return }
-        Tok.haptic(.levelChange)
         flash(.timerDone, for: 4)
     }
 

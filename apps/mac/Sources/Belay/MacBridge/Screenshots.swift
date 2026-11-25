@@ -68,6 +68,5 @@ final class Screenshots: ObservableObject {
             try? await Task.sleep(for: .seconds(2))
             if !Task.isCancelled { self?.justCopied = false }
         }
-        Tok.haptic(.alignment)
     }
 }

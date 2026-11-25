@@ -66,7 +66,7 @@ Essentials are always listed; the Appearance group shows with "Show advanced set
 | Pane · section · element | Purpose (user job) | Default | Interactions | States | Status |
 |---|---|---|---|---|---|
 | General · Hover · Open after hovering / Close after leaving | Stop the notch opening when the pointer just passes the menu bar | Instant / Instant | Slider + value | Reset when changed | built |
-| General · Feel · Haptics | Feel opens and presses on a Force Touch trackpad | On | Switch | — | built |
+| General · Feel · Haptics | Feel the notch open under your finger on a Force Touch trackpad (hover only, never on click) | On | Switch | — | built |
 | General · Settings · Keep the notch open while Settings is open | See changes live | On | Switch | — | built |
 | General · Settings · Show advanced settings | Keep Settings short for most people | Off | Switch | Remembered | built |
 | Layout · Open notch · Width, Density | Fit the panel to your screen and taste | 440 pt, Regular | Slider, segmented | Reset | built |
@@ -128,9 +128,9 @@ Essentials are always listed; the Appearance group shows with "Show advanced set
 | Notch closes | `Tok.close`, critically damped spring | — | 150 ms fade |
 | Live activity starts / new track | `Tok.jelly`, wings grow with a little bounce | — | Fade |
 | Text changes (track, wing) | Blur swap, `Tok.reveal` 200 ms | — | Opacity only |
-| Button press | Fill, `Tok.hover` 120 ms | Haptic `.generic` | Same |
+| Button press | Fill + scale 0.94, release with a slight overshoot (`Tok.pressUp`) | No haptic: the trackpad already clicks | No scale |
 | Music bars | Real audio levels at ≤ 30 Hz; 12% lift on a beat | — | Still glyph, no capture |
-| Rope drop / catch | Planned (A2, A3): one move, the point pulses once | `.levelChange` ×3 on a catch (E1) | Fade |
+| Rope drop / catch | Planned (A2, A3): one move, the point pulses once | No haptic unless the pointer is on the notch | Fade |
 | At rest | Nothing moves | — | — |
 
 ## 5. Cut, and why

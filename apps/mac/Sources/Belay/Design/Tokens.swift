@@ -90,6 +90,8 @@ enum Tok {
     static var blur: CGFloat { reduceMotion ? 0 : CGFloat(t.blur) }
 
     // MARK: Feel
+    /// Haptics mark *hover* moments only (the notch opening under your finger). Never on a click: the trackpad's own
+    /// click already gives feedback, and a second buzz feels like a double tap (owner feedback, 2026-11-25).
     static func haptic(_ pattern: NSHapticFeedbackManager.FeedbackPattern = .generic) {
         guard AppSettings.shared.haptics else { return }
         NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
@@ -184,7 +186,7 @@ struct Chip: View {
     @State private var hover = false
     @State private var pressed = false
     var body: some View {
-        Button { Tok.haptic(); action() } label: {
+        Button(action: action) {
             Text(title).font(Tok.digits).foregroundStyle(Tok.ink)
                 .padding(.horizontal, Tok.s3).frame(height: Tok.button)
                 .background(Capsule().fill(hover ? Tok.pressedFill : Tok.hoverFill))
@@ -205,7 +207,7 @@ struct PillButton: View {
     @State private var hover = false
     @State private var pressed = false
     var body: some View {
-        Button { Tok.haptic(); action() } label: {
+        Button(action: action) {
             Text(title).font(Tok.font(12, .medium)).foregroundStyle(Tok.notch)
                 .padding(.horizontal, Tok.s3).frame(height: 24)
                 .background(Capsule().fill(Tok.ink.opacity(hover ? 0.885 : 1)))
@@ -225,7 +227,7 @@ struct NotchSwitch: View {
     @Binding var isOn: Bool
     let label: String
     var body: some View {
-        Button { Tok.haptic(); isOn.toggle() } label: {
+        Button { isOn.toggle() } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 Capsule().fill(isOn ? Tok.ink : Tok.ink.opacity(0.18))
                 Circle().fill(isOn ? Tok.notch : Tok.ink).padding(2)

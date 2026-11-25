@@ -300,7 +300,7 @@ private struct GeneralPane: View {
             } header: {
                 ResetHeader(title: "Feel", isDefault: s.haptics) { s.haptics = true }
             } footer: {
-                Text("Felt on Force Touch trackpads while your finger rests on them.").foregroundStyle(.secondary)
+                Text("A light tick when the notch opens under your finger. Clicks never buzz.").foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Keep the notch open while Settings is open", isOn: $s.previewWhileEditing)

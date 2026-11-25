@@ -407,10 +407,7 @@ struct IconButton: View {
     @State private var pressed = false
 
     var body: some View {
-        Button {
-            Tok.haptic()
-            action()
-        } label: {
+        Button(action: action) {
             Image(systemName: symbol)
                 .font(Tok.buttonIcon)
                 .foregroundStyle(enabled ? Tok.ink : Tok.ink.opacity(0.25))

@@ -127,7 +127,8 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 
 ## 8. Feel (haptics and sound)
 
-- **Haptics accent; never meaning alone.** `.alignment` on hover-open, `.generic` on a press, `.levelChange` ×3 on a catch.
+- **Haptics are for hover only.** One `.alignment` tick when the notch opens under your finger. Never on a click
+  (the trackpad already clicks, so a second buzz reads as a double tap) and never for an event you didn't touch.
 - **Sounds are off by default.** Each has a visual twin.
 - Both are toggleable in Settings.
 
