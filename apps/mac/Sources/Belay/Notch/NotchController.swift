@@ -7,6 +7,8 @@ import SwiftUI
 @MainActor
 final class NotchModel: ObservableObject {
     @Published var isOpen = false
+    /// The open panel is showing the widget editor (docs/notch-widgets.md §6). Cleared when the notch closes.
+    @Published var editing = false
     @Published var metrics: NotchMetrics
     /// Height of the open content, measured by SwiftUI.
     @Published var openContentHeight: CGFloat = 230
@@ -18,12 +20,14 @@ final class NotchModel: ObservableObject {
     @Published var wingWidth: CGFloat = 40
     /// Wings are shown only for a live activity (music, screenshot copied, low battery, internet).
     @Published var wingsVisible = false
+    /// Height of a sentence row below the notch line during a drop activity (screenshot copied).
+    @Published var dropHeight: CGFloat = 0
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
     /// Exactly the hardware notch unless wings are visible.
     var closedSize: CGSize {
-        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height)
+        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height + dropHeight)
     }
     var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
@@ -38,6 +42,7 @@ final class NotchController {
     private let status = SystemStatus()
     private let shots = Screenshots()
     private let beat = MusicBeat()
+    private let countdown = NotchTimer()
     private var beatSubs: [Any] = []
     private var screensAsleep = false
     private var probing = false
@@ -45,7 +50,7 @@ final class NotchController {
     private var settingsSub: Any?
     var onOpenSettings: () -> Void = {}
     private var hoverSince: Date?
-    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots)
+    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots, timer: countdown)
     private var activitySub: Any?
     private var pulseSub: Any?
 
@@ -55,8 +60,9 @@ final class NotchController {
         let activity = activities.current
         let show = activity != nil
         let width = activity?.wingWidth ?? NotchModel.wing
-        guard show != model.wingsVisible || width != model.wingWidth else { return }
-        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width }
+        let drop = activity?.dropHeight ?? 0
+        guard show != model.wingsVisible || width != model.wingWidth || drop != model.dropHeight else { return }
+        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width; model.dropHeight = drop }
     }
     /// Listen to the player's audio only while the bars are on screen: music playing, the music wing showing (closed
     /// notch), bars on, motion allowed, screens awake. Everything else stops the tap (battery, privacy).
@@ -84,7 +90,7 @@ final class NotchController {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status, shots: shots, activities: activities, beat: beat,
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: Self.canvas)
@@ -126,6 +132,12 @@ final class NotchController {
             beat.listen(to: id)
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.beat.listen(to: nil); self.probing = false; self.updateBeat() }
         }
+        // `--start-timer <minutes>` / `--edit-widgets`: put the notch in those states for screenshots.
+        let a = CommandLine.arguments
+        if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
+        if a.contains("--edit-widgets") { model.editing = true }
+        // `--flash-copied`: play the "screenshot copied" moment (held 20 s) without taking a screenshot.
+        if a.contains("--flash-copied") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.activities.flash(.copied, for: 20) } }
         #endif
         if openOnLaunch { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.open() } }
     }
@@ -179,7 +191,7 @@ final class NotchController {
         if open { Tok.haptic(.alignment); music.refreshIfUnknown() }
         music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
-        withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open }
+        withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open; if !open { model.editing = false } }
         updateBeat()
     }
 

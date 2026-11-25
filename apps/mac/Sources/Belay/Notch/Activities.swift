@@ -10,13 +10,23 @@ enum NotchActivity: Hashable {
     case copied
     case lowBattery(Int)
     case wifi(online: Bool)
+    case timer
+    case timerDone
 
     /// Width of each wing beside the camera for this activity.
     var wingWidth: CGFloat {
         switch self {
-        case .nowPlaying, .copied: 44
-        case .lowBattery: 52
-        case .wifi: 72
+        case .nowPlaying: 44
+        case .lowBattery, .timer, .copied: 52
+        case .wifi, .timerDone: 72
+        }
+    }
+
+    /// Extra height below the notch line for activities that say a sentence (Dynamic Island "expanded" moment).
+    var dropHeight: CGFloat {
+        switch self {
+        case .copied: 30
+        default: 0
         }
     }
 }
@@ -30,6 +40,7 @@ final class ActivityCenter: ObservableObject {
     private let music: NowPlaying
     private let status: SystemStatus
     private let shots: Screenshots
+    private let timer: NotchTimer
     private let settings = AppSettings.shared
     private var transient: NotchActivity?
     private var transientTask: Task<Void, Never>?
@@ -38,11 +49,13 @@ final class ActivityCenter: ObservableObject {
     private var lastBattery: SystemStatus.Battery?
     private var lastOnline: Bool?
 
-    init(music: NowPlaying, status: SystemStatus, shots: Screenshots) {
-        self.music = music; self.status = status; self.shots = shots
+    init(music: NowPlaying, status: SystemStatus, shots: Screenshots, timer: NotchTimer) {
+        self.music = music; self.status = status; self.shots = shots; self.timer = timer
+        timer.$state.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
+        timer.$finished.dropFirst().sink { [weak self] _ in DispatchQueue.main.async { self?.timerDone() } }.store(in: &subs)
         music.$trackChange.dropFirst().sink { [weak self] _ in DispatchQueue.main.async { self?.newTrack() } }.store(in: &subs)
         music.$isPlaying.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
-        shots.$justCopied.sink { [weak self] on in DispatchQueue.main.async { if on { self?.flash(.copied, for: 2) } } }.store(in: &subs)
+        shots.$justCopied.sink { [weak self] on in DispatchQueue.main.async { if on { self?.flash(.copied, for: 2.6) } } }.store(in: &subs)
         status.$battery.sink { [weak self] b in DispatchQueue.main.async { self?.battery(b) } }.store(in: &subs)
         status.$online.sink { [weak self] o in DispatchQueue.main.async { self?.network(o) } }.store(in: &subs)
         settings.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
@@ -69,6 +82,11 @@ final class ActivityCenter: ObservableObject {
         flash(.wifi(online: online), for: 2.5)
     }
 
+    private func timerDone() {
+        guard settings.timerActivity else { return }
+        flash(.timerDone, for: 4)
+    }
+
     func flash(_ activity: NotchActivity, for seconds: Double) {
         transient = activity
         pulse &+= 1
@@ -91,7 +109,9 @@ final class ActivityCenter: ObservableObject {
             case .off: return false
             }
         }()
-        let next = transient ?? (musicOn ? .nowPlaying : nil)
+        // Music outranks a running timer; hovering shows both.
+        let timerOn = settings.timerActivity && timer.isRunning
+        let next = transient ?? (musicOn ? .nowPlaying : timerOn ? .timer : nil)
         if next != current { current = next }
     }
 }
@@ -103,6 +123,7 @@ struct ActivityWing: View {
     @ObservedObject var music: NowPlaying
     @ObservedObject var shots: Screenshots
     @ObservedObject var beat: MusicBeat
+    @ObservedObject var timer: NotchTimer
 
     var body: some View {
         Group {
@@ -115,7 +136,7 @@ struct ActivityWing: View {
             case (.copied, .leading):
                 if let c = shots.lastCopied { Thumbnail(url: c.url) } else { Image(systemName: "camera.viewfinder").font(Tok.icon).foregroundStyle(Tok.ink) }
             case (.copied, .trailing):
-                Image(systemName: "checkmark").font(Tok.icon).foregroundStyle(Tok.live)
+                CopiedCheck()
             case (.lowBattery(let p), .leading):
                 Image(systemName: "battery.25percent").font(Tok.icon).foregroundStyle(p <= 10 ? Tok.danger : Tok.warning)
             case (.lowBattery(let p), .trailing):
@@ -124,9 +145,58 @@ struct ActivityWing: View {
                 Image(systemName: online ? "wifi" : "wifi.slash").font(Tok.icon).foregroundStyle(online ? Tok.live : Tok.warning)
             case (.wifi(let online), .trailing):
                 StatusLine(text: online ? "Online" : "Offline", live: online)
+            case (.timer, .leading):
+                // A minute's resolution is enough at a glance; 5 s ticks keep the closed notch nearly free.
+                Ticking(seconds: 5) { now in
+                    ProgressRing(fraction: timer.progress(at: now).fraction, lineWidth: 2.5).frame(width: 15, height: 15)
+                }
+            case (.timer, .trailing):
+                Ticking(seconds: 5) { now in
+                    let r = timer.progress(at: now).remaining
+                    Text(r < 60 ? "<1m" : "\(Int((r / 60).rounded(.up)))m").font(Tok.digits).foregroundStyle(Tok.ink)
+                        .contentTransition(.numericText(countsDown: true))
+                }
+            case (.timerDone, .leading):
+                Image(systemName: "timer").font(Tok.icon).foregroundStyle(Tok.live)
+            case (.timerDone, .trailing):
+                StatusLine(text: "Done", live: true)
             }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The check that lands when a screenshot is copied: drawn in, then one small bounce. Reduced motion: just there.
+struct CopiedCheck: View {
+    @State private var drawn = false
+    var body: some View {
+        ZStack {
+            Circle().fill(Tok.live).frame(width: 18, height: 18)
+            Path { p in p.move(to: CGPoint(x: 5, y: 9.5)); p.addLine(to: CGPoint(x: 8, y: 12.5)); p.addLine(to: CGPoint(x: 13.5, y: 6)) }
+                .trim(from: 0, to: drawn || Tok.reduceMotion ? 1 : 0)
+                .stroke(Tok.notch, style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+                .frame(width: 18, height: 18)
+        }
+        .scaleEffect(drawn || Tok.reduceMotion ? 1 : 0.6)
+        .onAppear { withAnimation(Tok.jelly.delay(0.08)) { drawn = true } }
+        .accessibilityLabel("Copied")
+    }
+}
+
+/// The sentence under the notch for a drop activity.
+struct ActivityDrop: View {
+    let activity: NotchActivity
+    var body: some View {
+        switch activity {
+        case .copied:
+            HStack(spacing: Tok.s1) {
+                Text("Screenshot copied").font(Tok.font(12, .medium)).foregroundStyle(Tok.ink)
+                Text("· ⌘V to paste").font(Tok.meta).foregroundStyle(Tok.ink3)
+            }
+            .lineLimit(1)
+        default:
+            EmptyView()
+        }
     }
 }
 

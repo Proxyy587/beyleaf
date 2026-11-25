@@ -48,6 +48,8 @@ enum Tok {
 
     // MARK: Shape
     static var rRow: CGFloat { 12 * t.roundness }
+    /// Widget cards on the open notch (dusk-feel §3: menus and cards 14).
+    static var rCard: CGFloat { 14 * t.roundness }
     static var rThumb: CGFloat { 6 * t.roundness }
     static var rOpenBottom: CGFloat { 24 * t.roundness }
     static var rOpenEar: CGFloat { min(18, 12 * t.roundness) }
@@ -82,9 +84,14 @@ enum Tok {
     }
     static var reveal: Animation { .easeOut(duration: (reduceMotion ? 0.1 : 0.2) / t.speed) }
     static var hover: Animation { .easeOut(duration: 0.12 / t.speed) }
+    /// Press down quickly, release with a hair of overshoot (dusk-feel §4). Reduced motion: no scale at all.
+    static var pressDown: Animation { .easeOut(duration: 0.12 / t.speed) }
+    static var pressUp: Animation { .timingCurve(0.28, 1.4, 0.36, 1, duration: 0.2 / t.speed) }
     static var blur: CGFloat { reduceMotion ? 0 : CGFloat(t.blur) }
 
     // MARK: Feel
+    /// Haptics mark *hover* moments only (the notch opening under your finger). Never on a click: the trackpad's own
+    /// click already gives feedback, and a second buzz feels like a double tap (owner feedback, 2026-11-25).
     static func haptic(_ pattern: NSHapticFeedbackManager.FeedbackPattern = .generic) {
         guard AppSettings.shared.haptics else { return }
         NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
@@ -120,6 +127,118 @@ extension View {
             .blur(radius: shown ? 0 : Tok.blur)
             .scaleEffect(shown ? 1 : 0.97, anchor: .top)
             .animation(shown ? Tok.reveal.delay(delay) : Tok.reveal, value: shown)
+    }
+}
+
+extension View {
+    /// A widget card: one tonal surface, no border, no shadow (dusk-feel §1).
+    func card(inset: CGFloat = Tok.s3) -> some View {
+        self.padding(inset)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous).fill(Tok.raised))
+    }
+
+    /// Scale-on-press feedback shared by every pressable thing on the notch.
+    func pressable(_ pressed: Bool) -> some View {
+        self.scaleEffect(pressed && !Tok.reduceMotion ? 0.94 : 1)
+            .animation(pressed ? Tok.pressDown : Tok.pressUp, value: pressed)
+    }
+}
+
+/// Re-renders its content every `seconds`, only while `active` (hidden views don't tick).
+/// The schedule's anchor is fixed: `.periodic(from: .now, …)` restarts on every re-render and fires immediately,
+/// which turns a 1 s tick into a continuous redraw (measured at 12% CPU).
+struct Ticking<Content: View>: View {
+    let seconds: TimeInterval
+    var active = true
+    @ViewBuilder let content: (Date) -> Content
+    private static var anchor: Date { Date(timeIntervalSinceReferenceDate: 0) }
+    var body: some View {
+        if active {
+            TimelineView(.periodic(from: Self.anchor, by: seconds)) { ctx in content(ctx.date) }
+        } else {
+            content(Date())
+        }
+    }
+}
+
+/// A thin progress ring (timer). Track at ink 14%, progress in ink.
+struct ProgressRing: View {
+    let fraction: Double
+    var lineWidth: CGFloat = 3
+    var body: some View {
+        ZStack {
+            Circle().stroke(Tok.ink.opacity(0.14), lineWidth: lineWidth)
+            Circle().trim(from: 0, to: max(0.001, min(1, fraction)))
+                .stroke(Tok.ink, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// A small tonal pill that does one thing (timer presets). Mono digits, press scale.
+struct Chip: View {
+    let title: String
+    let label: String
+    let action: () -> Void
+    @State private var hover = false
+    @State private var pressed = false
+    var body: some View {
+        Button(action: action) {
+            Text(title).font(Tok.digits).foregroundStyle(Tok.ink)
+                .padding(.horizontal, Tok.s3).frame(height: Tok.button)
+                .background(Capsule().fill(hover ? Tok.pressedFill : Tok.hoverFill))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pressable(pressed)
+        .help(label).accessibilityLabel(label)
+        .onHover { h in withAnimation(Tok.hover) { hover = h } }
+        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in pressed = true }.onEnded { _ in pressed = false })
+    }
+}
+
+/// The one primary action: a neutral pill that inverts the surface (ink fill, notch-coloured text; dusk-feel §2).
+struct PillButton: View {
+    let title: String
+    let action: () -> Void
+    @State private var hover = false
+    @State private var pressed = false
+    var body: some View {
+        Button(action: action) {
+            Text(title).font(Tok.font(12, .medium)).foregroundStyle(Tok.notch)
+                .padding(.horizontal, Tok.s3).frame(height: 24)
+                .background(Capsule().fill(Tok.ink.opacity(hover ? 0.885 : 1)))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pressable(pressed)
+        .accessibilityLabel(title)
+        .onHover { h in withAnimation(Tok.hover) { hover = h } }
+        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in pressed = true }.onEnded { _ in pressed = false })
+    }
+}
+
+/// On/off for the notch's own surface. Native switches turn grey in a non-key panel, so this one is drawn from
+/// tokens: on is an ink track with a notch-coloured knob (the same inversion as PillButton).
+struct NotchSwitch: View {
+    @Binding var isOn: Bool
+    let label: String
+    var body: some View {
+        Button { isOn.toggle() } label: {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Capsule().fill(isOn ? Tok.ink : Tok.ink.opacity(0.18))
+                Circle().fill(isOn ? Tok.notch : Tok.ink).padding(2)
+            }
+            .frame(width: 30, height: 18)
+            .animation(Tok.pressUp, value: isOn)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
     }
 }
 

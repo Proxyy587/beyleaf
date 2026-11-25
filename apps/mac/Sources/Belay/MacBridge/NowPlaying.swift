@@ -24,6 +24,9 @@ final class NowPlaying: ObservableObject {
     @Published private(set) var duration: Double = 0
     /// Increments when a *new* track starts, so the notch can play its "new track" live activity.
     @Published private(set) var trackChange = 0
+    /// The player that's open right now (the one Belay would talk to), or nil. Updated on app launch and quit, so
+    /// views never query LaunchServices while rendering. Never launches anything.
+    @Published private(set) var availablePlayer: Player?
 
     private let bundleIDs: [Player: String] = [.music: "com.apple.Music", .spotify: "com.spotify.client"]
     private var observers: [NSObjectProtocol] = []
@@ -60,9 +63,20 @@ final class NowPlaying: ObservableObject {
             MainActor.assumeIsolated { self?.playerQuit(bundleID: id) }
         }
         observers.append(quit)
+        let launched = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateAvailable() }
+        }
+        observers.append(launched)
+        updateAvailable()
+    }
+
+    private func updateAvailable() {
+        let p = runningPlayer()
+        if p != availablePlayer { availablePlayer = p }
     }
 
     private func playerQuit(bundleID: String?) {
+        updateAvailable()
         guard let p = player, bundleIDs[p] == bundleID else { return }
         player = nil; title = nil; artist = nil; artwork = nil; artworkFor = nil
         isPlaying = false; position = 0; duration = 0
@@ -138,6 +152,7 @@ final class NowPlaying: ObservableObject {
             await MainActor.run { done?(result) }
         }
     }
+
 
     private func runningPlayer() -> Player? {
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))

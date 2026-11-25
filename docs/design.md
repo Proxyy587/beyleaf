@@ -127,7 +127,8 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 
 ## 8. Feel (haptics and sound)
 
-- **Haptics accent; never meaning alone.** `.alignment` on hover-open, `.generic` on a press, `.levelChange` ×3 on a catch.
+- **Haptics are for hover only.** One `.alignment` tick when the notch opens under your finger. Never on a click
+  (the trackpad already clicks, so a second buzz reads as a double tap) and never for an event you didn't touch.
 - **Sounds are off by default.** Each has a visual twin.
 - Both are toggleable in Settings.
 
@@ -149,7 +150,8 @@ A calm, competent climbing partner.
 
 ## 11. Settings
 
-- **A real macOS window:** a sidebar of sections and grouped `Form`s with native controls. It follows the system appearance.
+- **A real macOS window:** five tabs in a pill bar (the selected tab is an inverted pill that slides), grouped `Form`s with
+  native controls. It follows the system appearance. Appearance pins a live notch preview above its form.
 - Values, not paragraphs. A hint line only when the label can't carry it.
 - **Changes apply live.** No Save button.
 - **Accounts never collect credentials** (ADR 0004). An AI account is "your installed CLI, signed in its own way". Belay shows found/not found and the version, never tokens.

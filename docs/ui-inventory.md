@@ -8,7 +8,7 @@ in `docs/design.md`; this doc covers what exists and why.
 product. Music and screenshots are secondary conveniences that earn their place only because the notch is a good home
 for them. Statuses: **built**, **planned** (feature ID from `docs/features-final.md`), **cut** (see §5).
 
-Last audit: 2026-11-24.
+Last audit: 2026-11-25 (widgets, ADR 0019).
 
 ## 1. Surfaces and elements
 
@@ -26,7 +26,7 @@ Last audit: 2026-11-24.
 |---|---|---|---|---|---|---|---|
 | Music: artwork (left) | Know what's playing without switching apps | While music plays | On ("Keep showing"; "Show briefly", "Don't show") | Hover opens the hero | No artwork: note glyph on a raised plate | combined with the bars | built |
 | Music: beat bars (right) | Confirm the music is really playing, and feel the beat | While music plays and the wing shows | On ("Music bars follow the beat") | none | Paused: pause glyph. Capture denied, no buffers or reduced motion: still waveform glyph | "Playing" | built (live bars UNVERIFIED, ADR 0017) |
-| Screenshot copied: thumbnail + check | Trust that the screenshot is on the clipboard without looking | 2 s after each auto-copy | On with auto-copy | none | Thumbnail unreadable: camera glyph | "Screenshot copied" | built |
+| Screenshot copied: thumbnail, drawn-in check, "Screenshot copied · ⌘V to paste" under the camera | Know the screenshot is on the clipboard, and how to use it, without looking away | 2.6 s after each auto-copy | On with auto-copy | none | Thumbnail unreadable: camera glyph. Reduced motion: no draw-in or bounce | "Screenshot copied" | built |
 | Low battery: icon + % | Plug in before a long agent run dies with the laptop | Crossing 20% and 10% on battery | On | none | 10% and under: danger colour; desktop Macs: never | "Battery 18%" | built |
 | Internet lost / back | Know why an agent or download stalled | When connectivity changes | On ("Internet lost or back") | none | Online (live green), offline (warning) | "Online" / "Offline" | built |
 | Charging: bolt + % | (none: macOS chimes and shows it in the menu bar) | Never | — | — | — | — | **cut** |
@@ -37,14 +37,16 @@ Last audit: 2026-11-24.
 
 | Element | Purpose (user job) | Appears | Default | Interactions | States | A11y label | Status |
 |---|---|---|---|---|---|---|---|
-| Settings gear (right of the camera) | Get to Settings from where you are | Always when open | On | Click; tooltip | — | "Open Settings" | built |
+| Band beside the camera: brand slot (left), Edit widgets + Settings (right) | Reach editing and Settings where you are; the slot becomes the agents' status light (A1) | Always when open | On | Click; tooltips | No notch: the band is the first line | "Belay", "Edit widgets", "Open Settings" | built |
 | Clock in the header | (none: the menu bar clock stays visible beside the open panel) | Never | — | — | — | — | **cut** |
 | Now playing hero: artwork, title, status line | Control the music without switching apps | A track is known | Row on | — | Long title: tail-truncated, one line; paused: ink3 status | title text | built |
 | Progress bar + times | See and set where you are in the track | Track has a duration | With the hero | Hover thickens; click or drag to seek | Unknown duration: hidden | "Playback position" | built |
 | Previous / play-pause / next | Skip or pause from the notch | With the hero | With the hero | Click | Player quit: state clears, nothing relaunches (3a95508) | "Previous track", "Play"/"Pause", "Next track" | built |
-| "Not playing" line (+ Play if a player is paused) | Say plainly there's nothing to control | No track known | With the row | Play button | One line, no "coming soon" | "Not playing" / "Spotify is paused" | built |
+| "Not playing" line | (cut: a placeholder; Now playing now takes no space without a player, and shows a Play tile when one is open) | Never | — | — | — | — | **cut** |
 | Last screenshot row: thumbnail, "Screenshot copied", age · size | Re-copy or find the screenshot you just took | After the first auto-copy this session | Row on | Copy again, Show in Finder | Old copies: "N min ago" | "Copy again", "Show in Finder" | built |
-| "Nothing shown" line | Explain an empty panel and where to fix it | Every row turned off | — | — | — | text | built |
+| Timer widget: − [length] + ▶, then ring + countdown, pause, stop, Done | Time-box work while agents run | Turned on by the user | **Off** (side option) | Drag the length, click to start | Paused, done (2 min), long timers (h:mm:ss) | "Timer length", "Start timer", "Pause timer" | built |
+| Edit widgets: cards to drag into slots, − to hide, + chips for hidden widgets | Put each widget exactly where you want it, without leaving holes (ADR 0019) | Edit widgets in the band, or right-click a card | — | Drag, click; right-click Move up/down/Hide | No enabled widgets: hint line | per card; "Move up/down" actions | built (drag UNVERIFIED by hand) |
+| "No widgets" line + Edit widgets | Explain an empty panel and fix it in one click | Every widget off | — | Edit widgets pill | — | "No widgets" | built |
 | Wi-Fi row | (none: duplicates the menu bar Wi-Fi item) | Never | — | — | — | — | **cut** |
 | Battery row | (none: duplicates the menu bar battery item) | Never | — | — | — | — | **cut** |
 | Volume row | (none: the volume keys, menu bar and Control Center already do it; Belay has no audio job) | Never | — | — | — | — | **cut** |
@@ -61,22 +63,23 @@ Last audit: 2026-11-24.
 
 ### 1.5 Settings window
 
-Essentials are always listed; the Appearance group shows with "Show advanced settings".
+Five tabs in a pill bar (⌘1–⌘5). Nothing is hidden behind an "advanced" switch: Appearance keeps the depth one click
+away instead.
 
-| Pane · section · element | Purpose (user job) | Default | Interactions | States | Status |
+| Tab · section · element | Purpose (user job) | Default | Interactions | States | Status |
 |---|---|---|---|---|---|
-| General · Hover · Open after hovering / Close after leaving | Stop the notch opening when the pointer just passes the menu bar | Instant / Instant | Slider + value | Reset when changed | built |
-| General · Feel · Haptics | Feel opens and presses on a Force Touch trackpad | On | Switch | — | built |
+| Pill tab bar: General · Widgets · Appearance · Agents · About | Find any setting in one click, without a long sidebar | General | Click, ⌘1–⌘5; the selected pill slides | — | built |
+| General · Notch · Open after hovering / Close after leaving / Haptic tick on open | Stop accidental opens; feel the notch open (hover only, never on click) | Instant / Instant / On | Slider + value, switch | Reset when changed | built |
+| General · Live activities · While music plays, Music bars follow the beat, Low battery, Internet lost or back, Timer | Choose which moments may take over the closed notch | Keep showing, on, on, on, on | Menu, switches | Reset | built |
+| General · Screenshots · Copy new screenshots to the clipboard | Have every screenshot on the clipboard, wherever macOS saves it | On | Switch | — | built |
 | General · Settings · Keep the notch open while Settings is open | See changes live | On | Switch | — | built |
-| General · Settings · Show advanced settings | Keep Settings short for most people | Off | Switch | Remembered | built |
-| Layout · Open notch · Width, Density | Fit the panel to your screen and taste | 440 pt, Regular | Slider, segmented | Reset | built |
-| Layout · Rows · Now playing, Last screenshot | Choose and order what the panel shows | Both on | Switch, move up/down | Old themes with retired rows load without them | built |
-| Layout · Live activities · While music plays, Music bars follow the beat, Low battery, Internet lost or back | Choose which moments may take over the closed notch | Keep showing, on, on, on | Menu, switches | Reset | built |
-| Layout · Closed notch · Size, wings | (cut with the wings) | — | — | — | **cut** |
-| Screenshots · Auto-copy | Have every screenshot on the clipboard, wherever macOS saves it | On | Switch | — | built |
-| AI accounts · Command-line agents | Know Belay found your `claude` / `codex` (never credentials, ADR 0004) | — | Check again | Checking, version, Installed, Not found | built |
+| Widgets · list | Choose and order what the open notch shows (ADR 0019) | Now playing, Last screenshot on; Timer off | Drag to reorder, switch | Reset | built |
+| Appearance · live preview | See the change before you close Settings | — | Replay (Motion) | Stays pinned while the form scrolls | built |
+| Appearance · Theme swatches, Save current as, Import/Export | Pick a look in one click; keep or share your own (ADR 0015) | Midnight | Click a swatch; right-click deletes your own | Swatches drawn in each theme's colours, face and surface | built |
+| Appearance · Layout / Type / Colour / Surface / Motion | Fine-tune width, density, fonts, colours, surface, roundness, motion | Theme's values | Segmented switcher, per-section reset | Fonts shown in their own face | built |
+| Agents · Command-line agents | Know Belay found your `claude` / `codex` (never credentials, ADR 0004) | — | Check again | Checking, version, Installed, Not found | built |
 | About | Version, licence and credits | — | — | — | built |
-| Theme / Typography / Colours / Surface and shape / Motion (advanced) | Make it yours (ADR 0015) | Midnight | Live preview, per-section reset | Fonts shown in their own face | built |
+| Show advanced settings | (cut: the tabs keep Settings short without hiding things) | — | — | — | **cut** |
 | Sounds | Hear rope drops and catches when you're away from the screen | Off | Switch, per-sound | Muted while the asking terminal is focused | planned E2 |
 | Voice (push-to-talk key, voice) | Answer agents by voice | — | Shortcut recorder, picker | Mic permission denied | planned C1, C2 |
 
@@ -128,9 +131,9 @@ Essentials are always listed; the Appearance group shows with "Show advanced set
 | Notch closes | `Tok.close`, critically damped spring | — | 150 ms fade |
 | Live activity starts / new track | `Tok.jelly`, wings grow with a little bounce | — | Fade |
 | Text changes (track, wing) | Blur swap, `Tok.reveal` 200 ms | — | Opacity only |
-| Button press | Fill, `Tok.hover` 120 ms | Haptic `.generic` | Same |
+| Button press | Fill + scale 0.94, release with a slight overshoot (`Tok.pressUp`) | No haptic: the trackpad already clicks | No scale |
 | Music bars | Real audio levels at ≤ 30 Hz; 12% lift on a beat | — | Still glyph, no capture |
-| Rope drop / catch | Planned (A2, A3): one move, the point pulses once | `.levelChange` ×3 on a catch (E1) | Fade |
+| Rope drop / catch | Planned (A2, A3): one move, the point pulses once | No haptic unless the pointer is on the notch | Fade |
 | At rest | Nothing moves | — | — |
 
 ## 5. Cut, and why
