@@ -108,7 +108,7 @@ struct ExpandedView: View {
             return .tile
         case .system:
             return .wide
-        case .keepAwake:
+        case .keepAwake, .moon:
             return .tile
         case .screenshot:
             guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
@@ -135,6 +135,7 @@ struct ExpandedView: View {
         case .weather: WeatherCard(weather: weather, city: settings.weatherCity, fahrenheit: settings.weatherUnits.isFahrenheit(), size: p.size, openSettings: openSettings)
         case .system: SystemCard(size: p.size, ticking: shown)
         case .keepAwake: KeepAwakeCard(size: p.size)
+        case .moon: MoonCard(size: p.size, ticking: shown)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }

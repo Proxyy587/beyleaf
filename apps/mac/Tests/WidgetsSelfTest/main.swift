@@ -355,5 +355,32 @@ MainActor.assumeIsolated {
     check(KeepAwakeLogic.spoken(active: false, endsAt: nil, length: .h1, is24: true) == "Keep awake, off. Length 1h." && KeepAwakeLogic.spoken(active: true, endsAt: nil, length: .h1, is24: true) == "Keep awake, on. no limit.", "awake: spoken")
 }
 
+// Moon logic (docs/widget-hub.md §3.11): fixtures are real new and full moons (UTC), allowed the mean-month error of about a day.
+MainActor.assumeIsolated {
+    func utc(_ y: Int, _ mo: Int, _ d: Int, _ h: Int = 0, _ mi: Int = 0) -> Date {
+        var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "UTC")!
+        return c.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: mi))!
+    }
+    check(MoonLogic.illumination(utc(2000, 1, 6, 18, 14)) < 0.001 && MoonLogic.phase(utc(2000, 1, 6, 18, 14)) == .new, "moon: the reference new moon is new, 0% lit")
+    check(MoonLogic.illumination(utc(2024, 1, 11, 11, 57)) < 0.02 && MoonLogic.phase(utc(2024, 1, 11, 11, 57)) == .new, "moon: new moon 2024-01-11")
+    check(MoonLogic.illumination(utc(2024, 1, 25, 17, 54)) > 0.98 && MoonLogic.phase(utc(2024, 1, 25, 17, 54)) == .full, "moon: full moon 2024-01-25")
+    check(MoonLogic.phase(utc(2024, 1, 18, 3, 52)) == .firstQuarter && abs(MoonLogic.illumination(utc(2024, 1, 18, 3, 52)) - 0.5) < 0.1, "moon: first quarter 2024-01-18, about half lit")
+    check(MoonLogic.phase(utc(2024, 2, 2, 23, 18)) == .lastQuarter, "moon: last quarter 2024-02-02")
+    check(MoonLogic.phase(utc(2024, 1, 14)) == .waxingCrescent && MoonLogic.phase(utc(2024, 1, 21)) == .waxingGibbous && MoonLogic.phase(utc(2024, 1, 29)) == .waningGibbous && MoonLogic.phase(utc(2024, 2, 7)) == .waningCrescent, "moon: the four in-between phases")
+    check(MoonLogic.age(utc(1990, 6, 1)) >= 0 && MoonLogic.age(utc(1990, 6, 1)) < MoonLogic.synodic, "moon: age is in range before the reference date too")
+    let nf = MoonLogic.next(cycle: 0.5, after: utc(2024, 1, 20))
+    check(abs(nf.timeIntervalSince(utc(2024, 1, 25, 17, 54))) < 36 * 3600, "moon: the next full moon is found within a day and a half")
+    check(MoonLogic.next(cycle: 0, after: utc(2024, 1, 11, 11, 57)) > utc(2024, 2, 1), "moon: asking at the moment itself returns the next one, not now")
+    let zone = TimeZone(identifier: "UTC")!
+    check(MoonLogic.nextLine(utc(2024, 1, 21, 12), zone: zone) == "Full moon in 5 days", "moon: the line names the next full moon with days to go")
+    check(MoonLogic.nextLine(utc(2024, 1, 26, 1), zone: zone).hasPrefix("Full moon today") && MoonLogic.nextLine(utc(2024, 1, 25, 6), zone: zone) == "Full moon tomorrow" && MoonLogic.nextLine(utc(2024, 1, 5), zone: zone).hasPrefix("New moon in"), "moon: today, and new moon when it is the nearer one")
+    check(MoonLogic.litText(utc(2024, 1, 25, 17, 54)) == "100% lit", "moon: lit text")
+    let wax = MoonLogic.litOutline(cycle: 0.1), wane = MoonLogic.litOutline(cycle: 0.9)
+    check(wax.allSatisfy { $0.x >= -1e-9 } && wane.allSatisfy { $0.x <= 1e-9 }, "moon: waxing is lit on the right, waning on the left")
+    let full = MoonLogic.litOutline(cycle: 0.5)
+    check(full.allSatisfy { abs($0.x * $0.x + $0.y * $0.y - 1) < 1e-9 }, "moon: at full the outline is the whole limb")
+    check(MoonLogic.litOutline(cycle: 0.0).allSatisfy { abs($0.x) < 1e-9 || abs($0.x * $0.x + $0.y * $0.y - 1) < 1e-9 }, "moon: at new the outline is a sliver on the limb")
+}
+
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")
 exit(failures == 0 ? 0 : 1)

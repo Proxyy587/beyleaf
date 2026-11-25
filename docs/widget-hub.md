@@ -38,7 +38,7 @@
 
 | Page | Widgets (in order) | On by default |
 |---|---|---|
-| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System, Keep awake | Clock, Now playing, Last screenshot (Timer, Stopwatch, System and Keep awake are side options, as the Timer was in ADR 0019) |
+| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System, Keep awake, Moon | Clock, Now playing, Last screenshot (Timer, Stopwatch, System, Keep awake and Moon are side options, as the Timer was in ADR 0019) |
 | Notes | Notes | Notes |
 | Day | Calendar, Weather | Both |
 
@@ -307,6 +307,23 @@ accessibility · CPU budget.
 - **Cost:** nothing ticks. The end time is a clock time, and one `DispatchWorkItem` fires once at the deadline.
 - **Data:** in memory; the chosen length is remembered for the session only.
 - **A11y:** "Keep awake, off. Length 1h." / "Keep awake, on. until 15:40."; buttons "Keep awake for 1h", "Length 1h, change", "Stop keeping awake".
+
+### 3.11 Moon (Now, new, off by default)
+- **Job:** a small, calm glance at the moon: tonight's phase and how lit it is, and when the next full or new moon is.
+  Useful for late sessions, walks and photographers; delightful rather than urgent, which is why it is off by default.
+- **Forms:** tile: a 32 pt disc (ink 14% track, lit part in ink), the phase name ("Waxing gibbous"), `63% LIT`. Wide
+  adds "Full moon in 5 days" (or "New moon tomorrow") on the right in ink2, truncating tail.
+- **Data:** date math only, no network, no location, no permission. The phase comes from the mean synodic month
+  (29.530589 days) counted from the new moon of 2000-01-06 18:14 UTC; illumination is `(1 - cos 2π·cycle) / 2`. Accurate
+  to about half a day (the real moon's speed varies), which is fine for a glance and is not an almanac.
+- **Drawing:** a static polygon (limb plus terminator, 66 points) as a `Shape`; no animation, no `Canvas`, drawn once.
+  Waxing is lit on the right, waning on the left, **as seen from the northern hemisphere** (a southern-hemisphere flip
+  is not built; UNVERIFIED need).
+- **Eight phases**, each an eighth of the month centred on its moment: New, Waxing crescent, First quarter, Waxing
+  gibbous, Full, Waning gibbous, Last quarter, Waning crescent.
+- **Closed notch:** nothing.
+- **A11y:** one element: "Moon, waxing gibbous, 63% lit. Full moon in 5 days."
+- **CPU:** `Ticking(seconds: 3600, active: visible)`: one redraw an hour while its page is visible; otherwise nothing.
 
 ## 4. Customization
 - **What users choose:** which pages exist (on/off), their order, which widgets are on each page, their order, and which
