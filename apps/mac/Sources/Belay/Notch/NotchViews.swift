@@ -371,40 +371,157 @@ struct ScreenshotCard: View {
 
 // MARK: - Edit mode
 
-/// Every widget as one line: [symbol] name … ↑ ↓ [switch]. Changes apply live and the panel repacks as you go.
+/// Arrange widgets by dragging (docs/notch-widgets.md §6). The cards are laid out with the same packing rule as the
+/// panel; grab one and it lifts and follows the pointer while the others make room, then it snaps into the slot you
+/// dropped it on. − hides a widget; hidden ones wait in the tray below, + brings them back.
 struct WidgetEditor: View {
     @ObservedObject var settings = AppSettings.shared
+    /// The order while a drag is in flight (enabled widgets only); committed on release.
+    @State private var working: [WidgetKind]?
+    @State private var dragging: WidgetKind?
+    @State private var pointer: CGPoint = .zero
+    @State private var grab: CGSize = .zero
+    @State private var frames: [WidgetKind: CGRect] = [:]
+
+    private var shown: [WidgetKind] { working ?? settings.widgets.filter(\.enabled).map(\.kind) }
+    private var hidden: [WidgetKind] { settings.widgets.filter { !$0.enabled }.map(\.kind) }
+
+    /// Each widget's natural size in the editor (its live size: Now playing is wide, the rest are tiles).
+    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying ? .wide : .tile }
+
     var body: some View {
+        let rows = WidgetLayout.rows(shown.map { ($0, Self.size($0)) })
         VStack(alignment: .leading, spacing: Tok.s2) {
-            VStack(spacing: 0) {
-                ForEach(settings.widgets) { w in
-                    HStack(spacing: Tok.s3) {
-                        Image(systemName: w.kind.symbol).font(Tok.icon).foregroundStyle(w.enabled ? Tok.ink : Tok.ink3)
-                            .frame(width: Tok.gutter)
-                        Text(w.kind.name).font(Tok.rowTitle).foregroundStyle(w.enabled ? Tok.ink : Tok.ink3)
-                        Spacer(minLength: Tok.s2)
-                        IconButton(symbol: "chevron.up", label: "Move \(w.kind.name) up") {
-                            settings.moveWidget(w.kind, by: -1, skippingDisabled: false)
-                        }
-                        .disabled(!settings.canMove(w.kind, by: -1, skippingDisabled: false))
-                        IconButton(symbol: "chevron.down", label: "Move \(w.kind.name) down") {
-                            settings.moveWidget(w.kind, by: 1, skippingDisabled: false)
-                        }
-                        .disabled(!settings.canMove(w.kind, by: 1, skippingDisabled: false))
-                        NotchSwitch(isOn: Binding(get: { w.enabled }, set: { settings.setEnabled(w.kind, $0) }),
-                                    label: "Show \(w.kind.name)")
-                            .padding(.leading, Tok.s1)
+            ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { _, row in
+                HStack(spacing: Tok.s2) {
+                    ForEach(row, id: \.kind) { placed in
+                        slot(placed)
                     }
-                    .frame(height: Tok.rowHeight)
                 }
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .card(inset: Tok.s3)
-            .padding(.vertical, -Tok.s1)
-            Text("Widgets with nothing to show take no space.")
+            if !hidden.isEmpty {
+                HStack(spacing: Tok.s1) {
+                    ForEach(hidden) { k in
+                        Chip(title: "+ \(k.name)", label: "Show \(k.name)") {
+                            withAnimation(Tok.open) { settings.setEnabled(k, true) }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, Tok.s1)
+                .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+            }
+            Text(shown.isEmpty ? "Add a widget to show it in the notch." : "Drag to arrange. Small widgets pair up side by side.")
                 .font(Tok.meta).foregroundStyle(Tok.ink3)
                 .padding(.horizontal, Tok.s3)
         }
-        .animation(Tok.open, value: settings.widgets)
+        .coordinateSpace(name: "editor")
+        .onPreferenceChange(SlotFrames.self) { frames = $0 }
+        .overlay(alignment: .topLeading) { lifted }
+        .animation(Tok.open, value: shown)
+        .animation(Tok.open, value: hidden)
+    }
+
+    /// A card in its slot. While it's the one being dragged, the slot shows a quiet placeholder instead.
+    @ViewBuilder private func slot(_ p: PlacedWidget) -> some View {
+        let isDragged = dragging == p.kind
+        EditCard(kind: p.kind, size: p.size) {
+            withAnimation(Tok.open) { settings.setEnabled(p.kind, false) }
+        }
+        .opacity(isDragged ? 0 : 1)
+        .background(
+            RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous)
+                .fill(Tok.ink.opacity(isDragged ? 0.04 : 0))
+        )
+        .background(GeometryReader { g in
+            Color.clear.preference(key: SlotFrames.self, value: [p.kind: g.frame(in: .named("editor"))])
+        })
+        .gesture(drag(p.kind))
+        .accessibilityAction(named: "Move up") { settings.moveWidget(p.kind, by: -1) }
+        .accessibilityAction(named: "Move down") { settings.moveWidget(p.kind, by: 1) }
+    }
+
+    /// The card under the pointer while dragging: lifted, slightly larger, with the only shadow on the notch.
+    @ViewBuilder private var lifted: some View {
+        if let k = dragging, let f = frames[k] {
+            EditCard(kind: k, size: f.width > 260 ? .wide : .tile, onHide: nil)
+                .frame(width: f.width, height: f.height)
+                .scaleEffect(Tok.reduceMotion ? 1 : 1.04)
+                .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
+                .offset(x: pointer.x - grab.width, y: pointer.y - grab.height)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+    }
+
+    private func drag(_ k: WidgetKind) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .named("editor"))
+            .onChanged { v in
+                if dragging == nil, let f = frames[k] {
+                    working = shown
+                    grab = CGSize(width: v.startLocation.x - f.minX, height: v.startLocation.y - f.minY)
+                    withAnimation(Tok.hover) { dragging = k }
+                }
+                pointer = v.location
+                reorder(k, to: v.location)
+            }
+            .onEnded { _ in
+                if let order = working {
+                    let rest = settings.widgets.filter { !order.contains($0.kind) }
+                    let enabled = order.compactMap { kind in settings.widgets.first { $0.kind == kind } }
+                    settings.widgets = enabled + rest
+                }
+                withAnimation(Tok.open) { dragging = nil; working = nil }
+            }
+    }
+
+    /// Moves the dragged widget to the slot under the pointer. Only the inner part of a slot counts, so the order
+    /// doesn't flap while the pointer sits on a boundary.
+    private func reorder(_ k: WidgetKind, to point: CGPoint) {
+        guard var order = working, let from = order.firstIndex(of: k) else { return }
+        for (other, f) in frames where other != k {
+            guard f.insetBy(dx: f.width * 0.2, dy: f.height * 0.2).contains(point), let to = order.firstIndex(of: other) else { continue }
+            order.remove(at: from)
+            order.insert(k, at: to)
+            withAnimation(Tok.open) { working = order }
+            return
+        }
+    }
+}
+
+private struct SlotFrames: PreferenceKey {
+    static let defaultValue: [WidgetKind: CGRect] = [:]
+    static func reduce(value: inout [WidgetKind: CGRect], nextValue: () -> [WidgetKind: CGRect]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+/// A widget as it appears while arranging: its symbol and name on its card, a grab affordance, and − to hide.
+struct EditCard: View {
+    let kind: WidgetKind
+    let size: WidgetSize
+    var onHide: (() -> Void)?
+    @State private var hover = false
+    var body: some View {
+        HStack(spacing: Tok.s2) {
+            Image(systemName: kind.symbol).font(Tok.icon).foregroundStyle(Tok.ink).frame(width: Tok.gutter)
+            Text(kind.name).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1)
+            Spacer(minLength: 0)
+            if let onHide {
+                IconButton(symbol: "minus", label: "Hide \(kind.name)", action: onHide)
+                    .padding(.trailing, -Tok.buttonInset)
+            }
+        }
+        .frame(height: size == .wide ? 56 : Tok.button * 2)
+        .card()
+        .background(
+            RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous).fill(hover ? Tok.ink.opacity(0.03) : .clear)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous))
+        .onHover { h in withAnimation(Tok.hover) { hover = h } }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(kind.name)
     }
 }
 

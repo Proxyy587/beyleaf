@@ -78,16 +78,15 @@ Defaults: Now playing and Last screenshot on, Timer off (it's a convenience, not
 - **When it ends,** it flashes "Done" with a `.levelChange` haptic for 4 s.
 
 ## 6. Customization UX
-1. **In the notch:** "Edit widgets" in the band turns the panel into its edit state, in place, with the same width.
-   - Every widget in the catalogue becomes one compact line: [symbol] name … [↑][↓][switch].
-   - Changes apply instantly and the panel resizes as you go. "Done" (same spot as the edit button) returns.
-   - Edit mode keeps the panel open until "Done" or the pointer leaves.
-   - Right-clicking any widget gives **Move up · Move down · Hide · Edit widgets…**
-2. **In Settings → Widgets** (an essential, not advanced): a native `List` with drag to reorder, a switch per widget, a footer that names the packing rule in one line, and a Reset.
+1. **In the notch:** "Edit widgets" in the band switches the panel to arranging, in place.
+   - The cards are laid out by the same packing rule. **Grab any card:** it lifts (1.04×, the notch's only shadow) and follows the pointer, and the others slide to show where it will land. Release and it snaps into that slot.
+   - Each card has **−** to hide it. Hidden widgets wait in a tray below as **+ Name** chips.
+   - Edit mode stays until "Done" or the pointer leaves. Right-click any widget for Move up · Move down · Hide · Edit widgets….
+   - **Why slots, not free placement:** free placement (like desktop icons) would leave holes in a 440 pt panel. Dropping into a slot is just as exact, and the panel stays packed.
+2. **In Settings → Widgets:** a native list with drag to reorder, a switch per widget, and a Reset.
 3. **Persistence:** `AppSettings.widgets: [WidgetSetting(kind, enabled)]` in UserDefaults.
    - The rows' old home, `Theme.rows`, is migrated once and then ignored.
-   - Unknown kinds are dropped and new kinds are appended (disabled if they need a permission).
-   - Widgets are *what* the notch shows. A theme is *how* it looks. So applying or importing a theme never changes widgets (ADR 0019).
+   - Widgets are *what* the notch shows; a theme is *how* it looks (ADR 0019).
 
 ## 7. Motion (one per kind, `dusk-feel` §4)
 | Change | Motion |
@@ -105,5 +104,4 @@ Defaults: Now playing and Last screenshot on, Timer off (it's a convenience, not
 - Closed: timer wing, timer done flash, music outranking the timer.
 
 ## 9. Not now
-- Drag-to-reorder inside the notch itself. The panel is non-activating, and SwiftUI drag and drop there is UNVERIFIED. Settings has native drag; the notch has ↑/↓ and the context menu.
 - Calendar, clipboard history, file shelf (conversions), weather. Each needs its own purpose-test row first.
