@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// A real macOS settings window (docs/design.md §11): sidebar sections, grouped forms, native controls, live changes.
-/// While it's open, the notch stays open as a live preview (toggle in Theme).
+/// Belay's settings (docs/design.md §11): five tabs in a pill bar, grouped forms, native controls, live changes.
+/// While it's open, the notch stays open as a live preview (General → Settings).
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
@@ -15,10 +15,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             let host = NSHostingController(rootView: SettingsView(accounts: accounts))
             let w = NSWindow(contentViewController: host)
             w.title = "Belay Settings"
+            w.titleVisibility = .hidden
             w.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             w.titlebarAppearsTransparent = true
-            w.toolbarStyle = .unified
-            w.setContentSize(NSSize(width: 760, height: 560))
+            w.isMovableByWindowBackground = true
+            w.setContentSize(NSSize(width: 640, height: 620))
+            w.contentMinSize = NSSize(width: 640, height: 480)
             w.isReleasedWhenClosed = false
             w.isRestorable = false
             w.delegate = self
@@ -44,26 +46,15 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) { onClose() }
 }
 
-enum SettingsSection: String, CaseIterable, Identifiable {
-    case general = "General", widgets = "Widgets", theme = "Theme", typography = "Typography", colours = "Colours", surface = "Surface and shape",
-         layout = "Layout", motion = "Motion", screenshots = "Screenshots", accounts = "AI accounts", about = "About"
+enum SettingsTab: String, CaseIterable, Identifiable {
+    case general = "General", widgets = "Widgets", appearance = "Appearance", agents = "Agents", about = "About"
     var id: String { rawValue }
-    /// Shown to everyone. The rest (look and motion) appear with "Show advanced settings".
-    static let essentials: [SettingsSection] = [.general, .widgets, .layout, .screenshots, .accounts, .about]
-    static let advanced: [SettingsSection] = [.theme, .typography, .colours, .surface, .motion]
-    var isAdvanced: Bool { Self.advanced.contains(self) }
     var symbol: String {
         switch self {
         case .general: "gearshape"
         case .widgets: "square.grid.2x2"
-        case .theme: "swatchpalette"
-        case .typography: "textformat"
-        case .colours: "paintpalette"
-        case .surface: "square.on.square"
-        case .layout: "rectangle.grid.1x2"
-        case .motion: "wind"
-        case .screenshots: "camera.viewfinder"
-        case .accounts: "person.crop.circle"
+        case .appearance: "paintbrush"
+        case .agents: "terminal"
         case .about: "info.circle"
         }
     }
@@ -71,53 +62,71 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @ObservedObject var accounts: AIAccounts
-    @ObservedObject private var settings = AppSettings.shared
-    @State private var section: SettingsSection? = SettingsView.initialSection
-    /// Debug builds: `--settings-pane <Name>` opens that pane (for screenshots).
-    private static var initialSection: SettingsSection {
+    @State private var tab: SettingsTab = SettingsView.initialTab
+    /// Debug builds: `--settings-pane <name>` opens that tab (for screenshots).
+    private static var initialTab: SettingsTab {
         #if DEBUG
         let a = CommandLine.arguments
         if let i = a.firstIndex(of: "--settings-pane"), a.indices.contains(i + 1),
-           let s = SettingsSection.allCases.first(where: { $0.rawValue.lowercased().hasPrefix(a[i + 1].lowercased()) }) { return s }
+           let t = SettingsTab.allCases.first(where: { $0.rawValue.lowercased().hasPrefix(a[i + 1].lowercased()) }) { return t }
         #endif
         return .general
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $section) {
-                // Always a section, so the list keeps the same top inset when the advanced group appears.
-                Section { ForEach(SettingsSection.essentials) { s in Label(s.rawValue, systemImage: s.symbol).tag(s) } }
-                if settings.showAdvanced {
-                    Section("Appearance") {
-                        ForEach(SettingsSection.advanced) { s in Label(s.rawValue, systemImage: s.symbol).tag(s) }
-                    }
-                }
-            }
-            .navigationSplitViewColumnWidth(200)
-            .onChange(of: settings.showAdvanced) { _, on in
-                if !on, section?.isAdvanced == true { section = .general }
-            }
-        } detail: {
+        VStack(spacing: 0) {
+            PillTabs(selection: $tab)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
             Group {
-                switch section ?? .general {
-                case .general: GeneralPane()
-                case .widgets: WidgetsPane()
-                case .theme: ThemePane()
-                case .typography: TypographyPane()
-                case .colours: ColoursPane()
-                case .surface: SurfacePane()
-                case .layout: LayoutPane()
-                case .motion: MotionPane()
-                case .screenshots: ScreenshotsPane()
-                case .accounts: AccountsPane(accounts: accounts)
-                case .about: AboutPane()
+                switch tab {
+                case .general: Form { GeneralPane() }
+                case .widgets: Form { WidgetsPane() }
+                case .appearance: AppearancePane()
+                case .agents: Form { AccountsPane(accounts: accounts) }
+                case .about: Form { AboutPane() }
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle((section ?? .general).rawValue)
+            .toggleStyle(.switch)
+            .transition(.opacity)
+            .id(tab)
         }
-        .frame(minWidth: 700, minHeight: 500)
+        .animation(.easeOut(duration: 0.15), value: tab)
+        .frame(minWidth: 640, minHeight: 480)
+    }
+}
+
+/// The tab bar: a quiet capsule track with the selected tab as a solid, inverted pill that slides between tabs
+/// (dusk-feel §2). Keyboard: ⌘1…⌘5.
+private struct PillTabs: View {
+    @Binding var selection: SettingsTab
+    @Namespace private var pill
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(SettingsTab.allCases.enumerated()), id: \.element) { index, t in
+                let on = selection == t
+                Button {
+                    withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.28)) { selection = t }
+                } label: {
+                    Label(t.rawValue, systemImage: t.symbol)
+                        .labelStyle(.titleAndIcon)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(on ? Color(nsColor: .windowBackgroundColor) : Color.secondary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 26)
+                        .background {
+                            if on { Capsule().fill(Color.primary).matchedGeometryEffect(id: "pill", in: pill) }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Color.primary.opacity(0.06)))
     }
 }
 
@@ -213,21 +222,19 @@ private struct NotchPreview: View {
     @State private var shown = true
 
     var body: some View {
-        VStack(spacing: 8) {
-            card.id(s.themeRevision)
-            HStack {
-                Text("Preview").font(.caption).foregroundStyle(.secondary)
-                Spacer()
+        card.id(s.themeRevision)
+            .overlay(alignment: .bottomTrailing) {
                 if replayable {
                     Button("Replay") {
                         shown = false
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { shown = true }
                     }
                     .buttonStyle(.borderless).controlSize(.small)
+                    .offset(y: 22)
                 }
             }
-        }
-        .padding(.vertical, 4)
+            .padding(.vertical, 4)
+            .accessibilityHint("A preview of the open notch with sample content")
     }
 
     private var card: some View {
@@ -288,32 +295,83 @@ private struct NotchPreview: View {
 private struct GeneralPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
-        Form {
+        Group {
             Section {
                 SliderRow(title: "Open after hovering", value: $s.openDelay, range: 0...1, step: 0.05, format: ms)
                 SliderRow(title: "Close after leaving", value: $s.closeDelay, range: 0...1, step: 0.05, format: ms)
+                Toggle("Haptic tick on open", isOn: $s.haptics)
             } header: {
-                ResetHeader(title: "Hover", isDefault: s.hoverIsDefault) { s.resetHover() }
+                ResetHeader(title: "Notch", isDefault: s.hoverIsDefault && s.haptics) { s.resetHover(); s.haptics = true }
+            } footer: {
+                Text("The tick is felt on Force Touch trackpads when the notch opens under your finger. Clicks never buzz.")
+                    .foregroundStyle(.secondary)
             }
             Section {
-                Toggle("Haptics", isOn: $s.haptics)
+                Picker("While music plays", selection: $s.musicActivity) {
+                    ForEach(AppSettings.MusicActivity.allCases) { Text($0.name).tag($0) }
+                }
+                .pickerStyle(.menu)
+                Toggle("Music bars follow the beat", isOn: $s.equalizerWhilePlaying)
+                Toggle("Low battery", isOn: $s.alertLowBattery)
+                Toggle("Internet lost or back", isOn: $s.alertWifi)
+                Toggle("Timer", isOn: $s.timerActivity)
             } header: {
-                ResetHeader(title: "Feel", isDefault: s.haptics) { s.haptics = true }
+                ResetHeader(title: "Live activities", isDefault: s.liveActivitiesAreDefault) { s.resetLiveActivities() }
             } footer: {
-                Text("A light tick when the notch opens under your finger. Clicks never buzz.").foregroundStyle(.secondary)
+                Text("Moments that grow out of the closed notch, then get out of the way.").foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle("Copy new screenshots to the clipboard", isOn: $s.screenshotAutoCopy)
+            } header: {
+                ResetHeader(title: "Screenshots", isDefault: s.screenshotAutoCopy) { s.screenshotAutoCopy = true }
+            } footer: {
+                Text("Works wherever macOS saves your screenshots. The file is kept.").foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Keep the notch open while Settings is open", isOn: $s.previewWhileEditing)
-                Toggle("Show advanced settings", isOn: $s.showAdvanced)
             } header: {
-                ResetHeader(title: "Settings", isDefault: s.previewWhileEditing && !s.showAdvanced) {
-                    s.previewWhileEditing = true; s.showAdvanced = false
-                }
-            } footer: {
-                Text("Advanced settings add theme, typography, colours, surface and motion.").foregroundStyle(.secondary)
+                ResetHeader(title: "Settings", isDefault: s.previewWhileEditing) { s.previewWhileEditing = true }
             }
         }
-        .toggleStyle(.switch)
+    }
+}
+
+/// Everything about the look: a live preview that stays put, themes as swatches, then one switcher for the rest.
+private struct AppearancePane: View {
+    enum Part: String, CaseIterable, Identifiable {
+        case layout = "Layout", type = "Type", colour = "Colour", surface = "Surface", motion = "Motion"
+        var id: String { rawValue }
+    }
+    @ObservedObject var s = AppSettings.shared
+    @State private var part: Part = .layout
+
+    var body: some View {
+        VStack(spacing: 0) {
+            NotchPreview(replayable: part == .motion)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+            Form {
+                ThemePane()
+                Section {
+                    Picker("Customize", selection: $part) {
+                        ForEach(Part.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                }
+                switch part {
+                case .layout: LayoutPane()
+                case .type: TypographyPane()
+                case .colour: ColoursPane()
+                case .surface: SurfacePane()
+                case .motion: MotionPane()
+                }
+            }
+            .formStyle(.grouped)
+        }
     }
 }
 
@@ -322,59 +380,94 @@ private struct ThemePane: View {
     @State private var newName = ""
     @State private var importError: String?
     var body: some View {
-        Form {
-            Section { NotchPreview() }
-            Section("Presets") {
-                ForEach(Theme.presets, id: \.name) { themeRow($0, deletable: false) }
-            }
-            if !s.savedThemes.isEmpty {
-                Section("Your themes") {
-                    ForEach(s.savedThemes, id: \.name) { themeRow($0, deletable: true) }
+        Group {
+            Section {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(Theme.presets + s.savedThemes, id: \.name) { t in
+                            ThemeSwatch(theme: t, selected: s.theme.name == t.name) { s.apply(t) }
+                                .contextMenu {
+                                    if s.savedThemes.contains(where: { $0.name == t.name }) {
+                                        Button("Delete \(t.name)") { s.deleteSavedTheme(named: t.name) }
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
+            } header: {
+                ResetHeader(title: "Theme", isDefault: s.theme == s.themeBase) { s.theme = s.themeBase }
             }
             Section {
-                LabeledContent("Save as") {
-                    HStack(spacing: 12) {
-                        TextField("Theme name", text: $newName, prompt: Text("Theme name")).labelsHidden()
+                LabeledContent("Save current as") {
+                    HStack(spacing: 8) {
+                        TextField("Theme name", text: $newName, prompt: Text("My theme")).labelsHidden()
                         Button("Save") { s.saveCurrentTheme(as: newName); newName = "" }
                     }
                     .frame(width: controlWidth)
                 }
-                LabeledContent("File") {
-                    HStack(spacing: 12) {
+                LabeledContent("Share") {
+                    HStack(spacing: 8) {
                         Button("Import…") { importError = s.importTheme() }
                         Button("Export…") { s.exportTheme() }
                     }
                 }
                 if let importError { Text(importError).foregroundStyle(.red) }
-            } header: {
-                ResetHeader(title: "Current: \(s.theme.name)", isDefault: s.theme == s.themeBase) {
-                    var t = s.themeBase; t.rows = s.theme.rows; s.theme = t
-                }
-            } footer: {
-                Text("Applying a theme changes the look; your rows stay as they are.").foregroundStyle(.secondary)
             }
         }
     }
+}
 
-    private func themeRow(_ t: Theme, deletable: Bool) -> some View {
-        LabeledContent {
-            HStack(spacing: 12) {
-                if s.theme.name == t.name {
-                    Image(systemName: "checkmark").foregroundStyle(.secondary).accessibilityLabel("In use")
-                } else {
-                    Button("Use") { s.apply(t) }
+/// A theme as a tiny open notch in its own colours and face. Click to use it.
+private struct ThemeSwatch: View {
+    let theme: Theme
+    let selected: Bool
+    let action: () -> Void
+    @State private var hover = false
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack(alignment: .topLeading) {
+                    if theme.background == .glass {
+                        RoundedRectangle(cornerRadius: 10 * theme.roundness, style: .continuous)
+                            .fill(LinearGradient(colors: [Color(white: 0.32), Color(white: 0.16)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        RoundedRectangle(cornerRadius: 10 * theme.roundness, style: .continuous)
+                            .fill(Color(hex: theme.backgroundColor).opacity(theme.glassTint))
+                    } else {
+                        RoundedRectangle(cornerRadius: 10 * theme.roundness, style: .continuous)
+                            .fill(Color(hex: theme.backgroundColor))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        RoundedRectangle(cornerRadius: 5 * theme.roundness, style: .continuous)
+                            .fill(Color(hex: theme.ink).opacity(0.08))
+                            .frame(height: 22)
+                            .overlay(alignment: .leading) {
+                                HStack(spacing: 4) {
+                                    Text("Aa").font(fontSample(theme.uiFont, size: 10 * theme.textScale).weight(.semibold))
+                                        .foregroundStyle(Color(hex: theme.ink))
+                                    Capsule().fill(Color(hex: theme.live)).frame(width: 14, height: 3)
+                                }
+                                .padding(.horizontal, 6)
+                            }
+                        Capsule().fill(Color(hex: theme.ink).opacity(theme.ink3Opacity)).frame(width: 40, height: 3)
+                    }
+                    .padding(8)
                 }
-                if deletable { Button("Delete") { s.deleteSavedTheme(named: t.name) } }
+                .frame(width: 104, height: 58)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10 * theme.roundness + 3, style: .continuous)
+                        .strokeBorder(selected ? Color.accentColor : Color.primary.opacity(hover ? 0.25 : 0.0), lineWidth: 2)
+                        .padding(-3)
+                }
+                Text(theme.name).font(.system(size: 11, weight: selected ? .semibold : .regular))
+                    .foregroundStyle(selected ? .primary : .secondary)
             }
-        } label: {
-            HStack(spacing: 8) {
-                Circle().fill(Color(hex: t.accent)).frame(width: 10, height: 10).accessibilityHidden(true)
-                Text(t.name)
-                Text("\(t.uiFont == "System" ? "SF Pro" : t.uiFont) · \(t.background.name) · \(t.density.name)")
-                    .foregroundStyle(.secondary)
-            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
+        .accessibilityLabel("\(theme.name) theme")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
@@ -390,8 +483,7 @@ private func fontSample(_ family: String, size: CGFloat = 13) -> Font {
 private struct TypographyPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
-        Form {
-            Section { NotchPreview() }
+        Group {
             Section {
                 Picker("Interface font", selection: bind(\.uiFont)) {
                     ForEach(InstalledFonts.all, id: \.self) { f in
@@ -432,8 +524,7 @@ private struct TypographyPane: View {
 private struct ColoursPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
-        Form {
-            Section { NotchPreview() }
+        Group {
             Section {
                 ColorPicker("Text colour", selection: colour(\.ink), supportsOpacity: false)
                 SliderRow(title: "Secondary text", value: bind(\.ink2Opacity), range: 0.4...0.9, format: percent)
@@ -456,8 +547,7 @@ private struct ColoursPane: View {
 private struct SurfacePane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
-        Form {
-            Section { NotchPreview() }
+        Group {
             Section {
                 SegmentedRow(title: "Open notch", selection: bind(\.background), options: Theme.Background.allCases) { $0.name }
                 ColorPicker("Colour", selection: colour(\.backgroundColor), supportsOpacity: false)
@@ -482,29 +572,12 @@ private struct SurfacePane: View {
 private struct LayoutPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
-        Form {
-            Section {
-                SliderRow(title: "Width", value: bind(\.width), range: 360...560, step: 10) { "\(Int($0)) pt" }
-                SegmentedRow(title: "Density", selection: bind(\.density), options: Theme.Density.allCases) { $0.name }
-            } header: {
-                ResetHeader(title: "Open notch", isDefault: s.themeIsDefault(.openNotch)) { s.resetTheme(.openNotch) }
-            }
-            Section {
-                Picker("While music plays", selection: $s.musicActivity) {
-                    ForEach(AppSettings.MusicActivity.allCases) { Text($0.name).tag($0) }
-                }
-                .pickerStyle(.menu)
-                Toggle("Music bars follow the beat", isOn: $s.equalizerWhilePlaying)
-                Toggle("Low battery", isOn: $s.alertLowBattery)
-                Toggle("Internet lost or back", isOn: $s.alertWifi)
-                Toggle("Timer", isOn: $s.timerActivity)
-            } header: {
-                ResetHeader(title: "Live activities", isDefault: s.liveActivitiesAreDefault) { s.resetLiveActivities() }
-            } footer: {
-                Text("A running timer shows beside the camera when music isn't playing.").foregroundStyle(.secondary)
-            }
+        Section {
+            SliderRow(title: "Width", value: bind(\.width), range: 360...560, step: 10) { "\(Int($0)) pt" }
+            SegmentedRow(title: "Density", selection: bind(\.density), options: Theme.Density.allCases) { $0.name }
+        } header: {
+            ResetHeader(title: "Open notch", isDefault: s.themeIsDefault(.openNotch)) { s.resetTheme(.openNotch) }
         }
-        .toggleStyle(.switch)
     }
 }
 
@@ -512,7 +585,7 @@ private struct LayoutPane: View {
 private struct WidgetsPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
-        Form {
+        Group {
             Section {
                 List {
                     ForEach(s.widgets) { w in
@@ -544,8 +617,7 @@ private struct WidgetsPane: View {
 private struct MotionPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
-        Form {
-            Section { NotchPreview(replayable: true) }
+        Group {
             Section {
                 Picker("Motion", selection: bind(\.motion)) {
                     ForEach(Theme.MotionPreference.allCases) { Text($0.name).tag($0) }
@@ -563,26 +635,10 @@ private struct MotionPane: View {
     }
 }
 
-private struct ScreenshotsPane: View {
-    @ObservedObject var s = AppSettings.shared
-    var body: some View {
-        Form {
-            Section {
-                Toggle("Copy new screenshots to the clipboard", isOn: $s.screenshotAutoCopy)
-            } header: {
-                ResetHeader(title: "Auto-copy", isDefault: s.screenshotAutoCopy) { s.screenshotAutoCopy = true }
-            } footer: {
-                Text("Works wherever macOS saves your screenshots. The file is kept.").foregroundStyle(.secondary)
-            }
-        }
-        .toggleStyle(.switch)
-    }
-}
-
 private struct AccountsPane: View {
     @ObservedObject var accounts: AIAccounts
     var body: some View {
-        Form {
+        Group {
             Section {
                 ForEach(accounts.clis) { cli in
                     LabeledContent(cli.name) {
@@ -610,7 +666,7 @@ private struct AboutPane: View {
     var body: some View {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
-        Form {
+        Group {
             Section {
                 VStack(spacing: 8) {
                     BelayMarkView(ink: .primary).frame(width: 64, height: 64)

@@ -150,7 +150,8 @@ A calm, competent climbing partner.
 
 ## 11. Settings
 
-- **A real macOS window:** a sidebar of sections and grouped `Form`s with native controls. It follows the system appearance.
+- **A real macOS window:** five tabs in a pill bar (the selected tab is an inverted pill that slides), grouped `Form`s with
+  native controls. It follows the system appearance. Appearance pins a live notch preview above its form.
 - Values, not paragraphs. A hint line only when the label can't carry it.
 - **Changes apply live.** No Save button.
 - **Accounts never collect credentials** (ADR 0004). An AI account is "your installed CLI, signed in its own way". Belay shows found/not found and the version, never tokens.

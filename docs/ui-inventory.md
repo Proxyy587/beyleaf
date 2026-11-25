@@ -61,22 +61,23 @@ Last audit: 2026-11-24.
 
 ### 1.5 Settings window
 
-Essentials are always listed; the Appearance group shows with "Show advanced settings".
+Five tabs in a pill bar (⌘1–⌘5). Nothing is hidden behind an "advanced" switch: Appearance keeps the depth one click
+away instead.
 
-| Pane · section · element | Purpose (user job) | Default | Interactions | States | Status |
+| Tab · section · element | Purpose (user job) | Default | Interactions | States | Status |
 |---|---|---|---|---|---|
-| General · Hover · Open after hovering / Close after leaving | Stop the notch opening when the pointer just passes the menu bar | Instant / Instant | Slider + value | Reset when changed | built |
-| General · Feel · Haptics | Feel the notch open under your finger on a Force Touch trackpad (hover only, never on click) | On | Switch | — | built |
+| Pill tab bar: General · Widgets · Appearance · Agents · About | Find any setting in one click, without a long sidebar | General | Click, ⌘1–⌘5; the selected pill slides | — | built |
+| General · Notch · Open after hovering / Close after leaving / Haptic tick on open | Stop accidental opens; feel the notch open (hover only, never on click) | Instant / Instant / On | Slider + value, switch | Reset when changed | built |
+| General · Live activities · While music plays, Music bars follow the beat, Low battery, Internet lost or back, Timer | Choose which moments may take over the closed notch | Keep showing, on, on, on, on | Menu, switches | Reset | built |
+| General · Screenshots · Copy new screenshots to the clipboard | Have every screenshot on the clipboard, wherever macOS saves it | On | Switch | — | built |
 | General · Settings · Keep the notch open while Settings is open | See changes live | On | Switch | — | built |
-| General · Settings · Show advanced settings | Keep Settings short for most people | Off | Switch | Remembered | built |
-| Layout · Open notch · Width, Density | Fit the panel to your screen and taste | 440 pt, Regular | Slider, segmented | Reset | built |
-| Layout · Rows · Now playing, Last screenshot | Choose and order what the panel shows | Both on | Switch, move up/down | Old themes with retired rows load without them | built |
-| Layout · Live activities · While music plays, Music bars follow the beat, Low battery, Internet lost or back | Choose which moments may take over the closed notch | Keep showing, on, on, on | Menu, switches | Reset | built |
-| Layout · Closed notch · Size, wings | (cut with the wings) | — | — | — | **cut** |
-| Screenshots · Auto-copy | Have every screenshot on the clipboard, wherever macOS saves it | On | Switch | — | built |
-| AI accounts · Command-line agents | Know Belay found your `claude` / `codex` (never credentials, ADR 0004) | — | Check again | Checking, version, Installed, Not found | built |
+| Widgets · list | Choose and order what the open notch shows (ADR 0019) | Now playing, Last screenshot on; Timer off | Drag to reorder, switch | Reset | built |
+| Appearance · live preview | See the change before you close Settings | — | Replay (Motion) | Stays pinned while the form scrolls | built |
+| Appearance · Theme swatches, Save current as, Import/Export | Pick a look in one click; keep or share your own (ADR 0015) | Midnight | Click a swatch; right-click deletes your own | Swatches drawn in each theme's colours, face and surface | built |
+| Appearance · Layout / Type / Colour / Surface / Motion | Fine-tune width, density, fonts, colours, surface, roundness, motion | Theme's values | Segmented switcher, per-section reset | Fonts shown in their own face | built |
+| Agents · Command-line agents | Know Belay found your `claude` / `codex` (never credentials, ADR 0004) | — | Check again | Checking, version, Installed, Not found | built |
 | About | Version, licence and credits | — | — | — | built |
-| Theme / Typography / Colours / Surface and shape / Motion (advanced) | Make it yours (ADR 0015) | Midnight | Live preview, per-section reset | Fonts shown in their own face | built |
+| Show advanced settings | (cut: the tabs keep Settings short without hiding things) | — | — | — | **cut** |
 | Sounds | Hear rope drops and catches when you're away from the screen | Off | Switch, per-sound | Muted while the asking terminal is focused | planned E2 |
 | Voice (push-to-talk key, voice) | Answer agents by voice | — | Shortcut recorder, picker | Mic permission denied | planned C1, C2 |
 

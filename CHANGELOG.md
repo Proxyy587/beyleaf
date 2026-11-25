@@ -65,6 +65,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Fixed:** opening the notch could launch Spotify (or Music). `tell application` starts an app that isn't running, and the position, artwork, seek and controls calls used the last-known player without checking. All player AppleScript now goes through one guard (checked in Swift and inside the script), and a player is forgotten the moment it quits.
 
 ### Changed
+- **Settings revamp:** five tabs in a pill bar (General · Widgets · Appearance · Agents · About, ⌘1–⌘5) instead of an 11-item sidebar. General gathers hover, live activities, screenshots and feel. Appearance pins a live preview, shows themes as swatches drawn in their own colours, and switches between Layout · Type · Colour · Surface · Motion. "Show advanced settings" is gone.
 - **Edit widgets** is now direct manipulation: drag a card to the exact slot you want (it lifts and the others make room), − hides it, + chips bring hidden widgets back. The ↑/↓ list is gone.
 - **Screenshot copied** is now a proper moment: the notch springs wider and drops a line ("Screenshot copied · ⌘V to paste") with the thumbnail and a green check that draws in.
 - **Timer:** now a side option, off by default (turn it on in Edit widgets or Settings → Widgets). Pick any length with − / + or by dragging the number, instead of fixed 5/15/25/50 chips. The countdown no longer rolls its digits, which cut the open panel from ~10% to <1% CPU while a timer runs.
