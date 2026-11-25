@@ -1,6 +1,6 @@
 # Notch widgets: customizable, never empty
 
-**Status:** v1 is being built on `feat/notch-redesign` (2026-11-25). Decision record: ADR 0019. Look and feel: `dusk-feel`, `docs/design.md`.
+**Status:** v1 built (2026-11-25). **Extended by the widget hub** (`docs/widget-hub.md`, ADR 0021): the panel is now pages, each packed by the rule below; `AppSettings.widgets` is replaced by `AppSettings.pages`. Decision record: ADR 0019. Look and feel: `dusk-feel`, `docs/design.md`.
 
 > **In one line:** the open notch is a set of widgets the user picks and orders. The layout packs them so there's
 > never a hole, a placeholder or a dead strip. A widget with nothing real to show takes no space.
@@ -113,4 +113,4 @@ Defaults: Now playing and Last screenshot on, Timer off (it's a convenience, not
 - Closed: timer wing, timer done flash, music outranking the timer.
 
 ## 9. Not now
-- Calendar, clipboard history, file shelf (conversions), weather. Each needs its own purpose-test row first.
+- Clipboard history, file shelf (conversions). Calendar, weather, clock, stopwatch and notes moved to `docs/widget-hub.md`.
