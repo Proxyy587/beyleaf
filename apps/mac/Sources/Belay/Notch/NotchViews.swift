@@ -1048,7 +1048,7 @@ struct EditCard: View {
                     .padding(.trailing, -Tok.buttonInset)
             }
         }
-        .frame(height: 56)
+        .frame(height: 36)
         .card()
         .background(
             RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous).fill(hover ? Tok.ink.opacity(0.03) : .clear)

@@ -9,6 +9,21 @@
 > packed widget grid as before (ADR 0019). Only the page you're looking at does any work, and the closed notch shows
 > only what's live.
 
+> **Update 2026-11-26 (ADR 0023):** the packing rule below (tiles pair, a lone tile is promoted, some widgets always
+> wide) is superseded. Each widget has a user-chosen **span** (small 1, wide 2, full 3 columns) on a grid of 2 columns
+> (3 when expanded); layout flows in the user's order and is never re-packed. Small draws the tile form, wide and full the
+> wide form. **Expand** adds a third column of the same width, so more widgets fit and none grow. Edit mode: drag to
+> reorder, tap to cycle size; also right-click → Size and Settings → Widgets → Size. Cells have a minimum height.
+> Where this page says "tile", "wide", "promoted" or "expanded is 180 pt wider", read it through ADR 0023.
+> A new widget kind declares `defaultSpan` (and optionally `minSpan`) in `WidgetLayout.swift` and designs a `.tile` and
+> a `.wide` form.
+
+## 1.7 Staying open while in use
+The open notch closes only after a genuine leave: the pointer outside the panel plus 20 pt at the sides and 28 pt below
+(the tallest recent height counts for 1.2 s), for at least 0.3 s (longer if Settings says so), and not within 1.5 s of
+a scroll or key press, never while a mouse button is down (drag) or while the Notes field holds unsaved typing.
+Pure rules in `HoverLogic.swift`, self-tested.
+
 ## 0. The owner's ask, and what we changed
 - **Asked:** clock, smart timer, stopwatch, instant notes, chat with agents, music, weather, a calendar hub. "Don't make it
   feel like too much stuff, or let users put whatever they want. Slides you switch between." UI and performance are

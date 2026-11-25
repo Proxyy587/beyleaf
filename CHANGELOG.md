@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+_Docs: widget-hub, ui-inventory, status and open-questions updated for ADR 0023 and the hover rules._
+
 ### Fixed
 - **Page swipe no longer gets stuck:** the page change was a blur-replace over the whole scrolling page on both the leaving and arriving view, with a `matchedGeometryEffect` whose ids exist twice while the old and new page overlap, and the panel height changed outside the page's animation. It is now a plain fade and 24 pt slide, no matched geometry, and the panel height springs in the same transaction. If the end of a swipe never reaches the panel (the pointer drifted onto another window), the page settles after 0.35 s of silence instead of staying displaced and faded. Checked with synthetic phased scroll events and frame bursts of the panel window; a real trackpad is UNVERIFIED.
 - **The notch no longer closes while you use it:** it used to close the instant the pointer was 6 pt outside the panel (Close after leaving defaults to 0), so a swipe, typing in Notes or dragging a card could close it as the panel changed height. Now the area around the panel has 20 pt at the sides and 28 pt below, the tallest recent height keeps counting for 1.2 s, scrolling or a key press holds it open for 1.5 s, a held mouse button (drag) or unsaved typing in Notes holds it open, and a genuine leave waits at least 0.3 s whatever Close after leaving says. Pure rules with self-tests. Debug: `--trace-input`.
