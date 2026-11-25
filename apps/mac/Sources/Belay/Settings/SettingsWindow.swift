@@ -681,6 +681,7 @@ private struct WidgetsPane: View {
                 Text("Swipe with two fingers in the notch to change page. A page with nothing to show is skipped.")
                     .foregroundStyle(.secondary)
             }
+            ClockZonesSection()
             ForEach(s.pages) { page in
                 Section(page.kind.name) {
                     if page.widgets.isEmpty {
@@ -712,6 +713,37 @@ private struct WidgetsPane: View {
             }
         }
         .toggleStyle(.switch)
+    }
+}
+
+/// Clock → other time zones (max 3): search the system's zone list by city, remove, reorder.
+private struct ClockZonesSection: View {
+    @ObservedObject var s = AppSettings.shared
+    @State private var query = ""
+    var body: some View {
+        Section {
+            ForEach(Array(s.clockZones.enumerated()), id: \.element) { i, id in
+                HStack {
+                    Text(ClockLogic.city(id))
+                    Spacer()
+                    Button { s.clockZones.swapAt(i, i - 1) } label: { Image(systemName: "chevron.up") }
+                        .disabled(i == 0).accessibilityLabel("Move \(ClockLogic.city(id)) up")
+                    Button { s.clockZones.remove(at: i) } label: { Image(systemName: "minus.circle") }
+                        .accessibilityLabel("Remove \(ClockLogic.city(id))")
+                }
+                .buttonStyle(.borderless)
+            }
+            if s.clockZones.count < ClockLogic.maxZones {
+                TextField("Add a city", text: $query)
+                ForEach(ClockLogic.search(query).filter { !s.clockZones.contains($0) }.prefix(5), id: \.self) { id in
+                    Button("\(ClockLogic.city(id)) (\(id))") { s.clockZones.append(id); query = "" }.buttonStyle(.borderless)
+                }
+            }
+        } header: {
+            Text("Clock: other time zones")
+        } footer: {
+            Text("Up to three. With none, the clock is a single large time. 24-hour follows the system.").foregroundStyle(.secondary)
+        }
     }
 }
 

@@ -87,8 +87,8 @@ check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the rem
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
 var stepped = Pages.defaults
 Pages.step(.screenshot, by: -1, skippingDisabled: false, in: &stepped)
-check(stepped[0].widgets.map(\.kind) == [.nowPlaying, .screenshot, .timer], "step moves within the page")
-check(!Pages.canStep(.nowPlaying, by: -1, in: Pages.defaults), "step stops at the page's start")
+check(stepped[0].widgets.map(\.kind) == [.clock, .nowPlaying, .screenshot, .timer], "step moves within the page")
+check(!Pages.canStep(.clock, by: -1, in: Pages.defaults), "step stops at the page's start")
 
 // 12. Overflow: a page taller than the room scrolls inside it; otherwise it hugs its rows.
 check(PanelFit.fit(natural: 200, limit: 300) == (200, false), "fit: short page hugs its rows")
@@ -133,6 +133,31 @@ var mt = drag.tracker
 check(mt.momentum(ended: false) && mt.momentum(ended: true) && !mt.momentum(ended: false), "swipe: momentum after a swipe is swallowed, then released")
 var v2 = SwipeTracker(); _ = v2.feed(dx: 0, dy: 20, phase: .began, followsFingers: true) { _ in true }; _ = v2.feed(dx: 0, dy: 0, phase: .ended, followsFingers: true) { _ in true }
 check(!v2.momentum(ended: false), "swipe: momentum after a vertical scroll is left to the scroll view")
+
+// Clock (docs/widget-hub.md §3.1)
+do {
+    let utc = TimeZone(identifier: "UTC")!, lon = TimeZone(identifier: "Europe/London")!, tok = TimeZone(identifier: "Asia/Tokyo")!
+    let ny = TimeZone(identifier: "America/New_York")!, kol = TimeZone(identifier: "Asia/Kolkata")!
+    // 2026-11-25 (Wednesday) 14:32 UTC
+    let t = Date(timeIntervalSince1970: 1_795_617_120)
+    check(ClockLogic.time(t, in: utc, is24: true) == "14:32", "clock: 24-hour time")
+    check(ClockLogic.time(t, in: utc, is24: false) == "2:32 PM", "clock: 12-hour time")
+    check(ClockLogic.dateLine(t, in: utc) == "WED 25 NOV", "clock: date line is WED 25 NOV")
+    check(ClockLogic.offset(t, zone: tok, local: utc) == "+9h", "clock: Tokyo is +9h from UTC")
+    check(ClockLogic.offset(t, zone: kol, local: utc) == "+5:30h", "clock: Kolkata is +5:30h")
+    check(ClockLogic.offset(t, zone: ny, local: utc) == "-5h", "clock: New York is -5h in November")
+    check(ClockLogic.offset(t, zone: lon, local: utc) == "same", "clock: London equals UTC in November")
+    check(ClockLogic.note(t, zone: tok, local: utc) == "+9h", "clock: 23:32 in Tokyo is still today, so the offset shows")
+    let late = t.addingTimeInterval(5.5 * 3600)   // 20:02 UTC = 05:02 next day in Tokyo, 15:02 in New York
+    check(ClockLogic.note(late, zone: tok, local: utc) == "Tomorrow", "clock: a zone on the next day says Tomorrow")
+    let early = t.addingTimeInterval(-12 * 3600)  // 02:32 UTC = 21:32 the day before in New York
+    check(ClockLogic.note(early, zone: ny, local: utc) == "Yesterday", "clock: a zone on the previous day says Yesterday")
+    check(ClockLogic.city("America/Port_of_Spain") == "Port of Spain" && ClockLogic.city("Europe/London") == "London", "clock: city names from identifiers")
+    check(ClockLogic.clean(["Europe/London", "Nope/Zone", "Europe/London", "Asia/Tokyo", "Asia/Kolkata", "America/New_York"]) == ["Europe/London", "Asia/Tokyo", "Asia/Kolkata"], "clock: zones are validated, distinct and capped at 3")
+    check(ClockLogic.search("lond").first == "Europe/London", "clock: search finds London by prefix")
+    check(ClockLogic.search("new york").contains("America/New_York") && ClockLogic.search("").isEmpty, "clock: multi-word search; empty query gives nothing")
+    check(ClockLogic.spoken(t, zones: ["Europe/London"], is24: true).contains("London 14:32."), "clock: spoken label names the zones")
+}
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")
 exit(failures == 0 ? 0 : 1)

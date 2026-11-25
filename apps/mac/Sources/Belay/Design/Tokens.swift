@@ -42,6 +42,8 @@ enum Tok {
     static var status: Font { font(10, mono: true) }
     static var statusTracking: CGFloat { t.statusTracking }
     static var statusUppercase: Bool { t.statusUppercase }
+    /// The clock's time only (docs/widget-hub.md §2): large and glanceable, tabular digits.
+    static var display: Font { font(28, .medium, mono: false).monospacedDigit() }
     static var digits: Font { font(12, .medium, mono: true) }
     static var icon: Font { .system(size: 14 * t.textScale, weight: .medium) }
     static var buttonIcon: Font { .system(size: 15 * t.textScale, weight: .medium) }

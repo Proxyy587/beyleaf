@@ -31,3 +31,5 @@ Check these before building on them. When you resolve one, move it to the "Resol
 
 ## Resolved
 - (none yet)
+
+- **Clock CPU (UNVERIFIED, 2026-11-26):** debug build with the notch open and music playing sampled 13–14% (0.4% after close). Not attributed to the Clock; measure a release build with only the Clock on Now (budget ≤ 0.3% idle).

@@ -83,6 +83,8 @@ struct ExpandedView: View {
     /// A widget's size in its current state, or nil when it has nothing to show (gone).
     private func size(of kind: WidgetKind) -> WidgetSize? {
         switch kind {
+        case .clock:
+            return settings.clockZones.isEmpty ? .tile : .wide
         case .nowPlaying:
             if music.title != nil { return .wide }
             return music.availablePlayer != nil ? .tile : nil
@@ -103,6 +105,7 @@ struct ExpandedView: View {
         // Expanded: a pair of tiles has room for each one's full row layout, side by side.
         let p = settings.expanded ? PlacedWidget(kind: placed.kind, size: .wide) : placed
         switch p.kind {
+        case .clock: ClockCard(zones: settings.clockZones, size: p.size, ticking: shown)
         case .nowPlaying:
             if music.title != nil { NowPlayingCard(music: music) } else { PlayerReadyCard(music: music, size: p.size) }
         case .timer: TimerCard(timer: timer, size: p.size, ticking: shown)
@@ -391,6 +394,53 @@ struct ProgressBar: View {
     private func clock(_ s: Double) -> String { let s = Int(s.rounded()); return String(format: "%d:%02d", s / 60, s % 60) }
 }
 
+// MARK: - Clock
+
+/// Large local time and date; with other zones, up to three more on the right (docs/widget-hub.md §3.1).
+/// Ticks once a minute, on the minute, and only while its page is on screen.
+struct ClockCard: View {
+    let zones: [String]
+    let size: WidgetSize
+    var ticking = true
+
+    var body: some View {
+        Ticking(seconds: 60, active: ticking) { now in
+            let is24 = ClockLogic.system24Hour
+            HStack(alignment: .center, spacing: Tok.s3) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ClockLogic.time(now, in: .current, is24: is24)).font(Tok.display).foregroundStyle(Tok.ink)
+                    StatusLine(text: ClockLogic.dateLine(now), live: false)
+                }
+                if size == .wide, !zones.isEmpty {
+                    Spacer(minLength: Tok.s3)
+                    Grid(alignment: .leading, horizontalSpacing: Tok.s2, verticalSpacing: 2) {
+                        ForEach(zones, id: \.self) { id in
+                            if let z = TimeZone(identifier: id) { zoneRow(id, z, now, is24) }
+                        }
+                    }
+                    .fixedSize()
+                } else {
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(ClockLogic.spoken(now, zones: zones, is24: is24))
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    private func zoneRow(_ id: String, _ z: TimeZone, _ now: Date, _ is24: Bool) -> some View {
+        GridRow {
+            Text(ClockLogic.city(id)).font(Tok.meta).foregroundStyle(Tok.ink2).lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: 110, alignment: .trailing).gridColumnAlignment(.trailing)
+            Text(ClockLogic.time(now, in: z, is24: is24)).font(Tok.digits).foregroundStyle(Tok.ink)
+            Text(ClockLogic.note(now, zone: z)).font(Tok.status).foregroundStyle(Tok.ink3)
+        }
+    }
+}
+
 // MARK: - Timer
 
 struct TimerCard: View {
@@ -534,7 +584,7 @@ struct WidgetEditor: View {
     private var hidden: [WidgetKind] { settings.hiddenWidgets }
 
     /// Each widget's natural size in the editor (its live size: Now playing is wide, the rest are tiles).
-    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying ? .wide : .tile }
+    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying || (k == .clock && !AppSettings.shared.clockZones.isEmpty) ? .wide : .tile }
 
     var body: some View {
         let rows = WidgetLayout.rows(shown.map { ($0, Self.size($0)) })

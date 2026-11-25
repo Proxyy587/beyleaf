@@ -43,7 +43,7 @@ Last audit: 2026-11-25 (widget hub: pages, ADR 0021, `docs/widget-hub.md`). Rows
 | Page dots (in the band, right of the brand slot) | Know there are other pages and jump to one | Open notch, 2+ visible pages | — | Click a dot; ⌘[ ⌘] ⌘1–4 while key; VoiceOver adjustable | Current: ink; others: ink3; one page: hidden | "Page 2 of 3, Notes" | spec (widget-hub §1.4) |
 | Pages: Now · Notes · Day, two-finger swipe | One job per page, so the notch never becomes a wall of widgets; only the visible page works | Open notch | Now, Notes, Day; remembered page | Swipe (follows the fingers, commits past 60 pt), dots, keys | Empty page skipped; one page: no swipe; reduced motion: cross-fade | page name | spec (widget-hub §1) |
 | Clock in the header | (none: the menu bar clock stays visible beside the open panel) | Never | — | — | — | — | **cut** |
-| Clock widget: large time and date, up to 3 other time zones | See the time in other places (team, servers, family) at a glance; the menu bar shows only local time, small (**owner override**, §7) | Now page | On | Right-click menu | Tile without zones, wide with zones; other day: "Tomorrow" | "14:32, Wednesday 25 November. London 19:32" | spec (widget-hub §3.1) |
+| Clock widget: large time and date, up to 3 other time zones | See the time in other places (team, servers, family) at a glance; the menu bar shows only local time, small (**owner override**, §7) | Now page | On | Right-click menu | Tile without zones, wide with zones; other day: "Tomorrow" | "14:32, Wednesday 25 November. London 19:32" | **built** (clock; checked by screenshot 2026-11-26) |
 | Now playing hero: artwork, title, status line | Control the music without switching apps | A track is known | Row on | — | Long title: tail-truncated, one line; paused: ink3 status | title text | built |
 | Progress bar + times | See and set where you are in the track | Track has a duration | With the hero | Hover thickens; click or drag to seek | Unknown duration: hidden | "Playback position" | built |
 | Previous / play-pause / next | Skip or pause from the notch | With the hero | With the hero | Click | Player quit: state clears, nothing relaunches (3a95508) | "Previous track", "Play"/"Pause", "Next track" | built |
@@ -89,7 +89,7 @@ away instead.
 | Widgets · list | (replaced by Pages and per-page sections, ADR 0021) | — | — | — | replaced |
 | Widgets · Pages: drag order, switch per page | Choose which pages exist and their order (ADR 0021) | Now, Notes, Day on | Drag, switch | Reset | spec |
 | Widgets · one section per page: drag, switch, Page menu | Choose what each page shows and move widgets between pages | widget-hub §1.1 | Drag, switch, menu | — | spec |
-| Widgets · Clock · Other time zones | Add the places you care about | None | Search a city, remove, reorder (max 3) | — | spec |
+| Widgets · Clock · Other time zones | Add the places you care about | None | Search a city, remove, reorder (max 3) | — | **built** (clock; checked by screenshot 2026-11-26) |
 | Widgets · Weather · City, Units, attribution | Choose the city (never Location) and units; credit the data source (CC BY 4.0) | No city, Automatic | Search field + results, menu | Searching, no results, offline | spec |
 | Widgets · Notes · Capture shortcut ⌃⌥N, Delete all notes… | Capture from anywhere; clear notes | On | Switch, confirm dialog | "⌃⌥N is taken by another app" | spec |
 | Widgets · Calendar · Access | See and fix the calendar permission | — | Show events / Open Privacy Settings | Not asked, full, write-only, denied | spec (UNVERIFIED live) |
