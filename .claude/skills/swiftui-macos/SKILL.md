@@ -5,7 +5,7 @@ description: How Belay's Mac app (apps/mac) is built, run, tested and verified w
 
 # SwiftUI on macOS, the Belay way
 
-Pair with `belay-design` (what it should look like) and `belay` (commits, ADRs, verify-repo). This skill is how to build it.
+Pair with `belay-design` and `dusk-feel` (what it should look and feel like) and `belay` (commits, ADRs, verify-repo). This skill is how to build it.
 
 ## Build and run (no Xcode)
 - `cd apps/mac && swift build` must end with **0 warnings**. Swift 6 language mode (tools 6.0): strict concurrency is on.
