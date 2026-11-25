@@ -106,6 +106,8 @@ struct ExpandedView: View {
             // Gone, not stale: offline with a forecast older than 3 hours takes no space (docs/widget-hub.md §3.7).
             if settings.weatherCity != nil, weather.failed, let f = weather.forecast, WeatherLogic.isTooStale(f, now: Date()) { return nil }
             return .tile
+        case .system:
+            return .wide
         case .screenshot:
             guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
             return .tile
@@ -129,6 +131,7 @@ struct ExpandedView: View {
         case .notes: NotesCard(notes: notes, expanded: settings.expanded)
         case .calendar: CalendarCard(calendar: calendar, size: p.size, ticking: shown)
         case .weather: WeatherCard(weather: weather, city: settings.weatherCity, fahrenheit: settings.weatherUnits.isFahrenheit(), size: p.size, openSettings: openSettings)
+        case .system: SystemCard(size: p.size, ticking: shown)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
@@ -870,7 +873,7 @@ struct WidgetEditor: View {
     private var hidden: [WidgetKind] { settings.hiddenWidgets }
 
     /// Each widget's natural size in the editor (its live size: Now playing is wide, the rest are tiles).
-    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying || k == .notes || (k == .clock && !AppSettings.shared.clockZones.isEmpty) ? .wide : .tile }
+    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying || k == .notes || (k == .clock && !AppSettings.shared.clockZones.isEmpty) || k == .system ? .wide : .tile }
 
     var body: some View {
         let rows = WidgetLayout.rows(shown.map { ($0, Self.size($0)) })

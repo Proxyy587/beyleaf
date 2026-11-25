@@ -38,7 +38,7 @@
 
 | Page | Widgets (in order) | On by default |
 |---|---|---|
-| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot | Clock, Now playing, Last screenshot (Timer and Stopwatch are side options, as the Timer was in ADR 0019) |
+| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System | Clock, Now playing, Last screenshot (Timer, Stopwatch and System are side options, as the Timer was in ADR 0019) |
 | Notes | Notes | Notes |
 | Day | Calendar, Weather | Both |
 
@@ -260,6 +260,38 @@ accessibility · CPU budget.
 - **UNVERIFIED:** the live permission flow (prompt text, grant, deny, write-only), real events and the Join button: the
   agent can't click the system prompt. Layout is checked with the DEBUG flag `--calendar-demo` (sample events, never
   written anywhere).
+
+### 3.9 System (Now, new, off by default)
+- **Job:** see what the Mac is doing (is the build chewing the CPU, is memory tight, is the disk nearly full, is the
+  network busy, how long is the battery good for) without opening Activity Monitor. "PC specs and utilisation".
+- **Forms:** **wide** always (it is a set of rows; it never pairs).
+  - **Compact:** a title line, then CPU, MEM, NET and (laptops) BAT rows: `LABEL ▬▬▬▭▭ value`, a 4 pt bar in ink
+    (warning past 90% CPU, under memory pressure, under 20% battery unplugged, over 95% disk), the value in mono.
+  - **Expanded** (two columns): left CPU, one tiny bar per core (max 16), MEM; right DISK (free), NET `↓ 1.2 MB/s ↑ 40 KB/s`,
+    BAT with a status line ("Charging · 1 h 20 min to full", "3 h 4 min left", "Plugged in", "Charged"). The title line
+    carries "About this Mac" once: `Apple M4 · 10 cores · 16 GB` (chip from `machdep.cpu.brand_string`).
+- **States:** always live while enabled. No battery (desktop Mac): no BAT row. First sample: CPU shows "–" until the
+  second sample gives a delta. Never gone, never ready.
+- **Closed notch:** nothing.
+- **Data, public APIs only, no permission, no network:**
+  | Figure | Source |
+  |---|---|
+  | CPU, per core | `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`: cumulative ticks, diffed between samples (32-bit, wrap-safe) |
+  | Memory used | `host_statistics64(HOST_VM_INFO64)`: app memory (anonymous minus purgeable) + wired + compressed, as Activity Monitor adds it |
+  | Memory pressure | `sysctl kern.memorystatus_vm_pressure_level` (1 normal, 2 warning, 4 critical) |
+  | Disk | `URLResourceValues` `volumeAvailableCapacityForImportantUsage` and `volumeTotalCapacity` for `/` |
+  | Network | `getifaddrs` byte counters of `en*` interfaces (Wi-Fi, Ethernet; tunnels skipped so traffic isn't doubled), diffed |
+  | Battery | IOKit power sources (`IOPSCopyPowerSourcesInfo`), "Time to Empty" / "Time to Full Charge" |
+- **Sampling:** `SystemStats.start()` when the card is on screen and `ticking`, `stop()` when the page hides or the notch
+  closes. One sample every **2 s** (timer tolerance 0.5 s); disk and battery every 10 s. A hidden or closed notch does
+  no work at all. The snapshot is published only when a value changes, and only this card observes it, so a sample
+  re-renders one card, never the panel.
+- **Pure logic** (`SystemStatsLogic.swift`, self-tested with fixtures): ticks to percentages, wrap-safe deltas,
+  memory arithmetic, byte and rate text, battery and about lines.
+- **A11y:** one element: "CPU 23%. Memory 8.0 GB of 16 GB, pressure high. Disk 200 GB free. Network down 1.2 MB/s, up 0 B/s.
+  Battery 80 percent, Plugged in."
+- **CPU budget:** open on the page ≤ 0.5% (target); closed or on another page 0.0%. **UNVERIFIED** in the app (see
+  `docs/performance.md`). The sampler alone was run outside the app for 5 s: values were plausible against `top`.
 
 ## 4. Customization
 - **What users choose:** which pages exist (on/off), their order, which widgets are on each page, their order, and which

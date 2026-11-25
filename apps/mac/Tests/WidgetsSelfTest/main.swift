@@ -88,7 +88,7 @@ check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the rem
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
 var stepped = Pages.defaults
 Pages.step(.screenshot, by: -1, skippingDisabled: false, in: &stepped)
-check(stepped[0].widgets.map(\.kind) == [.clock, .nowPlaying, .timer, .screenshot, .stopwatch], "step moves within the page")
+check(stepped[0].widgets.map(\.kind) == [.clock, .nowPlaying, .timer, .screenshot, .stopwatch, .system], "step moves within the page")
 check(!Pages.canStep(.clock, by: -1, in: Pages.defaults), "step stops at the page's start")
 
 // 12. Overflow: a page taller than the room scrolls inside it; otherwise it hugs its rows.
@@ -304,6 +304,43 @@ do {
     check(CalendarLogic.nextWake([ev("y", "y", start: 30), ev("z", "z", start: 10)], now: t0) == t0.addingTimeInterval(5 * 60), "calendar: one wake-up, at the next window opening")
     check(CalendarLogic.nextWake([ev("y", "y", start: 2)], now: t0) == t0.addingTimeInterval(3 * 60), "calendar: inside a window the next wake is its close")
     check(CalendarLogic.nextWake([past, day], now: t0) == nil, "calendar: nothing to wake for")
+}
+
+// System widget logic (docs/widget-hub.md §3.9): ticks to percentages, counters to rates, bytes to text.
+MainActor.assumeIsolated {
+    let a = CPUTicks(user: 100, system: 50, idle: 850, nice: 0)
+    let b = CPUTicks(user: 130, system: 60, idle: 910, nice: 0)   // +40 busy, +60 idle
+    check(abs(SystemLogic.coreUsage(a, b) - 0.4) < 1e-9, "system: core usage is busy over elapsed ticks")
+    check(SystemLogic.coreUsage(a, a) == 0, "system: no elapsed ticks reads 0, never NaN")
+    let wrapped = CPUTicks(user: 10, system: 0, idle: 20, nice: 0)   // 32-bit counters wrapped past UInt32.max
+    check(abs(SystemLogic.coreUsage(CPUTicks(user: UInt32.max - 9, system: 0, idle: UInt32.max - 79, nice: 0), wrapped) - 20.0 / 120.0) < 1e-9, "system: CPU counters wrap safely")
+    let two = SystemLogic.cpuUsage(prev: [a, a], cur: [b, CPUTicks(user: 100, system: 50, idle: 950, nice: 0)])
+    check(two != nil && abs(two!.overall - 0.2) < 1e-9 && two!.perCore.count == 2 && two!.perCore[1] == 0, "system: overall is the ticks-weighted mean of the cores")
+    check(SystemLogic.cpuUsage(prev: [], cur: [a]) == nil && SystemLogic.cpuUsage(prev: [a], cur: [a, a]) == nil, "system: first sample or a core-count change has no usage yet")
+    check(SystemLogic.coreUsage(CPUTicks(user: 0, system: 0, idle: 0, nice: 0), CPUTicks(user: 0, system: 0, idle: 50, nice: 50)) == 0.5, "system: nice time counts as busy")
+
+    let mem = MemoryPages(internalPages: 1000, purgeable: 200, wired: 300, compressed: 100, pageSize: 16384)
+    check(SystemLogic.memoryUsed(mem) == (800 + 300 + 100) * 16384, "system: memory used = app + wired + compressed")
+    check(SystemLogic.memoryUsed(MemoryPages(internalPages: 5, purgeable: 9, wired: 1, compressed: 1, pageSize: 4096)) == 2 * 4096, "system: purgeable above internal never underflows")
+    check(SystemLogic.pressure(fromSysctl: 1) == .normal && SystemLogic.pressure(fromSysctl: 2) == .warning && SystemLogic.pressure(fromSysctl: 4) == .critical && SystemLogic.pressure(fromSysctl: 9) == .normal, "system: pressure levels, unknown reads normal")
+
+    check(SystemLogic.rate(prev: 1_000, cur: 3_000, seconds: 2) == 1_000, "system: network rate is bytes over seconds")
+    check(SystemLogic.rate(prev: UInt32.max - 99, cur: 100, seconds: 1) == 200, "system: network counter wraps safely")
+    check(SystemLogic.rate(prev: 0, cur: 10, seconds: 0) == 0, "system: zero elapsed time gives 0")
+
+    check(SystemLogic.bytes(0) == "0 B" && SystemLogic.bytes(512) == "512 B" && SystemLogic.bytes(1_200) == "1.2 KB", "system: bytes, small")
+    check(SystemLogic.bytes(12_400_000) == "12 MB" && SystemLogic.bytes(1_240_000_000) == "1.2 GB", "system: bytes, one decimal under 10 only")
+    check(SystemLogic.bytes(999_950) == "1.0 MB" && SystemLogic.bytes(-5) == "0 B", "system: bytes carries 1000 up a unit, clamps negatives")
+    check(SystemLogic.rateText(1_200_000) == "1.2 MB/s" && SystemLogic.rateText(0) == "0 B/s", "system: rate text")
+    check(SystemLogic.percent(0.234) == "23%" && SystemLogic.percent(1.4) == "100%" && SystemLogic.percent(-1) == "0%", "system: percent clamps")
+    check(SystemLogic.duration(minutes: 45) == "45 min" && SystemLogic.duration(minutes: 60) == "1 h" && SystemLogic.duration(minutes: 184) == "3 h 4 min", "system: durations")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 50, charging: true, pluggedIn: true, minutes: 80)) == "Charging · 1 h 20 min to full", "system: charging with an estimate")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 50, charging: true, pluggedIn: true, minutes: nil)) == "Charging", "system: charging while calculating")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 100, charging: false, pluggedIn: true, minutes: nil)) == "Charged" && SystemLogic.batteryStatus(BatteryInfo(percent: 80, charging: false, pluggedIn: true, minutes: nil)) == "Plugged in", "system: plugged in")
+    check(SystemLogic.batteryStatus(BatteryInfo(percent: 40, charging: false, pluggedIn: false, minutes: 184)) == "3 h 4 min left" && SystemLogic.batteryStatus(BatteryInfo(percent: 40, charging: false, pluggedIn: false, minutes: nil)) == "On battery", "system: on battery")
+    check(SystemLogic.about(chip: "Apple M2", cores: 8, memoryBytes: 17_179_869_184) == "Apple M2 · 8 cores · 16 GB" && SystemLogic.about(chip: "", cores: 0, memoryBytes: 0) == "", "system: about line, with gaps")
+    check(SystemLogic.spoken(cpu: 0.23, memUsed: 8_000_000_000, memTotal: 16_000_000_000, pressure: .warning, diskFree: 200_000_000_000, down: 1_200_000, up: 0, battery: nil)
+          == "CPU 23%. Memory 8.0 GB of 16 GB, pressure high. Disk 200 GB free. Network down 1.2 MB/s, up 0 B/s.", "system: spoken label")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")
