@@ -136,6 +136,8 @@ final class NotchController {
         let a = CommandLine.arguments
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
         if a.contains("--edit-widgets") { model.editing = true }
+        // `--beat-demo`: show the music wing with synthetic bars (no audio) to measure drawing cost.
+        if a.contains("--beat-demo") { probing = true; beat.startDemo(); activities.flash(.nowPlaying, for: 3600) }
         // `--flash-copied`: play the "screenshot copied" moment (held 20 s) without taking a screenshot.
         if a.contains("--flash-copied") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.activities.flash(.copied, for: 20) } }
         #endif

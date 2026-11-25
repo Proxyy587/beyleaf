@@ -87,7 +87,7 @@ enum Tok {
     /// Press down quickly, release with a hair of overshoot (dusk-feel §4). Reduced motion: no scale at all.
     static var pressDown: Animation { .easeOut(duration: 0.12 / t.speed) }
     static var pressUp: Animation { .timingCurve(0.28, 1.4, 0.36, 1, duration: 0.2 / t.speed) }
-    static var blur: CGFloat { reduceMotion ? 0 : CGFloat(t.blur) }
+    static var blur: CGFloat { reduceMotion || !AppSettings.shared.performance.blur ? 0 : CGFloat(t.blur) }
 
     // MARK: Feel
     /// Haptics mark *hover* moments only (the notch opening under your finger). Never on a click: the trackpad's own

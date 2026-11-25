@@ -1,3 +1,4 @@
+import Accelerate
 import AudioToolbox
 import CoreAudio
 import Foundation
@@ -17,8 +18,8 @@ final class MusicBeat: ObservableObject {
     enum State: Equatable { case off, listening, unavailable }
 
     static let bands = BeatAnalyzer.edges.count - 1
-    @Published private(set) var levels: [Float] = Array(repeating: 0, count: bands)
-    @Published private(set) var pulse: Float = 0
+    /// Levels go straight from the audio queue to the bars' layers (BeatBarsLayer); SwiftUI only sees `state`.
+    let output = BeatLevels(bands: bands)
     @Published private(set) var state: State = .off
 
     /// A `TapEngine` (typed `AnyObject` because the class needs macOS 14.2 and the app supports 14.0).
@@ -34,9 +35,7 @@ final class MusicBeat: ObservableObject {
         guard let bundleID, state != .unavailable else { return }
         guard #available(macOS 14.2, *) else { state = .unavailable; return }
         do {
-            let engine = try TapEngine(bundlePrefix: bundleID) { [weak self] levels, pulse in
-                DispatchQueue.main.async { MainActor.assumeIsolated { self?.publish(levels, pulse) } }
-            } onSilence: { [weak self] in
+            let engine = try TapEngine(bundlePrefix: bundleID, output: output) { [weak self] in
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.giveUp("only silence for 3 s (permission denied?)") } }
             }
             self.engine = engine
@@ -69,8 +68,7 @@ final class MusicBeat: ObservableObject {
         }
         if state == .listening { state = .off }
         bundleID = nil
-        if levels.contains(where: { $0 > 0 }) { levels = Array(repeating: 0, count: Self.bands) }
-        pulse = 0
+        output.reset()
     }
 
     private func giveUp(_ why: String) {
@@ -81,11 +79,25 @@ final class MusicBeat: ObservableObject {
         log.notice("tap unavailable: \(why, privacy: .public)")
     }
 
-    private func publish(_ levels: [Float], _ pulse: Float) {
-        guard engine != nil else { return }
-        self.levels = levels
-        self.pulse = pulse
+    #if DEBUG
+    /// `--beat-demo`: synthetic levels at the tap's publish rate (30/s), no audio at all, to measure drawing cost.
+    private var demoTimer: Timer?
+    func startDemo() {
+        state = .listening
+        let start = Date()
+        let t = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let x = Float(Date().timeIntervalSince(start))
+                self.output.write((0..<Self.bands).map { b in 0.5 + 0.45 * sin(x * (3 + Float(b) * 1.7) + Float(b)) },
+                                  pulse: max(0, 1 - (x.truncatingRemainder(dividingBy: 0.5)) * 8))
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        demoTimer = t
     }
+    #endif
+
 }
 
 /// The Core Audio side: tap → private aggregate device → IOProc → analyser. Lives on its own serial queue.
@@ -105,7 +117,7 @@ private final class TapEngine: @unchecked Sendable {
     private var gaveUp = false
     private var callbacks = 0
 
-    init(bundlePrefix: String, onFrame: @escaping @Sendable ([Float], Float) -> Void, onSilence: @escaping @Sendable () -> Void) throws {
+    init(bundlePrefix: String, output: BeatLevels, onSilence: @escaping @Sendable () -> Void) throws {
         let processes = Self.processObjects(bundlePrefix: bundlePrefix)
         guard !processes.isEmpty else { throw Failure(description: "no audio process for \(bundlePrefix)") }
 
@@ -142,7 +154,7 @@ private final class TapEngine: @unchecked Sendable {
         guard err == noErr else { teardown(); throw Failure(description: "create aggregate: \(err)") }
 
         err = AudioDeviceCreateIOProcIDWithBlock(&procID, deviceID, queue) { [weak self] _, input, _, _, _ in
-            self?.consume(input, channels: channels, interleaved: interleaved, onFrame: onFrame, onSilence: onSilence)
+            self?.consume(input, channels: channels, interleaved: interleaved, output: output, onSilence: onSilence)
         }
         guard err == noErr, let procID else { teardown(); throw Failure(description: "io proc: \(err)") }
         err = AudioDeviceStart(deviceID, procID)
@@ -169,7 +181,7 @@ private final class TapEngine: @unchecked Sendable {
 
     /// On `queue`: mix to mono, analyse, publish at most 30 times a second. Samples are never kept.
     private func consume(_ input: UnsafePointer<AudioBufferList>, channels: Int, interleaved: Bool,
-                         onFrame: @Sendable ([Float], Float) -> Void, onSilence: @Sendable () -> Void) {
+                         output: BeatLevels, onSilence: @Sendable () -> Void) {
         callbacks += 1
         let list = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input))
         guard let first = list.first, let base = first.mData else { return }
@@ -179,11 +191,17 @@ private final class TapEngine: @unchecked Sendable {
             let ch = interleaved ? channels : 1
             frameCount = min(mono.count, Int(first.mDataByteSize) / (4 * ch))
             let p = base.assumingMemoryBound(to: Float.self)
-            for f in 0..<frameCount {
-                var sum: Float = 0
-                for c in 0..<ch { sum += p[f * ch + c] }
-                mono[f] = sum / Float(ch)
-                if mono[f] != 0 { allZero = false }
+            mono.withUnsafeMutableBufferPointer { m in
+                let out = m.baseAddress!
+                // Average the interleaved channels with strided Accelerate calls instead of a scalar loop per sample:
+                // out = ch0 / n, then out += chN / n for each further channel.
+                var k = 1 / Float(ch)
+                let n = vDSP_Length(frameCount)
+                vDSP_vsmul(p, vDSP_Stride(ch), &k, out, 1, n)
+                for c in 1..<max(1, ch) { vDSP_vsma(p + c, vDSP_Stride(ch), &k, out, 1, out, 1, n) }
+                var peak: Float = 0
+                vDSP_maxmgv(out, 1, &peak, vDSP_Length(frameCount))
+                allZero = peak == 0
             }
         } else {
             frameCount = min(mono.count, Int(first.mDataByteSize) / 4)
@@ -204,7 +222,7 @@ private final class TapEngine: @unchecked Sendable {
         let now = DispatchTime.now().uptimeNanoseconds
         if now - lastPublish >= 33_000_000 {
             lastPublish = now
-            onFrame(analyzer.levels, analyzer.pulse)
+            output.write(analyzer.levels, pulse: analyzer.pulse)
         }
     }
 

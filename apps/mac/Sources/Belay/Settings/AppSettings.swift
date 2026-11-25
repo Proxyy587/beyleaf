@@ -38,6 +38,10 @@ final class AppSettings: ObservableObject {
     @Published var widgets: [WidgetSetting] { didSet { if widgets != oldValue { saveWidgets() } } }
     /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
     @Published var timerActivity: Bool { didSet { save(timerActivity, "timerActivity") } }
+    /// How hard Belay may work to look smooth (Settings → General → Performance).
+    @Published var performanceMode: PerformanceMode { didSet { save(performanceMode.rawValue, "performanceMode") } }
+    /// Bumped when macOS Low Power Mode changes, so `performance` re-resolves for Auto.
+    @Published private(set) var powerStateRevision = 0
     /// Settings shows the essentials by default; theme, type, colour, surface and motion sit behind this.
     @Published var showAdvanced: Bool { didSet { save(showAdvanced, "showAdvancedSettings") } }
 
@@ -54,6 +58,26 @@ final class AppSettings: ObservableObject {
     }
     var liveActivitiesAreDefault: Bool {
         musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi && timerActivity
+    }
+
+    // MARK: Performance
+    enum PerformanceMode: String, CaseIterable, Identifiable {
+        case auto, efficient, smooth
+        var id: String { rawValue }
+        var name: String { switch self { case .auto: "Automatic"; case .efficient: "Save energy"; case .smooth: "Smoothest" } }
+    }
+    /// What the current mode allows right now. Auto saves energy in Low Power Mode and is smooth otherwise.
+    struct Performance: Equatable {
+        /// Cap for continuous animation (music bars). The display's own maximum (120 on ProMotion) when smooth.
+        var maxFPS: Float
+        /// Blur on reveals and text swaps (an offscreen pass per frame while animating).
+        var blur: Bool
+    }
+    var performance: Performance {
+        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let saving = performanceMode == .efficient || (performanceMode == .auto && lowPower)
+        let screenMax = Float(NSScreen.screens.map(\.maximumFramesPerSecond).max() ?? 60)
+        return saving ? Performance(maxFPS: 30, blur: false) : Performance(maxFPS: max(60, screenMax), blur: true)
     }
 
     // MARK: Widgets
@@ -113,11 +137,21 @@ final class AppSettings: ObservableObject {
         closeDelay = d.object(forKey: "closeDelay") as? Double ?? 0
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
         showAdvanced = d.object(forKey: "showAdvancedSettings") as? Bool ?? false
+        performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
         widgets = d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme)
     }
 
     /// One-time move of the old theme rows (order and visibility) into widgets; new kinds are appended.
+    /// Re-resolve Auto when Low Power Mode turns on or off.
+    private var powerObserver: NSObjectProtocol?
+    func observePowerState() {
+        guard powerObserver == nil else { return }
+        powerObserver = NotificationCenter.default.addObserver(forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.powerStateRevision &+= 1 }
+        }
+    }
+
     private static func migratedWidgets(from theme: Theme) -> [WidgetSetting] {
         let old = theme.rows.compactMap { r in WidgetKind(rawValue: r.kind.rawValue).map { WidgetSetting(kind: $0, enabled: r.visible) } }
         return WidgetSetting.normalized(old)

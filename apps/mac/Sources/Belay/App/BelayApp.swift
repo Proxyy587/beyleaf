@@ -18,6 +18,7 @@ final class BelayApp: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppSettings.shared.observePowerState()
         let controller = NotchController()
         controller.onOpenSettings = { [weak self] in self?.settingsWindow.show() }
         // Live preview: keep the notch open while Settings is open.

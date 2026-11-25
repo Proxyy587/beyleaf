@@ -65,6 +65,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Fixed:** opening the notch could launch Spotify (or Music). `tell application` starts an app that isn't running, and the position, artwork, seek and controls calls used the last-known player without checking. All player AppleScript now goes through one guard (checked in Swift and inside the script), and a player is forgotten the moment it quits.
 
 ### Changed
+- **Settings → General → Performance:** Automatic (saves energy in Low Power Mode), Save energy (30 fps, no blur) or Smoothest (display rate, 120 Hz on ProMotion), with a live readout of Belay's own CPU and memory.
+- **Music bars, ~8× cheaper:** drawn by Core Animation layers on a display link instead of 30 SwiftUI updates a second. Levels pass from the audio queue through a lock, not `@Published`; the link parks itself when the bars settle. The stereo mixdown uses Accelerate. Measured with synthetic levels (`--beat-demo`): 11–20% → ~1.9% CPU.
 - **Docs:** `docs/notch-comparison.md` compares Belay with the Dynamic Island (Apple HIG) and Boring Notch (README); UI inventory updated for widgets.
 - **Settings revamp:** five tabs in a pill bar (General · Widgets · Appearance · Agents · About, ⌘1–⌘5) instead of an 11-item sidebar. General gathers hover, live activities, screenshots and feel. Appearance pins a live preview, shows themes as swatches drawn in their own colours, and switches between Layout · Type · Colour · Surface · Motion. "Show advanced settings" is gone.
 - **Edit widgets** is now direct manipulation: drag a card to the exact slot you want (it lifts and the others make room), − hides it, + chips bring hidden widgets back. The ↑/↓ list is gone.
