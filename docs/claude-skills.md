@@ -10,6 +10,7 @@ verbatim with their licence and a `SOURCE.md` (upstream, commit, file hashes, wh
 | `swiftui-macos` | **New.** Build, run, test and verify `apps/mac` with the CLT only; the SwiftUI/AppKit/Core Audio patterns this app uses (tokens, optical alignment, Settings components, Swift 6 concurrency, lifecycles, screenshots, CPU, logs) | Ours (MIT) |
 | Hallmark (plugin `hallmark@hallmark`, `/hallmark:hallmark`) | **New, replaces `frontend-design`.** Anti-slop design for **new web pages** (`apps/web`, landing page, share cards): a no-waiver floor, slop gates, `sloplint`, plus `audit` and `redesign` when named. Web only, it doesn't know SwiftUI. `docs/design.md` wins on conflicts (mono uppercase status lines, `A · B` meta) | Nutlope/hallmark v2.0.0 @ 04977e1, MIT. Installed at project scope via `.claude/settings.json`, so collaborators get it too |
 | `verification-before-completion` | **New.** No "done" without fresh evidence: build output, test output, a screenshot looked at | obra/superpowers @ 22f0b46, MIT |
+| `improve-codebase-architecture` + `codebase-design` | **New.** Run on purpose only (`/improve-codebase-architecture`): finds shallow modules, proposes deeper ones as an HTML report, then asks before changing anything. Use before big steps (`belayd`, Crew). `codebase-design` supplies its vocabulary. Three small edits for our paths and missing helpers, listed in `SOURCE.md` | mattpocock/skills @ d653911, MIT |
 
 Built into Claude Code already, so not copied: `/code-review` (correctness review), `/simplify` (cleanups),
 `/security-review`, `claude-api`, and `skill-creator` (via the anthropic-skills plugin).
@@ -30,4 +31,5 @@ Built into Claude Code already, so not copied: `/code-review` (correctness revie
 - Unvetted community collections: not read in full, so not adopted.
 
 **Rule for adding one:** permissive licence (MIT, Apache-2.0, BSD), read the whole `SKILL.md`, no scripts unless each
-is reviewed, copy verbatim with `LICENSE` and `SOURCE.md`, add a row here.
+is reviewed, copy verbatim with `LICENSE` and `SOURCE.md` (any Belay edit is listed there), add a row here. Keep the set small:
+every skill's description is loaded into every session.
