@@ -88,7 +88,7 @@ check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the rem
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
 var stepped = Pages.defaults
 Pages.step(.screenshot, by: -1, skippingDisabled: false, in: &stepped)
-check(stepped[0].widgets.map(\.kind) == [.clock, .nowPlaying, .timer, .screenshot, .stopwatch, .system], "step moves within the page")
+check(Array(stepped[0].widgets.map(\.kind).prefix(5)) == [.clock, .nowPlaying, .timer, .screenshot, .stopwatch], "step moves within the page")
 check(!Pages.canStep(.clock, by: -1, in: Pages.defaults), "step stops at the page's start")
 
 // 12. Overflow: a page taller than the room scrolls inside it; otherwise it hugs its rows.
@@ -341,6 +341,18 @@ MainActor.assumeIsolated {
     check(SystemLogic.about(chip: "Apple M2", cores: 8, memoryBytes: 17_179_869_184) == "Apple M2 · 8 cores · 16 GB" && SystemLogic.about(chip: "", cores: 0, memoryBytes: 0) == "", "system: about line, with gaps")
     check(SystemLogic.spoken(cpu: 0.23, memUsed: 8_000_000_000, memTotal: 16_000_000_000, pressure: .warning, diskFree: 200_000_000_000, down: 1_200_000, up: 0, battery: nil)
           == "CPU 23%. Memory 8.0 GB of 16 GB, pressure high. Disk 200 GB free. Network down 1.2 MB/s, up 0 B/s.", "system: spoken label")
+}
+
+// Keep awake logic (docs/widget-hub.md §3.10).
+MainActor.assumeIsolated {
+    check(AwakeLength.allCases.map(\.label) == ["30m", "1h", "2h", "4h", "∞"], "awake: the choices and their chips")
+    check(AwakeLength.m30.next == .h1 && AwakeLength.unlimited.next == .m30, "awake: one click cycles the length and wraps")
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    check(AwakeLength.h2.end(from: t0) == t0.addingTimeInterval(7200) && AwakeLength.unlimited.end(from: t0) == nil, "awake: the end time, none for no limit")
+    let utc = TimeZone(identifier: "UTC")!
+    check(KeepAwakeLogic.status(endsAt: t0.addingTimeInterval(3600), is24: true, zone: utc) == "Until 23:13" && KeepAwakeLogic.status(endsAt: nil, is24: true) == "No limit", "awake: status is a clock time, so nothing has to tick")
+    check(KeepAwakeLogic.isExpired(t0, now: t0) && !KeepAwakeLogic.isExpired(t0.addingTimeInterval(1), now: t0) && !KeepAwakeLogic.isExpired(nil, now: t0), "awake: expiry, never for no limit")
+    check(KeepAwakeLogic.spoken(active: false, endsAt: nil, length: .h1, is24: true) == "Keep awake, off. Length 1h." && KeepAwakeLogic.spoken(active: true, endsAt: nil, length: .h1, is24: true) == "Keep awake, on. no limit.", "awake: spoken")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")

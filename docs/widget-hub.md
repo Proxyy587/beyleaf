@@ -38,7 +38,7 @@
 
 | Page | Widgets (in order) | On by default |
 |---|---|---|
-| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System | Clock, Now playing, Last screenshot (Timer, Stopwatch and System are side options, as the Timer was in ADR 0019) |
+| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System, Keep awake | Clock, Now playing, Last screenshot (Timer, Stopwatch, System and Keep awake are side options, as the Timer was in ADR 0019) |
 | Notes | Notes | Notes |
 | Day | Calendar, Weather | Both |
 
@@ -292,6 +292,21 @@ accessibility · CPU budget.
   Battery 80 percent, Plugged in."
 - **CPU budget:** open on the page ≤ 0.5% (target); closed or on another page 0.0%. **UNVERIFIED** in the app (see
   `docs/performance.md`). The sampler alone was run outside the app for 5 s: values were plausible against `top`.
+
+### 3.10 Keep awake (Now, new, off by default)
+- **Job:** stop the Mac and its display from idle-sleeping while a long agent run, build or download finishes, with one
+  click and an automatic stop, so you never leave it on by accident. It is `caffeinate -d` without the terminal.
+- **Forms:** tile or wide (the shared widget card). Ready: [cup] Keep awake, status `OFF`, a length chip (`1h`, click to
+  cycle `30m 1h 2h 4h ∞`) and ▶. On: filled cup in live green, status `UNTIL 15:40` (or `NO LIMIT`), ■ to stop.
+- **How:** one public IOKit power assertion, `IOPMAssertionCreateWithName("PreventUserIdleDisplaySleep")`, created on
+  the click and released on stop, at the end of the length, or when Belay quits (the system drops a process's
+  assertions with it). It shows in `pmset -g assertions` as "Belay: keep awake (user started it)". **No permission.**
+  Never started automatically, never started by anything but a click; a Mac in a closed lid or on a low battery still
+  sleeps by system policy.
+- **Closed notch:** nothing. (Considered: a cup glyph in the wing; cut, since the menu bar already shows the assertion.)
+- **Cost:** nothing ticks. The end time is a clock time, and one `DispatchWorkItem` fires once at the deadline.
+- **Data:** in memory; the chosen length is remembered for the session only.
+- **A11y:** "Keep awake, off. Length 1h." / "Keep awake, on. until 15:40."; buttons "Keep awake for 1h", "Length 1h, change", "Stop keeping awake".
 
 ## 4. Customization
 - **What users choose:** which pages exist (on/off), their order, which widgets are on each page, their order, and which
