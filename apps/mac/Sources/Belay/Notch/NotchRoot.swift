@@ -39,6 +39,15 @@ struct NotchRoot: View {
                 .blur(radius: open || !model.wingsVisible ? Tok.blur : 0)
                 .animation(Tok.reveal, value: open)
 
+                // A drop activity's sentence, under the camera (screenshot copied).
+                if let a = activities.current, a.dropHeight > 0, !open {
+                    ActivityDrop(activity: a)
+                        .frame(height: a.dropHeight)
+                        .padding(.top, notchH - Tok.s1)
+                        .id(settings.themeRevision)
+                        .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+                }
+
                 if headerInBand {
                     NotchBand(model: model, openSettings: openSettings)
                         .frame(width: model.openWidth - 2 * (Tok.rOpenEar + Tok.s2), height: notchH)
@@ -79,7 +88,8 @@ struct NotchRoot: View {
     @ViewBuilder private func background(open: Bool) -> some View {
         if model.metrics.hasNotch {
             // Closed: no outward flare, so the shape sits exactly on the hardware notch; bottom corners match it.
-            surface(open: open, shape: NotchShape(earRadius: open ? Tok.rOpenEar : 0, bottomRadius: open ? Tok.rOpenBottom : 9))
+            surface(open: open, shape: NotchShape(earRadius: open ? Tok.rOpenEar : 0,
+                                                  bottomRadius: open ? Tok.rOpenBottom : model.dropHeight > 0 ? 16 : 9))
         } else {
             surface(open: open, shape: RoundedRectangle(cornerRadius: open ? Tok.rOpenBottom : 13, style: .continuous))
         }

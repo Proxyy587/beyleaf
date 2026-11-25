@@ -26,7 +26,7 @@ Last audit: 2026-11-24.
 |---|---|---|---|---|---|---|---|
 | Music: artwork (left) | Know what's playing without switching apps | While music plays | On ("Keep showing"; "Show briefly", "Don't show") | Hover opens the hero | No artwork: note glyph on a raised plate | combined with the bars | built |
 | Music: beat bars (right) | Confirm the music is really playing, and feel the beat | While music plays and the wing shows | On ("Music bars follow the beat") | none | Paused: pause glyph. Capture denied, no buffers or reduced motion: still waveform glyph | "Playing" | built (live bars UNVERIFIED, ADR 0017) |
-| Screenshot copied: thumbnail + check | Trust that the screenshot is on the clipboard without looking | 2 s after each auto-copy | On with auto-copy | none | Thumbnail unreadable: camera glyph | "Screenshot copied" | built |
+| Screenshot copied: thumbnail, drawn-in check, "Screenshot copied · ⌘V to paste" under the camera | Know the screenshot is on the clipboard, and how to use it, without looking away | 2.6 s after each auto-copy | On with auto-copy | none | Thumbnail unreadable: camera glyph. Reduced motion: no draw-in or bounce | "Screenshot copied" | built |
 | Low battery: icon + % | Plug in before a long agent run dies with the laptop | Crossing 20% and 10% on battery | On | none | 10% and under: danger colour; desktop Macs: never | "Battery 18%" | built |
 | Internet lost / back | Know why an agent or download stalled | When connectivity changes | On ("Internet lost or back") | none | Online (live green), offline (warning) | "Online" / "Offline" | built |
 | Charging: bolt + % | (none: macOS chimes and shows it in the menu bar) | Never | — | — | — | — | **cut** |
