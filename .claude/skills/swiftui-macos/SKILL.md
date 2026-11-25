@@ -22,7 +22,8 @@ Pair with `belay-design` and `dusk-feel` (what it should look and feel like) and
 - Notch: `screencapture -x -R x,y,w,h out.png` (display 1920×1243 pt; notch x 856–1064, 37 pt tall). Look at the PNG.
 - Settings may be covered by other windows: capture it by window id with `screencapture -x -o -l <id>`; find the id
   with `CGWindowListCopyWindowInfo` filtered on owner "Belay" and width 760.
-- CPU: `top -l 8 -s 1 -pid $(pgrep -x Belay) -stats cpu`. Budget < 1% closed/idle.
+- CPU: `P=$(pgrep -x Belay); top -l 9 -s 1 -pid $P -stats pid,cpu | awk -v p=$P '$1==p {print $2}'` (drop the first
+  sample). Budgets per state are in `docs/performance.md` (closed idle 0.0%).
 - Logs: `/usr/bin/log show --last 2m --predicate 'subsystem == "app.belay.mac"' --info` (zsh has a `log` builtin;
   use the full path). Log with `os.Logger`, `.notice` for lifecycle events, never user content.
 - Never start playback, change volume or the clipboard, or click system permission prompts.
@@ -49,6 +50,12 @@ Pair with `belay-design` and `dusk-feel` (what it should look and feel like) and
   - **One material per surface.** Never stack glass on glass. Never add a border and a shadow on top of glass.
   - Honour Reduce Transparency: `@Environment(\.accessibilityReduceTransparency)` switches glass to a solid `Tok` surface.
   - Text on glass must still clear 4.5:1. Check it on a light and a dark wallpaper.
+- **Performance rules** (`docs/performance.md` has the budgets, numbers and flags):
+  - nothing continuous through `@Published` (use layers + a display link, as in `BeatBarsLayer`);
+  - never `TimelineView(.periodic(from: .now, …))` (use `Ticking`);
+  - no per-tick transitions;
+  - never query the system inside `body`.
+  - Measure before and after with the debug flags (`--beat-demo`, `--cycle-open`, `--start-timer`) and 8 `top` samples.
 - **Lifecycles cost battery.** Anything that polls, taps or animates runs only while visible and useful, and stops
   otherwise (see `NotchController.updateBeat`, `status.setActive`, `music.setProgressActive`).
 - **Brand.** `BelayMark` / `BelayMarkView` draw the logo from `brand/README.md` geometry. No brand text on the notch.
