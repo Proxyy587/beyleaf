@@ -65,6 +65,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Fixed:** opening the notch could launch Spotify (or Music). `tell application` starts an app that isn't running, and the position, artwork, seek and controls calls used the last-known player without checking. All player AppleScript now goes through one guard (checked in Swift and inside the script), and a player is forgotten the moment it quits.
 
 ### Changed
+- **Skills:** the Hallmark design plugin (MIT) replaces `frontend-design`, installed at project scope in `.claude/settings.json`. It covers web pages only; the notch follows `docs/design.md`.
 - **ADR 0018** (amends 0008): dusk bot may be cloned to the git-ignored `refs/duskbot` for design study only. Never in `refs.lock`, never vendored or adapted, and what we learn is written in our own words. AGENTS.md rule 9 is updated to match.
 - Hook transport moved from localhost HTTP hooks with tokens to command hooks plus a 0600 Unix socket (ADR 0006, learned from Perch).
 - **Notch header:** no brand text. The open notch's header is just the time (left of the camera) and the Settings gear (right); the climber and the "Belay" title are gone.

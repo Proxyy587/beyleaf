@@ -8,13 +8,15 @@ verbatim with their licence and a `SOURCE.md` (upstream, commit, file hashes, wh
 | `belay` | Repo rules, playbooks (commit, vendor, ADR, feature, crew), `verify-repo.sh` | Ours (MIT) |
 | `belay-design` | Design system and anti-slop review for every Belay surface | Ours (MIT) |
 | `swiftui-macos` | **New.** Build, run, test and verify `apps/mac` with the CLT only; the SwiftUI/AppKit/Core Audio patterns this app uses (tokens, optical alignment, Settings components, Swift 6 concurrency, lifecycles, screenshots, CPU, logs) | Ours (MIT) |
-| `frontend-design` | **New.** Design-quality guidance for new UI, mainly `apps/web` and share cards. `docs/design.md` wins where they differ (mono status lines, `A · B` meta) | anthropics/skills @ e4bb5d9, Apache-2.0 |
+| Hallmark (plugin `hallmark@hallmark`, `/hallmark:hallmark`) | **New, replaces `frontend-design`.** Anti-slop design for **new web pages** (`apps/web`, landing page, share cards): a no-waiver floor, slop gates, `sloplint`, plus `audit` and `redesign` when named. Web only, it doesn't know SwiftUI. `docs/design.md` wins on conflicts (mono uppercase status lines, `A · B` meta) | Nutlope/hallmark v2.0.0 @ 04977e1, MIT. Installed at project scope via `.claude/settings.json`, so collaborators get it too |
 | `verification-before-completion` | **New.** No "done" without fresh evidence: build output, test output, a screenshot looked at | obra/superpowers @ 22f0b46, MIT |
 
 Built into Claude Code already, so not copied: `/code-review` (correctness review), `/simplify` (cleanups),
 `/security-review`, `claude-api`, and `skill-creator` (via the anthropic-skills plugin).
 
 ## Considered but skipped
+- **frontend-design** (Anthropic, Apache-2.0): removed 2026-11-25. Hallmark covers the same job in more depth, and two web-design
+  skills with different rules would argue.
 - **webapp-testing** (Anthropic, Apache-2.0): ships Playwright helper scripts; `apps/web` doesn't exist yet. Revisit then.
 - **mcp-builder** (Anthropic, Apache-2.0): ships Python scripts; Crew's MCP proxy is v0.2 (ADR 0009). Revisit then.
 - **skill-creator** (Anthropic, Apache-2.0): already available as a built-in plugin; copying it adds unreviewed scripts.

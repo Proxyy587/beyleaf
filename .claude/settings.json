@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "hallmark": {
+      "source": {
+        "source": "github",
+        "repo": "Nutlope/hallmark"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "hallmark@hallmark": true
+  }
+}
