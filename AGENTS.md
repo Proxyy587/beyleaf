@@ -4,8 +4,9 @@ Belay is a free, open-source (MIT) macOS notch companion that supervises coding 
 climber in the notch "holds the rope". When an agent needs approval the rope drops. When it tries something
 dangerous Belay "catches the fall". You answer by voice or keyboard.
 
-**Current phase:** pre-v0.1 setup. Docs, decisions and vendored references are in place; no application code yet.
-**Next:** the Day 1 spike in `docs/build-plan.md` §3.
+**Current phase:** the notch shell is built and polished (widgets, themes, Settings, performance). Agent supervision
+is not started. **Start with `docs/status.md`**: what exists, what's unverified, and the corrected next steps.
+**Next:** the A0 go/no-go spike (`docs/status.md` §7). It needs Bun installed.
 
 ## Read first
 

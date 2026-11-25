@@ -63,6 +63,9 @@
 
 ## 3. Day-by-day plan
 
+> **Updated 2026-11-25:** the Swift shell already exists (ADRs 0013, 0014), so Day 1(a) "fork Clicky in Xcode" and
+> Day 3 "DynamicNotchKit" are obsolete. Follow the corrected steps in `docs/status.md` §7.
+
 | Day | Deliverable | Done when |
 |---|---|---|
 | **1** | **Spikes.** (a) Fork Clicky, build it in Xcode, rename it Belay. (b) Minimal `belayd` in Bun that logs every Claude Code hook. (c) Hold a `PermissionRequest` open for 20 s, then deny with a `message`. | You watch Claude Code accept your denial message and change course. **This is the go/no-go.** |
