@@ -62,7 +62,10 @@ enum Tok {
     /// Space between an icon button's edge and its glyph. Buttons at a row's edge pull out by this much, so the glyph
     /// (not the invisible hit area) lines up with text and values above and below.
     static var buttonInset: CGFloat { (button - 15 * t.textScale) / 2 }
-    static var openWidth: CGFloat { CGFloat(t.width) }
+    /// The open panel's width: the theme's, or 180 pt wider when expanded (capped so the shadow fits the canvas).
+    static var openWidth: CGFloat { AppSettings.shared.expanded ? min(CGFloat(t.width) + 180, 640) : CGFloat(t.width) }
+    /// Album art in the Now playing card.
+    static var heroArt: CGFloat { AppSettings.shared.expanded ? 72 : 56 }
 
     // MARK: Motion (300 ms ceiling at speed 1; blur is subtle and off for reduced motion)
     static var reduceMotion: Bool {
@@ -217,28 +220,6 @@ struct PillButton: View {
         .accessibilityLabel(title)
         .onHover { h in withAnimation(Tok.hover) { hover = h } }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in pressed = true }.onEnded { _ in pressed = false })
-    }
-}
-
-/// On/off for the notch's own surface. Native switches turn grey in a non-key panel, so this one is drawn from
-/// tokens: on is an ink track with a notch-coloured knob (the same inversion as PillButton).
-struct NotchSwitch: View {
-    @Binding var isOn: Bool
-    let label: String
-    var body: some View {
-        Button { isOn.toggle() } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule().fill(isOn ? Tok.ink : Tok.ink.opacity(0.18))
-                Circle().fill(isOn ? Tok.notch : Tok.ink).padding(2)
-            }
-            .frame(width: 30, height: 18)
-            .animation(Tok.pressUp, value: isOn)
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityValue(isOn ? "On" : "Off")
-        .accessibilityAddTraits(.isToggle)
     }
 }
 

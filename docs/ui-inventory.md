@@ -37,7 +37,7 @@ Last audit: 2026-11-25 (widgets, ADR 0019).
 
 | Element | Purpose (user job) | Appears | Default | Interactions | States | A11y label | Status |
 |---|---|---|---|---|---|---|---|
-| Band beside the camera: brand slot (left), Edit widgets + Settings (right) | Reach editing and Settings where you are; the slot becomes the agents' status light (A1) | Always when open | On | Click; tooltips | No notch: the band is the first line | "Belay", "Edit widgets", "Open Settings" | built |
+| Band beside the camera: brand slot (left); Expand/Compact, Edit widgets, Settings (right) | Reach sizing, editing and Settings where you are; the slot becomes the agents' status light (A1) | Always when open | Compact | Click; tooltips | No room beside the camera: the band is the first line | "Belay", "Expand"/"Compact", "Edit widgets", "Open Settings" | built |
 | Clock in the header | (none: the menu bar clock stays visible beside the open panel) | Never | — | — | — | — | **cut** |
 | Now playing hero: artwork, title, status line | Control the music without switching apps | A track is known | Row on | — | Long title: tail-truncated, one line; paused: ink3 status | title text | built |
 | Progress bar + times | See and set where you are in the track | Track has a duration | With the hero | Hover thickens; click or drag to seek | Unknown duration: hidden | "Playback position" | built |
@@ -69,7 +69,8 @@ away instead.
 | Tab · section · element | Purpose (user job) | Default | Interactions | States | Status |
 |---|---|---|---|---|---|
 | Pill tab bar: General · Widgets · Appearance · Agents · About | Find any setting in one click, without a long sidebar | General | Click, ⌘1–⌘5; the selected pill slides | — | built |
-| General · Notch · Open after hovering / Close after leaving / Haptic tick on open | Stop accidental opens; feel the notch open (hover only, never on click) | Instant / Instant / On | Slider + value, switch | Reset when changed | built |
+| General · Notch · Open with (Hover/Click), Open after hovering, Close after leaving, Haptic tick on open | Open the notch the way you like; stop accidental opens; feel it open (hover only) | Hover, Instant, Instant, On | Segmented, slider + value, switch | Click mode: only clicks on the notch itself are caught; the delay slider hides | built (click mode UNVERIFIED by hand) |
+| General · Startup · Open Belay at login | Have the notch there after a restart | Off | Switch; "Open Login Items…" when macOS asks for approval | Approval needed, error line | built (UNVERIFIED: not toggled on the owner's Mac) |
 | General · Live activities · While music plays, Music bars follow the beat, Low battery, Internet lost or back, Timer | Choose which moments may take over the closed notch | Keep showing, on, on, on, on | Menu, switches | Reset | built |
 | General · Screenshots · Copy new screenshots to the clipboard | Have every screenshot on the clipboard, wherever macOS saves it | On | Switch | — | built |
 | General · Settings · Keep the notch open while Settings is open | See changes live | On | Switch | — | built |

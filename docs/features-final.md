@@ -10,7 +10,7 @@
 - "Built in" names the components in `architecture.md`.
 - "Done when" is the acceptance test.
 
-## Built so far (prototype on `initial-test`)
+## Built so far (on `main`; full report in `docs/status.md`)
 
 | ID | Feature | State |
 |---|---|---|

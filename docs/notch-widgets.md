@@ -88,6 +88,15 @@ Defaults: Now playing and Last screenshot on, Timer off (it's a convenience, not
    - The rows' old home, `Theme.rows`, is migrated once and then ignored.
    - Widgets are *what* the notch shows; a theme is *how* it looks (ADR 0019).
 
+## 6b. Compact and expanded
+- **Toggle:** the band's first button switches the panel; the choice is remembered.
+- **Expanded:**
+  - The panel is 180 pt wider than the theme's width, capped at 640 so the shadow fits the canvas.
+  - Paired tiles draw their full row layout side by side.
+  - Now playing's art grows from 56 to 72 pt.
+- **Packing is unchanged:** same order, same pairs, no holes.
+- **Why:** later features (agent sessions, Crew) need room without making the everyday panel big. Expanded is where they'll show more detail.
+
 ## 7. Motion (one per kind, `dusk-feel` §4)
 | Change | Motion |
 |---|---|

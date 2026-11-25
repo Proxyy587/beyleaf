@@ -12,12 +12,13 @@ struct NotchRoot: View {
     var beat: MusicBeat
     @ObservedObject var settings = AppSettings.shared
     var openSettings: () -> Void
+    var openFromClick: () -> Void = {}
 
     /// Room either side of the camera in the open panel, for the band (inside the ears and the card inset).
     private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s2 }
-    /// Put the band beside the camera when there's room (edit + Settings need 2 × 28 pt); otherwise it's the
-    /// panel's first line, below the notch line.
-    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 2 * Tok.button + Tok.s2 }
+    /// Put the band beside the camera when there's room (expand, edit and Settings need 3 × 28 pt); otherwise it's
+    /// the panel's first line, below the notch line.
+    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 3 * Tok.button + Tok.s2 }
 
     var body: some View {
         let open = model.isOpen
@@ -59,6 +60,13 @@ struct NotchRoot: View {
                     .id(settings.themeRevision)
             }
             .frame(width: size.width, height: size.height, alignment: .top)
+            // Click mode's target: exists only while closed, so it never competes with the open panel's controls.
+            .overlay {
+                if !open && settings.openOnClick {
+                    Color.clear.contentShape(Rectangle()).onTapGesture { openFromClick() }
+                        .accessibilityAddTraits(.isButton).accessibilityLabel("Open Belay")
+                }
+            }
             .clipped()
             .shadow(color: .black.opacity(open ? Tok.shadow : 0), radius: open ? 20 : 0, y: open ? 10 : 0)
             .padding(.top, model.metrics.hasNotch ? 0 : Tok.s2)
