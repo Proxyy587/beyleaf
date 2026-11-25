@@ -53,6 +53,8 @@ struct NotchRoot: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .background(GeometryReader { g in Color.clear.preference(key: ContentHeight.self, value: g.size.height - notchH) })
                     .frame(width: model.openWidth)
+                    // Resolve the panel's layout once and move it as a unit while the shape springs around it.
+                    .geometryGroup()
                     .allowsHitTesting(open)
                     .id(settings.themeRevision)
             }

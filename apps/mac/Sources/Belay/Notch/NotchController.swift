@@ -90,6 +90,8 @@ final class NotchController {
         let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
+        // The canvas never changes size; don't let SwiftUI recompute intrinsic size and constraints on every frame.
+        host.sizingOptions = []
         host.frame = NSRect(origin: .zero, size: Self.canvas)
         panel.contentView = host
         panel.orderFrontRegardless()
@@ -133,6 +135,13 @@ final class NotchController {
         let a = CommandLine.arguments
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
         if a.contains("--edit-widgets") { model.editing = true }
+        // `--cycle-open`: open and close every 1.5 s forever, to measure what the animation costs.
+        if a.contains("--cycle-open") {
+            let t = Timer(timeInterval: 0.75, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { guard let self else { return }; self.model.isOpen ? self.close() : self.open() }
+            }
+            RunLoop.main.add(t, forMode: .common)
+        }
         // `--beat-demo`: show the music wing with synthetic bars (no audio) to measure drawing cost.
         if a.contains("--beat-demo") { probing = true; beat.startDemo(); activities.flash(.nowPlaying, for: 3600) }
         // `--flash-copied`: play the "screenshot copied" moment (held 20 s) without taking a screenshot.
