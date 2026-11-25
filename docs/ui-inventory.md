@@ -69,7 +69,8 @@ away instead.
 | Tab · section · element | Purpose (user job) | Default | Interactions | States | Status |
 |---|---|---|---|---|---|
 | Pill tab bar: General · Widgets · Appearance · Agents · About | Find any setting in one click, without a long sidebar | General | Click, ⌘1–⌘5; the selected pill slides | — | built |
-| General · Notch · Open after hovering / Close after leaving / Haptic tick on open | Stop accidental opens; feel the notch open (hover only, never on click) | Instant / Instant / On | Slider + value, switch | Reset when changed | built |
+| General · Notch · Open with (Hover/Click), Open after hovering, Close after leaving, Haptic tick on open | Open the notch the way you like; stop accidental opens; feel it open (hover only) | Hover, Instant, Instant, On | Segmented, slider + value, switch | Click mode: only clicks on the notch itself are caught; the delay slider hides | built (click mode UNVERIFIED by hand) |
+| General · Startup · Open Belay at login | Have the notch there after a restart | Off | Switch; "Open Login Items…" when macOS asks for approval | Approval needed, error line | built (UNVERIFIED: not toggled on the owner's Mac) |
 | General · Live activities · While music plays, Music bars follow the beat, Low battery, Internet lost or back, Timer | Choose which moments may take over the closed notch | Keep showing, on, on, on, on | Menu, switches | Reset | built |
 | General · Screenshots · Copy new screenshots to the clipboard | Have every screenshot on the clipboard, wherever macOS saves it | On | Switch | — | built |
 | General · Settings · Keep the notch open while Settings is open | See changes live | On | Switch | — | built |

@@ -88,7 +88,8 @@ final class NotchController {
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
         let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, activities: activities, beat: beat,
-                             openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
+                             openSettings: { [weak self] in self?.close(); self?.onOpenSettings() },
+                             openFromClick: { [weak self] in self?.openFromClick() })
         let host = FirstClickHostingView(rootView: root)
         // The canvas never changes size; don't let SwiftUI recompute intrinsic size and constraints on every frame.
         host.sizingOptions = []
@@ -151,6 +152,8 @@ final class NotchController {
     }
 
     func open() { pinned = true; pointerVisited = false; setOpen(true) }
+    /// Click mode: opened under the pointer, so it closes when the pointer leaves (like hover).
+    func openFromClick() { pinned = false; pointerVisited = true; setOpen(true) }
     func close() { pinned = false; setOpen(false) }
 
     // MARK: - Hover
@@ -171,10 +174,22 @@ final class NotchController {
         if fast != fastPolling { fastPolling = fast; startPolling(); return }
 
         if !model.isOpen {
+            if settings.openOnClick {
+                // Click mode: take mouse events only while the pointer is over the notch itself, so the rest of the
+                // menu bar keeps working; NotchRoot's tap opens it.
+                let over = rectOnScreen(model.closedSize, grow: 2).contains(p)
+                if panel.ignoresMouseEvents == over { panel.ignoresMouseEvents = !over }
+                return
+            }
+            if !panel.ignoresMouseEvents { panel.ignoresMouseEvents = true }   // left over from click mode
             // Hover delay (Settings → General) avoids opening when the pointer just passes the menu bar.
             if rectOnScreen(model.closedSize, grow: 10).contains(p) {
                 if hoverSince == nil { hoverSince = Date() }
-                if let s = hoverSince, Date().timeIntervalSince(s) >= settings.openDelay { hoverSince = nil; pinned = false; setOpen(true) }
+                if let s = hoverSince, Date().timeIntervalSince(s) >= settings.openDelay {
+                    hoverSince = nil; pinned = false
+                    Tok.haptic(.alignment)   // hover only: a click open already has the trackpad's own click
+                    setOpen(true)
+                }
             } else { hoverSince = nil }
             return
         }
@@ -196,7 +211,7 @@ final class NotchController {
     private func setOpen(_ open: Bool) {
         guard model.isOpen != open else { return }
         leftAt = nil
-        if open { Tok.haptic(.alignment); music.refreshIfUnknown() }
+        if open { music.refreshIfUnknown() }
         music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
         withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open; if !open { model.editing = false } }

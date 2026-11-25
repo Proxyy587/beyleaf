@@ -297,7 +297,14 @@ private struct GeneralPane: View {
     var body: some View {
         Group {
             Section {
-                SliderRow(title: "Open after hovering", value: $s.openDelay, range: 0...1, step: 0.05, format: ms)
+                Picker("Open with", selection: $s.openOnClick) {
+                    Text("Hover").tag(false)
+                    Text("Click").tag(true)
+                }
+                .pickerStyle(.segmented)
+                if !s.openOnClick {
+                    SliderRow(title: "Open after hovering", value: $s.openDelay, range: 0...1, step: 0.05, format: ms)
+                }
                 SliderRow(title: "Close after leaving", value: $s.closeDelay, range: 0...1, step: 0.05, format: ms)
                 Toggle("Haptic tick on open", isOn: $s.haptics)
             } header: {
@@ -335,6 +342,7 @@ private struct GeneralPane: View {
             } footer: {
                 Text("Works wherever macOS saves your screenshots. The file is kept.").foregroundStyle(.secondary)
             }
+            StartupSection()
             Section {
                 Toggle("Keep the notch open while Settings is open", isOn: $s.previewWhileEditing)
             } header: {
@@ -353,6 +361,30 @@ private extension GeneralPane {
         case .efficient: return "Caps animation at 30 fps and turns blur off. " + now
         case .smooth: return "Animation at your display's full rate. " + now
         }
+    }
+}
+
+/// Open at login. Reads the real state from macOS each time the pane appears; never stores its own copy.
+private struct StartupSection: View {
+    @State private var on = LoginItem.isOn
+    @State private var approval = LoginItem.needsApproval
+    @State private var error: String?
+    var body: some View {
+        Section {
+            Toggle("Open Belay at login", isOn: Binding(get: { on }, set: { want in
+                error = LoginItem.set(want)
+                on = LoginItem.isOn; approval = LoginItem.needsApproval
+            }))
+            if approval {
+                LabeledContent("Needs your OK in System Settings") {
+                    Button("Open Login Items…") { LoginItem.openSystemSettings() }
+                }
+            }
+            if let error { Text(error).foregroundStyle(.red) }
+        } header: {
+            Text("Startup")
+        }
+        .onAppear { on = LoginItem.isOn; approval = LoginItem.needsApproval }
     }
 }
 

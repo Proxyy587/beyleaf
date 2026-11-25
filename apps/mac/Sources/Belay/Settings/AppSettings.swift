@@ -38,6 +38,8 @@ final class AppSettings: ObservableObject {
     @Published var widgets: [WidgetSetting] { didSet { if widgets != oldValue { saveWidgets() } } }
     /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
     @Published var timerActivity: Bool { didSet { save(timerActivity, "timerActivity") } }
+    /// Hover the notch to open it (default), or click it. Click mode catches clicks only on the notch itself.
+    @Published var openOnClick: Bool { didSet { save(openOnClick, "openOnClick") } }
     /// Compact (the theme's width) or expanded (wider, every widget in its full layout). Toggled from the band.
     @Published var expanded: Bool { didSet { save(expanded, "notchExpanded") } }
     /// How hard Belay may work to look smooth (Settings → General → Performance).
@@ -50,8 +52,8 @@ final class AppSettings: ObservableObject {
     // MARK: Defaults (one place, used by init and by Settings' per-section resets)
     static let defaultMusicActivity = MusicActivity.keep
 
-    func resetHover() { openDelay = 0; closeDelay = 0 }
-    var hoverIsDefault: Bool { openDelay == 0 && closeDelay == 0 }
+    func resetHover() { openDelay = 0; closeDelay = 0; openOnClick = false }
+    var hoverIsDefault: Bool { openDelay == 0 && closeDelay == 0 && !openOnClick }
     func resetLiveActivities() {
         musicActivity = Self.defaultMusicActivity; equalizerWhilePlaying = true
         alertLowBattery = true; alertWifi = true; timerActivity = true
@@ -137,6 +139,7 @@ final class AppSettings: ObservableObject {
         closeDelay = d.object(forKey: "closeDelay") as? Double ?? 0
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
         expanded = d.object(forKey: "notchExpanded") as? Bool ?? false
+        openOnClick = d.object(forKey: "openOnClick") as? Bool ?? false
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
         widgets = d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme)
