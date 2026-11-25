@@ -18,7 +18,7 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 | Day-by-day v0.1 plan | `docs/build-plan.md` |
 | Borrowed code and its rules | `docs/oss-reuse.md`, `THIRD_PARTY_NOTICES.md`, `third_party/*/SOURCE.md` |
 | Sub-agents (Crew) design | `docs/crew.md` |
-| Design rules (UI, anti-slop) | `docs/design.md` |
+| Design rules (UI, anti-slop) | `docs/design.md`; widgets `docs/notch-widgets.md`; vs Dynamic Island and Boring Notch `docs/notch-comparison.md` |
 | Every UI element, its purpose and status; what was cut and why | `docs/ui-inventory.md` |
 | What only the human can do (accounts, legal, hardware) | `docs/prerequisites.md` |
 | What changed recently | `CHANGELOG.md` |

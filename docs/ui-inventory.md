@@ -8,7 +8,7 @@ in `docs/design.md`; this doc covers what exists and why.
 product. Music and screenshots are secondary conveniences that earn their place only because the notch is a good home
 for them. Statuses: **built**, **planned** (feature ID from `docs/features-final.md`), **cut** (see §5).
 
-Last audit: 2026-11-24.
+Last audit: 2026-11-25 (widgets, ADR 0019).
 
 ## 1. Surfaces and elements
 
@@ -37,14 +37,16 @@ Last audit: 2026-11-24.
 
 | Element | Purpose (user job) | Appears | Default | Interactions | States | A11y label | Status |
 |---|---|---|---|---|---|---|---|
-| Settings gear (right of the camera) | Get to Settings from where you are | Always when open | On | Click; tooltip | — | "Open Settings" | built |
+| Band beside the camera: brand slot (left), Edit widgets + Settings (right) | Reach editing and Settings where you are; the slot becomes the agents' status light (A1) | Always when open | On | Click; tooltips | No notch: the band is the first line | "Belay", "Edit widgets", "Open Settings" | built |
 | Clock in the header | (none: the menu bar clock stays visible beside the open panel) | Never | — | — | — | — | **cut** |
 | Now playing hero: artwork, title, status line | Control the music without switching apps | A track is known | Row on | — | Long title: tail-truncated, one line; paused: ink3 status | title text | built |
 | Progress bar + times | See and set where you are in the track | Track has a duration | With the hero | Hover thickens; click or drag to seek | Unknown duration: hidden | "Playback position" | built |
 | Previous / play-pause / next | Skip or pause from the notch | With the hero | With the hero | Click | Player quit: state clears, nothing relaunches (3a95508) | "Previous track", "Play"/"Pause", "Next track" | built |
-| "Not playing" line (+ Play if a player is paused) | Say plainly there's nothing to control | No track known | With the row | Play button | One line, no "coming soon" | "Not playing" / "Spotify is paused" | built |
+| "Not playing" line | (cut: a placeholder; Now playing now takes no space without a player, and shows a Play tile when one is open) | Never | — | — | — | — | **cut** |
 | Last screenshot row: thumbnail, "Screenshot copied", age · size | Re-copy or find the screenshot you just took | After the first auto-copy this session | Row on | Copy again, Show in Finder | Old copies: "N min ago" | "Copy again", "Show in Finder" | built |
-| "Nothing shown" line | Explain an empty panel and where to fix it | Every row turned off | — | — | — | text | built |
+| Timer widget: − [length] + ▶, then ring + countdown, pause, stop, Done | Time-box work while agents run | Turned on by the user | **Off** (side option) | Drag the length, click to start | Paused, done (2 min), long timers (h:mm:ss) | "Timer length", "Start timer", "Pause timer" | built |
+| Edit widgets: cards to drag into slots, − to hide, + chips for hidden widgets | Put each widget exactly where you want it, without leaving holes (ADR 0019) | Edit widgets in the band, or right-click a card | — | Drag, click; right-click Move up/down/Hide | No enabled widgets: hint line | per card; "Move up/down" actions | built (drag UNVERIFIED by hand) |
+| "No widgets" line + Edit widgets | Explain an empty panel and fix it in one click | Every widget off | — | Edit widgets pill | — | "No widgets" | built |
 | Wi-Fi row | (none: duplicates the menu bar Wi-Fi item) | Never | — | — | — | — | **cut** |
 | Battery row | (none: duplicates the menu bar battery item) | Never | — | — | — | — | **cut** |
 | Volume row | (none: the volume keys, menu bar and Control Center already do it; Belay has no audio job) | Never | — | — | — | — | **cut** |
