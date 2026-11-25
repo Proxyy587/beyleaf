@@ -5,6 +5,7 @@
 | What exactly ships in v0.1 / v0.2 / v0.3, and what does "done" mean? | `docs/features-final.md` |
 | Processes, modules, protocol v1, flows, storage, security, tests | `docs/architecture.md` |
 | Sub-agents (Crew): roles, runtimes, tools, messaging, budgets, taint, SceneSpec | `docs/crew.md` |
+| Jarvis direction: phases, state, handoff between agents (buddies, routines, connectors, Mac control) | `docs/jarvis-roadmap.md` |
 | File conversion: wheel, entry points, planner, providers, format coverage | `docs/conversions.md` |
 | Stack choices, Rust question, performance budgets | `docs/tech-stack.md` |
 | Day-by-day v0.1 plan and Day 1 spike | `docs/build-plan.md` |

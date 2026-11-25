@@ -15,6 +15,7 @@
 | Notch shell (Swift) | **Built and polished:** window, live activities, widgets, themes, Settings, performance modes |
 | **Agent supervision (the product, A1–A6)** | **A0 spike passed** (hold, deny, allow, steer). A1 onward not started |
 | Crew (dusk/grok-style helper agents, K1–K8) | Designed (`docs/crew.md`, ADRs 0009–0011). v0.2 / v0.3 |
+| **Jarvis direction** (buddies, routines, connectors, Mac control) | Owner request 2026-11-26. Phased plan and handoff in **`docs/jarvis-roadmap.md`**. Phase 1 (pages, overflow) partly done on `feat/widget-hub` |
 | Brand | Mark system chosen (notch + point). A newer belayer mark is in progress in another agent's working tree (uncommitted `brand/`, `BelayMark.swift`). `BrandSlot` is the one place the notch draws it |
 | Distribution | Not set up: ad-hoc signed only; needs the Apple Developer Program (§7) |
 
@@ -32,7 +33,7 @@
 - **Band beside the camera:**
   - left: brand slot, the future agent status light;
   - right: Expand/Compact, Edit widgets, Settings.
-- **Widgets in the user's order,** packed with no holes (ADR 0019):
+- **Widgets in the user's order,** packed with no holes (ADR 0019). **Only Now playing, Timer and Last screenshot exist in code;** Clock, Stopwatch, Notes, Weather and Calendar are specified in `docs/widget-hub.md` and not built:
   - **Now playing:** art, title, artist, a seekable progress bar, prev/play/next;
   - **Last screenshot:** copy again, show in Finder;
   - **Timer:** optional, 1–180 min.
@@ -139,7 +140,7 @@
 - several-activities wings;
 - add every element to `docs/ui-inventory.md` with the purpose test.
 
-### Phase B: Crew (v0.2+, "agents like dusk bot / grok")
+### Phase B: Crew (v0.2+; the owner's Jarvis phases are in `docs/jarvis-roadmap.md`, "agents like dusk bot / grok")
 - Lead, Scout, Tempo and Porter work through the user's own AI CLIs. Hub-and-spoke through `CrewService`, with bounded turns and taint tracking (`docs/crew.md`).
 - It builds on Phase A's protocol, approvals and risk engine, so it starts after A2–A3.
 

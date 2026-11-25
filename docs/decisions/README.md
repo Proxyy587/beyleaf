@@ -26,3 +26,4 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0019](0019-notch-widgets.md) | The open notch is user-ordered widgets, packed with no gaps (moves row order out of the theme, 0015) | accepted |
 | [0020](0020-steer-is-the-users-words.md) | A steer is the user's own words, attributed and verbatim (from spike A0) | accepted |
 | [0021](0021-notch-pages.md) | The open notch is pages of packed widgets; `AppSettings.pages` replaces `widgets` (extends 0019) | accepted |
+| [0022](0022-jarvis-direction.md) | Buddies, routines, connectors and Mac control are one direction; crew = buddies | proposed |
