@@ -196,7 +196,8 @@ final class AppSettings: ObservableObject {
         if a.contains("--weather-city") { persistsPages = false }   // the controller searches and sets it, in memory only
         if let i = a.firstIndex(of: "--clock-zones"), a.indices.contains(i + 1) { persistsPages = false; clockZones = ClockLogic.clean(a[i + 1].split(separator: ",").map(String.init)) }
         // `--enable-widget stopwatch`: turn a widget on for this run only (pages are not saved while it's given).
-        if let i = a.firstIndex(of: "--enable-widget"), a.indices.contains(i + 1), let k = WidgetKind(rawValue: a[i + 1]) {
+        for (i, arg) in a.enumerated() where arg == "--enable-widget" && a.indices.contains(i + 1) {
+            guard let k = WidgetKind(rawValue: a[i + 1]) else { continue }
             persistsPages = false; var p = pages; Pages.setEnabled(k, true, in: &p); pages = p
         }
         // `--expanded`: the 3-column panel for this run only. `--span clock=1 --span notes=3`: sizes for this run only.

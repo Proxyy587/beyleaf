@@ -149,7 +149,7 @@ extension View {
     /// A widget card: one tonal surface, no border, no shadow (dusk-feel §1).
     func card(inset: CGFloat = Tok.s3) -> some View {
         self.padding(inset)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)   // fills the row's height beside a taller neighbour
             .background(RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous).fill(Tok.raised))
     }
 
