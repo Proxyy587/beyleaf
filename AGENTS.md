@@ -58,6 +58,9 @@ scripts/         fetch-refs.sh, vendor.sh.
   - Subject: imperative, ≤ 72 characters.
   - Body: *why*, plus anything a reviewer must know.
   - End agent-made commits with the repo's attribution trailer.
+- **One branch per major update.** Branch off `main` as `<type>/<topic>` (for example `skills/design-skills`,
+  `feat/notch-redesign`, `feat/hook-spike`), commit each task on it, push it, then merge it into `main` with
+  `--no-ff` so the update stays visible as one unit. Small fixes may go straight to an open update branch.
 - **Update `CHANGELOG.md`** under `[Unreleased]` in the same commit as any user-visible change or decision.
 - **New decision → new ADR** in `docs/decisions/`, linked from its README. Don't edit an accepted ADR's decision; supersede it.
 - **Vendoring:**
