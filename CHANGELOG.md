@@ -65,6 +65,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Fixed:** opening the notch could launch Spotify (or Music). `tell application` starts an app that isn't running, and the position, artwork, seek and controls calls used the last-known player without checking. All player AppleScript now goes through one guard (checked in Swift and inside the script), and a player is forgotten the moment it quits.
 
 ### Changed
+- **Skills:** `dxe-apple-native-ui` (kemiljk, MIT) for native macOS behaviour and accessibility reviews.
 - **Skills:** Hallmark removed at the owner's request; `frontend-design` (Anthropic, Apache-2.0) is back, unchanged at e4bb5d9.
 - **Design skills:** `belay-design` records what unfair.so, dusk bot and Aria share, in our own words. `swiftui-macos` gains Liquid Glass rules: macOS 26 APIs gated, the notch stays black, Reduce Transparency honoured.
 - **Skills:** `agent-browser` (Vercel Labs, Apache-2.0) so agents can screenshot and inspect reference sites and, later, our website.
