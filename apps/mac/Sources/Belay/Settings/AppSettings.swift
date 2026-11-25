@@ -64,11 +64,12 @@ final class AppSettings: ObservableObject {
         guard let i = widgets.firstIndex(where: { $0.kind == kind }), widgets[i].enabled != on else { return }
         widgets[i].enabled = on
     }
-    /// Moves a widget one step among the *enabled* widgets, so ↑/↓ in the notch always visibly moves it.
-    func moveWidget(_ kind: WidgetKind, by step: Int) {
+    /// Moves a widget one step. From the notch's context menu it skips hidden widgets, so the move is always visible;
+    /// the editor lists every widget, so there it moves by one place.
+    func moveWidget(_ kind: WidgetKind, by step: Int, skippingDisabled: Bool = true) {
         guard let i = widgets.firstIndex(where: { $0.kind == kind }) else { return }
         var j = i + step
-        while widgets.indices.contains(j), !widgets[j].enabled { j += step }
+        while skippingDisabled, widgets.indices.contains(j), !widgets[j].enabled { j += step }
         guard widgets.indices.contains(j) else { return }
         var w = widgets
         let item = w.remove(at: i)
@@ -83,11 +84,11 @@ final class AppSettings: ObservableObject {
         w.insert(contentsOf: moving, at: target)
         widgets = w
     }
-    /// First enabled widget, last enabled widget: for disabling ↑/↓ at the ends.
-    func canMove(_ kind: WidgetKind, by step: Int) -> Bool {
+    /// Whether ↑/↓ can move this widget (false at the ends), with the same skipping rule as `moveWidget`.
+    func canMove(_ kind: WidgetKind, by step: Int, skippingDisabled: Bool = true) -> Bool {
         guard let i = widgets.firstIndex(where: { $0.kind == kind }) else { return false }
         var j = i + step
-        while widgets.indices.contains(j) { if widgets[j].enabled { return true }; j += step }
+        while widgets.indices.contains(j) { if !skippingDisabled || widgets[j].enabled { return true }; j += step }
         return false
     }
 

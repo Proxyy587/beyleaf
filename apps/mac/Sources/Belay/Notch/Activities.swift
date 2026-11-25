@@ -10,13 +10,15 @@ enum NotchActivity: Hashable {
     case copied
     case lowBattery(Int)
     case wifi(online: Bool)
+    case timer
+    case timerDone
 
     /// Width of each wing beside the camera for this activity.
     var wingWidth: CGFloat {
         switch self {
         case .nowPlaying, .copied: 44
-        case .lowBattery: 52
-        case .wifi: 72
+        case .lowBattery, .timer: 52
+        case .wifi, .timerDone: 72
         }
     }
 }
@@ -30,6 +32,7 @@ final class ActivityCenter: ObservableObject {
     private let music: NowPlaying
     private let status: SystemStatus
     private let shots: Screenshots
+    private let timer: NotchTimer
     private let settings = AppSettings.shared
     private var transient: NotchActivity?
     private var transientTask: Task<Void, Never>?
@@ -38,8 +41,10 @@ final class ActivityCenter: ObservableObject {
     private var lastBattery: SystemStatus.Battery?
     private var lastOnline: Bool?
 
-    init(music: NowPlaying, status: SystemStatus, shots: Screenshots) {
-        self.music = music; self.status = status; self.shots = shots
+    init(music: NowPlaying, status: SystemStatus, shots: Screenshots, timer: NotchTimer) {
+        self.music = music; self.status = status; self.shots = shots; self.timer = timer
+        timer.$state.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
+        timer.$finished.dropFirst().sink { [weak self] _ in DispatchQueue.main.async { self?.timerDone() } }.store(in: &subs)
         music.$trackChange.dropFirst().sink { [weak self] _ in DispatchQueue.main.async { self?.newTrack() } }.store(in: &subs)
         music.$isPlaying.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
         shots.$justCopied.sink { [weak self] on in DispatchQueue.main.async { if on { self?.flash(.copied, for: 2) } } }.store(in: &subs)
@@ -69,6 +74,12 @@ final class ActivityCenter: ObservableObject {
         flash(.wifi(online: online), for: 2.5)
     }
 
+    private func timerDone() {
+        guard settings.timerActivity else { return }
+        Tok.haptic(.levelChange)
+        flash(.timerDone, for: 4)
+    }
+
     func flash(_ activity: NotchActivity, for seconds: Double) {
         transient = activity
         pulse &+= 1
@@ -91,7 +102,9 @@ final class ActivityCenter: ObservableObject {
             case .off: return false
             }
         }()
-        let next = transient ?? (musicOn ? .nowPlaying : nil)
+        // Music outranks a running timer; hovering shows both.
+        let timerOn = settings.timerActivity && timer.isRunning
+        let next = transient ?? (musicOn ? .nowPlaying : timerOn ? .timer : nil)
         if next != current { current = next }
     }
 }
@@ -103,6 +116,7 @@ struct ActivityWing: View {
     @ObservedObject var music: NowPlaying
     @ObservedObject var shots: Screenshots
     @ObservedObject var beat: MusicBeat
+    @ObservedObject var timer: NotchTimer
 
     var body: some View {
         Group {
@@ -124,6 +138,21 @@ struct ActivityWing: View {
                 Image(systemName: online ? "wifi" : "wifi.slash").font(Tok.icon).foregroundStyle(online ? Tok.live : Tok.warning)
             case (.wifi(let online), .trailing):
                 StatusLine(text: online ? "Online" : "Offline", live: online)
+            case (.timer, .leading):
+                // A minute's resolution is enough at a glance; 5 s ticks keep the closed notch nearly free.
+                TimelineView(.periodic(from: .now, by: 5)) { ctx in
+                    ProgressRing(fraction: timer.progress(at: ctx.date).fraction, lineWidth: 2.5).frame(width: 15, height: 15)
+                }
+            case (.timer, .trailing):
+                TimelineView(.periodic(from: .now, by: 5)) { ctx in
+                    let r = timer.progress(at: ctx.date).remaining
+                    Text(r < 60 ? "<1m" : "\(Int((r / 60).rounded(.up)))m").font(Tok.digits).foregroundStyle(Tok.ink)
+                        .contentTransition(.numericText(countsDown: true))
+                }
+            case (.timerDone, .leading):
+                Image(systemName: "timer").font(Tok.icon).foregroundStyle(Tok.live)
+            case (.timerDone, .trailing):
+                StatusLine(text: "Done", live: true)
             }
         }
         .accessibilityElement(children: .combine)

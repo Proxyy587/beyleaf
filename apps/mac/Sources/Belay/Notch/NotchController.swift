@@ -7,6 +7,8 @@ import SwiftUI
 @MainActor
 final class NotchModel: ObservableObject {
     @Published var isOpen = false
+    /// The open panel is showing the widget editor (docs/notch-widgets.md §6). Cleared when the notch closes.
+    @Published var editing = false
     @Published var metrics: NotchMetrics
     /// Height of the open content, measured by SwiftUI.
     @Published var openContentHeight: CGFloat = 230
@@ -38,6 +40,7 @@ final class NotchController {
     private let status = SystemStatus()
     private let shots = Screenshots()
     private let beat = MusicBeat()
+    private let countdown = NotchTimer()
     private var beatSubs: [Any] = []
     private var screensAsleep = false
     private var probing = false
@@ -45,7 +48,7 @@ final class NotchController {
     private var settingsSub: Any?
     var onOpenSettings: () -> Void = {}
     private var hoverSince: Date?
-    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots)
+    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots, timer: countdown)
     private var activitySub: Any?
     private var pulseSub: Any?
 
@@ -84,7 +87,7 @@ final class NotchController {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status, shots: shots, activities: activities, beat: beat,
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: Self.canvas)
@@ -126,6 +129,10 @@ final class NotchController {
             beat.listen(to: id)
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.beat.listen(to: nil); self.probing = false; self.updateBeat() }
         }
+        // `--start-timer <minutes>` / `--edit-widgets`: put the notch in those states for screenshots.
+        let a = CommandLine.arguments
+        if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
+        if a.contains("--edit-widgets") { model.editing = true }
         #endif
         if openOnLaunch { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.open() } }
     }
@@ -179,7 +186,7 @@ final class NotchController {
         if open { Tok.haptic(.alignment); music.refreshIfUnknown() }
         music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
-        withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open }
+        withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open; if !open { model.editing = false } }
         updateBeat()
     }
 

@@ -7,15 +7,17 @@ struct NotchRoot: View {
     @ObservedObject var music: NowPlaying
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
+    @ObservedObject var timer: NotchTimer
     @ObservedObject var activities: ActivityCenter
     var beat: MusicBeat
     @ObservedObject var settings = AppSettings.shared
     var openSettings: () -> Void
 
-    /// Room either side of the camera in the open panel, for the header (inside the ears and the content inset).
-    private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s4 }
-    /// Put the header beside the camera when there's room (the gear needs 28 pt); otherwise it sits below the notch line.
-    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 32 }
+    /// Room either side of the camera in the open panel, for the band (inside the ears and the card inset).
+    private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s2 }
+    /// Put the band beside the camera when there's room (edit + Settings need 2 × 28 pt); otherwise it's the
+    /// panel's first line, below the notch line.
+    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 2 * Tok.button + Tok.s2 }
 
     var body: some View {
         let open = model.isOpen
@@ -38,14 +40,14 @@ struct NotchRoot: View {
                 .animation(Tok.reveal, value: open)
 
                 if headerInBand {
-                    NotchHeader(openSettings: openSettings)
-                        .frame(width: model.openWidth - 2 * (Tok.rOpenEar + Tok.s4), height: notchH)
+                    NotchBand(model: model, openSettings: openSettings)
+                        .frame(width: model.openWidth - 2 * (Tok.rOpenEar + Tok.s2), height: notchH)
                         .blurReveal(open, delay: 0.03)
                         .allowsHitTesting(open)
                         .id(settings.themeRevision)
                 }
 
-                ExpandedView(music: music, status: status, shots: shots, shown: open, showHeader: !headerInBand, openSettings: openSettings)
+                ExpandedView(model: model, music: music, shots: shots, timer: timer, shown: open, showBand: !headerInBand, openSettings: openSettings)
                     .padding(.horizontal, Tok.rOpenEar)
                     .padding(.top, notchH)
                     .fixedSize(horizontal: false, vertical: true)
@@ -69,7 +71,7 @@ struct NotchRoot: View {
     @ViewBuilder private func wing(_ side: HorizontalEdge) -> some View {
         // Wings exist only for live activities: at rest the closed notch fits the hardware exactly (ui-inventory §1.1).
         if let a = activities.current {
-            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat)
+            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat, timer: timer)
                 .blurSwap(on: a)
         }
     }
