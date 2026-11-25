@@ -50,7 +50,7 @@ scripts/         fetch-refs.sh, vendor.sh.
 7. **No vendor names or logos in Belay's branding.** Plain-text "works with Claude Code and Codex" is fine.
 7b. **The notch window is ours** (ADR 0014). Don't add DynamicNotchKit back without a new ADR.
 8. **Untrusted content can't grant permission.** Tainted chains always drop the rope for outward, write-outside or shortcut actions. Only the user approves. (ADR 0011)
-9. **Source-available code is off-limits** (PolyForm, BSL, "personal use", e.g. dusk bot): product inspiration from public pages only. (ADR 0008)
+9. **Source-available code is off-limits** (PolyForm, BSL, "personal use", e.g. dusk bot): never copied or adapted. dusk bot alone may be cloned to `refs/duskbot` for design study, with learnings written in our own words. (ADR 0008, 0018)
 
 ## Working agreement
 

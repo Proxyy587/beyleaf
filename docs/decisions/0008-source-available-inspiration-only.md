@@ -1,6 +1,6 @@
 # 0008: Source-available projects are product inspiration only
 
-- **Status:** accepted (2026-11-24)
+- **Status:** accepted (2026-11-24); amended by 0018 (a local study clone of dusk bot is allowed)
 - **Context:**
   - dusk bot (https://dusk.bot, repo `DuskBotAI/duskbot`, 578 stars when checked on 2026-11-24) is a fork of OpenMausBot.
   - Its own licence page says it is **"source-available under the PolyForm Noncommercial License 1.0.0. Source-available does not mean open source."** Commercial use, including "inside a product", needs a paid licence from its makers.

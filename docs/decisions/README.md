@@ -22,3 +22,4 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0015](0015-user-themes.md) | Every visual token comes from a user theme (fonts, colours, surface, shape, layout, motion) | accepted |
 | [0016](0016-trading-non-custodial.md) | Trading agent is non-custodial; the LLM never places orders | accepted for design |
 | [0017](0017-music-beat-process-tap.md) | Music bars follow the player's real audio through a Core Audio process tap | accepted |
+| [0018](0018-duskbot-local-study-clone.md) | dusk bot may be cloned locally for design study, never copied (amends 0008) | accepted |
