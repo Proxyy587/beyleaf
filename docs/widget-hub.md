@@ -38,7 +38,7 @@
 
 | Page | Widgets (in order) | On by default |
 |---|---|---|
-| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System, Keep awake, Moon | Clock, Now playing, Last screenshot (Timer, Stopwatch, System, Keep awake and Moon are side options, as the Timer was in ADR 0019) |
+| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System, Keep awake, Moon, Roll | Clock, Now playing, Last screenshot (Timer, Stopwatch, System, Keep awake, Moon and Roll are side options, as the Timer was in ADR 0019) |
 | Notes | Notes | Notes |
 | Day | Calendar, Weather | Both |
 
@@ -324,6 +324,19 @@ accessibility · CPU budget.
 - **Closed notch:** nothing.
 - **A11y:** one element: "Moon, waxing gibbous, 63% lit. Full moon in 5 days."
 - **CPU:** `Ticking(seconds: 3600, active: visible)`: one redraw an hour while its page is visible; otherwise nothing.
+
+### 3.12 Roll (Now, new, off by default)
+- **Job:** settle a small question (who goes first, which of two options, a number from 1 to 20) with one click, without
+  opening a site or a search.
+- **Forms:** tile or wide (the shared widget card). Ready: [die] Roll, a mode chip (`Coin`, click to cycle `Coin D6 D20`)
+  and a roll button. After a roll: the result in mono 15 semibold ("Heads", "4"), status = the mode (`D6`). Wide also
+  shows the previous results (up to 4) in ink3 beside the buttons.
+- **Randomness:** Swift's `SystemRandomNumberGenerator` (secure, unbiased `Int.random(in:)`); the pure logic takes any
+  generator, so the self-test uses a seeded one and checks range, coverage and a fair coin.
+- **State:** in memory only. Changing the mode clears the result and history, so a "4" never sits under "Coin".
+- **Closed notch:** nothing. **Data, network, permission:** none. **Motion:** the result swaps with the standard blur-swap.
+- **A11y:** "D6 roll: 4."; buttons "Flip the coin" / "Roll the D6", "Rolling D6, change".
+- **CPU:** nothing ticks; a click is the only work.
 
 ## 4. Customization
 - **What users choose:** which pages exist (on/off), their order, which widgets are on each page, their order, and which

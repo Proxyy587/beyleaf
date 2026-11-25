@@ -26,7 +26,7 @@ enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
 /// Every widget the open notch can show. Order of cases is the default order within each home page.
 enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, nowPlaying, timer, stopwatch, screenshot, notes, weather, calendar
-    case system, keepAwake, moon
+    case system, keepAwake, moon, roll
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -41,6 +41,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .system: "System"
         case .keepAwake: "Keep awake"
         case .moon: "Moon"
+        case .roll: "Roll"
         }
     }
     var symbol: String {
@@ -56,18 +57,19 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .system: "cpu"
         case .keepAwake: "cup.and.saucer"
         case .moon: "moon.stars"
+        case .roll: "dice"
         }
     }
     /// The page a widget starts on (and returns to on Reset).
     var home: PageKind {
         switch self {
-        case .clock, .nowPlaying, .timer, .stopwatch, .screenshot, .system, .keepAwake, .moon: .now
+        case .clock, .nowPlaying, .timer, .stopwatch, .screenshot, .system, .keepAwake, .moon, .roll: .now
         case .notes: .notes
         case .weather, .calendar: .day
         }
     }
     /// Side options start off (owner, 2026-11-25: the timer is a convenience, not the product; the stopwatch follows it).
-    var onByDefault: Bool { self != .timer && self != .stopwatch && self != .system && self != .keepAwake && self != .moon }
+    var onByDefault: Bool { self != .timer && self != .stopwatch && self != .system && self != .keepAwake && self != .moon && self != .roll }
 }
 
 /// The user's choice for one widget: shown or not. The array's order is the user's order.

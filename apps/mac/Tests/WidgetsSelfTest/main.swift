@@ -382,5 +382,29 @@ MainActor.assumeIsolated {
     check(MoonLogic.litOutline(cycle: 0.0).allSatisfy { abs($0.x) < 1e-9 || abs($0.x * $0.x + $0.y * $0.y - 1) < 1e-9 }, "moon: at new the outline is a sliver on the limb")
 }
 
+// Roll logic (docs/widget-hub.md §3.12): a seeded generator makes the rolls repeatable.
+struct SplitMix: RandomNumberGenerator {
+    var s: UInt64
+    mutating func next() -> UInt64 { s &+= 0x9E37_79B9_7F4A_7C15; var z = s; z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9; z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB; return z ^ (z >> 31) }
+}
+MainActor.assumeIsolated {
+    var rng = SplitMix(s: 42)
+    for mode in RollMode.allCases {
+        var seen = Set<Int>(), inRange = true
+        for _ in 0..<2_000 { let v = RollLogic.roll(mode, using: &rng); seen.insert(v); if !(0..<mode.sides).contains(v) { inRange = false } }
+        check(inRange && seen.count == mode.sides, "roll: \(mode.label) stays in range and reaches every face")
+    }
+    var counts = [Int](repeating: 0, count: 2)
+    for _ in 0..<10_000 { counts[RollLogic.roll(.coin, using: &rng)] += 1 }
+    check(abs(counts[0] - 5_000) < 300, "roll: the coin is fair within noise (\(counts[0]) heads of 10000)")
+    var a = SplitMix(s: 7), b = SplitMix(s: 7)
+    check((0..<20).map { _ in RollLogic.roll(.d20, using: &a) } == (0..<20).map { _ in RollLogic.roll(.d20, using: &b) }, "roll: the same seed gives the same rolls")
+    check(RollLogic.text(.coin, 0) == "Heads" && RollLogic.text(.coin, 1) == "Tails" && RollLogic.text(.d6, 0) == "1" && RollLogic.text(.d20, 19) == "20", "roll: outcome text, faces count from 1")
+    check(RollMode.coin.next == .d6 && RollMode.d20.next == .coin, "roll: the mode cycles and wraps")
+    let h = (1...7).reduce([String]()) { RollLogic.pushed($0, String($1)) }
+    check(h == ["7", "6", "5", "4", "3"] && RollLogic.historyText(["4", "3"]) == "4 · 3", "roll: history keeps the newest five")
+    check(RollLogic.spoken(.d6, last: "4") == "D6 roll: 4." && RollLogic.spoken(.coin, last: nil) == "Roll a coin.", "roll: spoken")
+}
+
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")
 exit(failures == 0 ? 0 : 1)
