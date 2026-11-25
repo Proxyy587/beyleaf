@@ -71,6 +71,7 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 
 | Use | Face / size | Weight | Ink | Notes |
 |---|---|---|---|---|
+| Clock time (display) | SF Pro 28 | medium | ink | Clock widget only (`Tok.display`), tabular digits. Added 2026-11-25: a glance needs more than a row value (widget-hub §2) |
 | Panel title, big value (time) | SF Pro 15 | semibold | ink | |
 | Row title, track name | SF Pro 13 | medium | ink | 1 line, truncate tail |
 | Body, labels | SF Pro 13 | regular | ink / ink2 | |
