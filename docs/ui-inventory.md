@@ -90,7 +90,7 @@ away instead.
 | Widgets · Pages: drag order, switch per page | Choose which pages exist and their order (ADR 0021) | Now, Notes, Day on | Drag, switch | Reset | spec |
 | Widgets · one section per page: drag, switch, Page menu | Choose what each page shows and move widgets between pages | widget-hub §1.1 | Drag, switch, menu | — | spec |
 | Widgets · Clock · Other time zones | Add the places you care about | None | Search a city, remove, reorder (max 3) | — | **built** (clock; checked by screenshot 2026-11-26) |
-| Widgets · Weather · City, Units, attribution | Choose the city (never Location) and units; credit the data source (CC BY 4.0) | No city, Automatic | Search field + results, menu | Searching, no results, offline | spec |
+| Widgets · Weather · City, Units, attribution | Choose the city (never Location) and units; credit the data source (CC BY 4.0) | No city, Automatic | Search field + results, menu | Searching, no results, offline | **built** (live fetch and ready state checked 2026-11-26; Settings search, Retry and offline UNVERIFIED) |
 | Widgets · Notes · Capture shortcut ⌃⌥N, Delete all notes… | Capture from anywhere; clear notes | On | Switch, confirm dialog | "⌃⌥N is taken by another app" | **built** (render and save path checked; typing, hotkey press, Copy/Delete/Undo UNVERIFIED) |
 | Widgets · Calendar · Access | See and fix the calendar permission | — | Show events / Open Privacy Settings | Not asked, full, write-only, denied | spec (UNVERIFIED live) |
 | General · Live activities · Stopwatch, Upcoming events | Choose whether these may take the closed notch | On, on | Switches | — | spec |

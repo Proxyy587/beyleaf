@@ -683,6 +683,7 @@ private struct WidgetsPane: View {
                     .foregroundStyle(.secondary)
             }
             ClockZonesSection()
+            WeatherSection()
             Section {
                 Toggle("Capture shortcut ⌃⌥N", isOn: $s.notesShortcut)
                 if s.notesShortcut && s.notesShortcutTaken { Text("⌃⌥N is taken by another app.").foregroundStyle(Tok.warning) }
@@ -720,6 +721,45 @@ private struct WidgetsPane: View {
             }
         }
         .toggleStyle(.switch)
+    }
+}
+
+/// Weather → city (typed and searched, never Location) and units.
+private struct WeatherSection: View {
+    @ObservedObject var s = AppSettings.shared
+    @State private var query = ""
+    @State private var results: [WeatherCity] = []
+    @State private var failed = false
+    var body: some View {
+        Section {
+            if let c = s.weatherCity {
+                HStack {
+                    Text(c.label)
+                    Spacer()
+                    Button { s.weatherCity = nil } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).accessibilityLabel("Remove \(c.name)")
+                }
+            }
+            TextField(s.weatherCity == nil ? "Search for a city" : "Change city", text: $query)
+                .task(id: query) {
+                    // Debounced 300 ms; fetches only while you type.
+                    failed = false
+                    guard query.trimmingCharacters(in: .whitespaces).count >= 2 else { results = []; return }
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    if let r = await WeatherService.shared.search(query) { results = r } else { results = []; failed = true }
+                }
+            if failed { Text("Couldn't reach Open-Meteo.").foregroundStyle(Tok.warning) }
+            ForEach(results, id: \.label) { c in
+                Button(c.label) { s.weatherCity = c; query = ""; results = [] }.buttonStyle(.borderless)
+            }
+            Picker("Units", selection: $s.weatherUnits) { ForEach(WeatherUnits.allCases) { Text($0.name).tag($0) } }
+        } header: {
+            Text("Weather")
+        } footer: {
+            Text("Weather data by Open-Meteo.com (CC BY 4.0). Places from GeoNames (CC BY 4.0). Only the city's coordinates are sent; Belay never uses your location.")
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

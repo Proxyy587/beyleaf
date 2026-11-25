@@ -222,5 +222,51 @@ do {
     check(!ro.save([a]), "notes: an unwritable location reports failure")
 }
 
+// Weather (docs/widget-hub.md §3.7): fixtures shaped like Open-Meteo's real responses (checked 2026-11-26).
+do {
+    let geo = Data("""
+    {"results":[{"name":"London","admin1":"England","country":"United Kingdom","latitude":51.50853,"longitude":-0.12574,"timezone":"Europe/London"},
+                {"name":"London","admin1":"Ontario","country":"Canada","latitude":42.98339,"longitude":-81.23304},{"id":1}]}
+    """.utf8)
+    let cities = WeatherLogic.parseCities(geo)
+    check(cities.count == 2 && cities[0].label == "London, England, United Kingdom", "weather: geocoding gives labelled cities, skipping malformed rows")
+    check(WeatherLogic.parseCities(Data("{}".utf8)).isEmpty && WeatherLogic.parseCities(Data("nope".utf8)).isEmpty, "weather: no results is an empty list, not a crash")
+    check(WeatherLogic.searchURL("São Paulo")?.absoluteString.contains("name=S%C3%A3o%20Paulo") == true, "weather: search URL percent-encodes the query")
+    let u = WeatherLogic.forecastURL(cities[0])?.absoluteString ?? ""
+    check(u.hasPrefix("https://api.open-meteo.com/v1/forecast?") && u.contains("timeformat=unixtime") && u.contains("timezone=auto") && !u.contains("api_key"), "weather: forecast URL uses the public API, no key")
+
+    // 2026-11-26 00:00 UTC is 1795651200; "now" is 13:20 UTC that day.
+    let mid = 1_795_651_200.0
+    func hours(rain: [Int]) -> String { "[" + rain.enumerated().map { "\(Int(mid) + $0.offset * 3600)" }.joined(separator: ",") + "]" }
+    func fixture(rain: [Int]) -> Data {
+        Data("""
+        {"utc_offset_seconds":0,"current":{"time":\(Int(mid) + 48000),"temperature_2m":6.4,"weather_code":2},
+         "daily":{"time":[\(Int(mid))],"temperature_2m_max":[8.2,7],"temperature_2m_min":[2.6,1]},
+         "hourly":{"time":\(hours(rain: rain)),"precipitation_probability":[\(rain.map(String.init).joined(separator: ","))]}}
+        """.utf8)
+    }
+    let now = Date(timeIntervalSince1970: mid + 13 * 3600 + 1200)
+    var dry = Array(repeating: 10, count: 48)
+    let f1 = WeatherLogic.parseForecast(fixture(rain: dry), fetched: now)
+    check(f1 != nil && f1?.hourly.count == 48 && f1?.code == 2 && f1?.high == 8.2 && f1?.low == 2.6, "weather: forecast parses current, daily and hourly")
+    check(WeatherLogic.parseForecast(Data("{\"current\":{}}".utf8), fetched: now) == nil, "weather: a malformed forecast is rejected")
+    check(f1.map { WeatherLogic.rainHint($0, now: now) } == "Dry until 01:00", "weather: dry window ends 12 hours after the current hour")
+    dry[15] = 60; dry[16] = 90
+    check(WeatherLogic.parseForecast(fixture(rain: dry), fetched: now).map { WeatherLogic.rainHint($0, now: now) } == "Rain from 15:00", "weather: first hour at 50% or more starts the rain")
+    var edge = Array(repeating: 10, count: 48); edge[13] = 50
+    check(WeatherLogic.parseForecast(fixture(rain: edge), fetched: now).map { WeatherLogic.rainHint($0, now: now) } == "Rain now", "weather: rain in the current hour says now")
+    var late = Array(repeating: 10, count: 48); late[25] = 100
+    check(WeatherLogic.parseForecast(fixture(rain: late), fetched: now).map { WeatherLogic.rainHint($0, now: now) } == "Dry until 01:00", "weather: rain beyond 12 hours is ignored")
+    check(WeatherLogic.degrees(6.4, fahrenheit: false) == "6°" && WeatherLogic.degrees(-0.3, fahrenheit: false) == "0°" && WeatherLogic.degrees(0, fahrenheit: true) == "32°", "weather: degrees round, never -0")
+    let c0 = cities[0]
+    check(f1.map { WeatherLogic.status(city: c0, $0, fahrenheit: false, offline: false) } == "LONDON · H 8 L 3", "weather: status line")
+    check(f1.map { WeatherLogic.status(city: c0, $0, fahrenheit: false, offline: true) } == "LONDON · H 8 L 3 · OFFLINE", "weather: offline keeps the forecast and says so")
+    check(f1.map { WeatherLogic.spoken(city: c0, $0, fahrenheit: false, now: now) } == "Weather in London: 6 degrees, partly cloudy, high 8, low 3. Dry until 01:00.", "weather: spoken label")
+    check(WeatherUnits.celsius.isFahrenheit() == false && WeatherUnits.fahrenheit.isFahrenheit() && WeatherUnits.auto.isFahrenheit(locale: Locale(identifier: "en_US")) && !WeatherUnits.auto.isFahrenheit(locale: Locale(identifier: "en_GB")), "weather: units, automatic follows the locale")
+    check(WeatherLogic.needsFetch(nil, now: now) && !WeatherLogic.needsFetch(f1, now: now.addingTimeInterval(29 * 60)) && WeatherLogic.needsFetch(f1, now: now.addingTimeInterval(31 * 60)), "weather: fetch when missing or older than 30 minutes")
+    check(f1.map { !WeatherLogic.isTooStale($0, now: now.addingTimeInterval(2.9 * 3600)) && WeatherLogic.isTooStale($0, now: now.addingTimeInterval(3.1 * 3600)) } == true, "weather: too stale after 3 hours")
+    check(WeatherLogic.condition(0).symbol == "sun.max" && WeatherLogic.condition(63).symbol == "cloud.rain" && WeatherLogic.condition(95).symbol == "cloud.bolt.rain" && WeatherLogic.condition(999).symbol == "cloud", "weather: condition symbols, unknown codes fall back to cloud")
+}
+
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")
 exit(failures == 0 ? 0 : 1)

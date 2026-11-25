@@ -44,6 +44,16 @@ final class AppSettings: ObservableObject {
     @Published var clockZones: [String] { didSet { let c = ClockLogic.clean(clockZones); if c != clockZones { clockZones = c } else if persistsPages { save(c, "clockZones") } } }
     /// Show a running stopwatch in the closed notch (when neither music nor a timer is live).
     @Published var stopwatchActivity: Bool { didSet { save(stopwatchActivity, "stopwatchActivity") } }
+    /// The city the Weather widget shows (typed in Settings; never Location). Nil until chosen.
+    @Published var weatherCity: WeatherCity? {
+        didSet {
+            guard persistsWeather else { return }
+            if let data = weatherCity.flatMap({ try? JSONEncoder().encode($0) }) { d.set(data, forKey: "weatherCity") } else { d.removeObject(forKey: "weatherCity") }
+        }
+    }
+    @Published var weatherUnits: WeatherUnits { didSet { if persistsWeather { save(weatherUnits.rawValue, "weatherUnits") } } }
+    /// Debug flags that set a city or forecast turn this off, so nothing they set is saved.
+    var persistsWeather: Bool { persistsPages }
     /// ⌃⌥N opens the notch on Notes with the field focused (docs/widget-hub.md §3.4).
     @Published var notesShortcut: Bool { didSet { save(notesShortcut, "notesShortcut") } }
     /// Another app owns ⌃⌥N (set by the controller; not saved).
@@ -130,7 +140,7 @@ final class AppSettings: ObservableObject {
     var hiddenWidgets: [WidgetKind] { pages.flatMap { $0.widgets.filter { !$0.enabled }.map(\.kind) } }
 
     /// Debug builds: screenshot flags (`--page`, `--demo-pages`) change pages in memory only, never the user's saved ones.
-    private var persistsPages = true
+    private(set) var persistsPages = true
 
     /// The theme a section reset returns to: the saved theme or preset the current one is named after, else Midnight.
     var themeBase: Theme {
@@ -157,6 +167,8 @@ final class AppSettings: ObservableObject {
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
         stopwatchActivity = d.object(forKey: "stopwatchActivity") as? Bool ?? true
+        weatherCity = d.data(forKey: "weatherCity").flatMap { try? JSONDecoder().decode(WeatherCity.self, from: $0) }
+        weatherUnits = WeatherUnits(rawValue: d.string(forKey: "weatherUnits") ?? "") ?? .auto
         notesShortcut = d.object(forKey: "notesShortcut") as? Bool ?? true
         clockZones = ClockLogic.clean(d.stringArray(forKey: "clockZones") ?? [])
         // Pages replace the single widget list (ADR 0021). Migrate once from `widgets` (or, older still, the theme's rows).
@@ -168,6 +180,7 @@ final class AppSettings: ObservableObject {
         let a = CommandLine.arguments
         if a.contains("--demo-pages") || a.contains("--page") { persistsPages = false }
         // Debug zones are for this run only (persistsPages off stops the save).
+        if a.contains("--weather-city") { persistsPages = false }   // the controller searches and sets it, in memory only
         if let i = a.firstIndex(of: "--clock-zones"), a.indices.contains(i + 1) { persistsPages = false; clockZones = ClockLogic.clean(a[i + 1].split(separator: ",").map(String.init)) }
         // `--enable-widget stopwatch`: turn a widget on for this run only (pages are not saved while it's given).
         if let i = a.firstIndex(of: "--enable-widget"), a.indices.contains(i + 1), let k = WidgetKind(rawValue: a[i + 1]) {

@@ -12,6 +12,7 @@ struct ExpandedView: View {
     @ObservedObject var timer: NotchTimer
     @ObservedObject var stopwatch: NotchStopwatch
     @ObservedObject var notes: NotesStore
+    @ObservedObject var weather = WeatherService.shared
     @ObservedObject var settings = AppSettings.shared
     var shown: Bool
     /// No notch (external display): the band is the panel's first line instead of sitting beside the camera.
@@ -96,6 +97,10 @@ struct ExpandedView: View {
             return stopwatch.state.laps.isEmpty ? .tile : .wide
         case .notes:
             return .wide
+        case .weather:
+            // Gone, not stale: offline with a forecast older than 3 hours takes no space (docs/widget-hub.md §3.7).
+            if settings.weatherCity != nil, weather.failed, let f = weather.forecast, WeatherLogic.isTooStale(f, now: Date()) { return nil }
+            return .tile
         case .screenshot:
             guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
             return .tile
@@ -117,6 +122,7 @@ struct ExpandedView: View {
         case .timer: TimerCard(timer: timer, size: p.size, ticking: shown)
         case .stopwatch: StopwatchCard(stopwatch: stopwatch, size: p.size, ticking: shown)
         case .notes: NotesCard(notes: notes, expanded: settings.expanded)
+        case .weather: WeatherCard(weather: weather, city: settings.weatherCity, fahrenheit: settings.weatherUnits.isFahrenheit(), size: p.size, openSettings: openSettings)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
@@ -446,6 +452,68 @@ struct ClockCard: View {
             Text(ClockLogic.time(now, in: z, is24: is24)).font(Tok.digits).foregroundStyle(Tok.ink)
             Text(ClockLogic.note(now, zone: z)).font(Tok.status).foregroundStyle(Tok.ink3)
         }
+    }
+}
+
+// MARK: - Weather
+
+/// Temperature now, today's range, and (wide) when rain starts. Open-Meteo asks for a link wherever its data shows.
+struct WeatherCard: View {
+    @ObservedObject var weather: WeatherService
+    let city: WeatherCity?
+    let fahrenheit: Bool
+    let size: WidgetSize
+    var openSettings: () -> Void
+
+    var body: some View {
+        Group {
+            if let city {
+                if let f = weather.forecast {
+                    live(city, f)
+                } else if weather.failed {
+                    WidgetCard(size: size, status: "Couldn't reach Open-Meteo") {
+                        Image(systemName: "cloud.sun").font(Tok.icon).foregroundStyle(Tok.ink2)
+                    } title: {
+                        Text("Weather").font(Tok.rowTitle).foregroundStyle(Tok.ink)
+                    } actions: {
+                        PillButton(title: "Retry") { Task { await weather.retry(for: city) } }
+                    }
+                } else {
+                    WidgetCard(size: size, status: "\(city.name.uppercased()) · LOADING") {
+                        Image(systemName: "cloud.sun").font(Tok.icon).foregroundStyle(Tok.ink2)
+                    } title: {
+                        Text("Weather").font(Tok.rowTitle).foregroundStyle(Tok.ink)
+                    } actions: { EmptyView() }
+                }
+            } else {
+                WidgetCard(size: size, status: "") {
+                    Image(systemName: "cloud.sun").font(Tok.icon).foregroundStyle(Tok.ink2)
+                } title: {
+                    Text("Weather").font(Tok.rowTitle).foregroundStyle(Tok.ink)
+                } actions: {
+                    PillButton(title: "Choose city", action: openSettings)
+                }
+            }
+        }
+        // Fetch only while this card is on screen (the Day page), and only when the forecast is older than 30 minutes.
+        .task(id: city) { if let city { await weather.refreshIfNeeded(for: city) } }
+    }
+
+    private func live(_ city: WeatherCity, _ f: WeatherForecast) -> some View {
+        let now = Date()
+        return WidgetCard(size: size, status: WeatherLogic.status(city: city, f, fahrenheit: fahrenheit, offline: weather.failed)) {
+            Image(systemName: WeatherLogic.condition(f.code).symbol).font(Tok.icon).foregroundStyle(Tok.ink)
+        } title: {
+            Text(WeatherLogic.degrees(f.temperature, fahrenheit: fahrenheit)).font(Tok.title).foregroundStyle(Tok.ink)
+        } actions: {
+            if size == .wide { Text(WeatherLogic.rainHint(f, now: now)).font(Tok.body).foregroundStyle(Tok.ink2).padding(.trailing, Tok.s2) }
+            Button { if let u = URL(string: "https://open-meteo.com") { NSWorkspace.shared.open(u) } } label: {
+                Text("Open-Meteo").font(Tok.status).foregroundStyle(Tok.ink3).padding(.horizontal, Tok.s2).frame(height: Tok.button)
+            }
+            .buttonStyle(.plain).help("Weather data by Open-Meteo.com (CC BY 4.0)")
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(WeatherLogic.spoken(city: city, f, fahrenheit: fahrenheit, now: now))
     }
 }
 

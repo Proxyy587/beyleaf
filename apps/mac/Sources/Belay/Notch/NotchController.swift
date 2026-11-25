@@ -178,6 +178,11 @@ final class NotchController {
         let a = CommandLine.arguments
         // `--notes-capture "text"`: run the real save path once (with --notes-file, never the user's notes).
         if let i = a.firstIndex(of: "--notes-capture"), a.indices.contains(i + 1) { notes.loadIfNeeded(); notes.draft = a[i + 1]; notes.saveDraft() }
+        // `--weather-city "London"`: a real search and forecast for this run only (nothing is saved).
+        if let i = a.firstIndex(of: "--weather-city"), a.indices.contains(i + 1) {
+            let name = a[i + 1]
+            Task { @MainActor in self.settings.weatherCity = await WeatherService.shared.search(name)?.first }
+        }
         if a.contains("--start-stopwatch") { stopwatch.start() }
         if a.contains("--demo-stopwatch") { stopwatch.demo() }
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
