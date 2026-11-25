@@ -34,6 +34,10 @@ final class AppSettings: ObservableObject {
     /// Seconds after the pointer leaves before the notch closes (0 = instant).
     @Published var closeDelay: Double { didSet { save(closeDelay, "closeDelay") } }
     @Published var screenshotAutoCopy: Bool { didSet { save(screenshotAutoCopy, "screenshotAutoCopy") } }
+    /// What the open notch shows, in the user's order (ADR 0019). Not part of the theme: a theme is only the look.
+    @Published var widgets: [WidgetSetting] { didSet { if widgets != oldValue { saveWidgets() } } }
+    /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
+    @Published var timerActivity: Bool { didSet { save(timerActivity, "timerActivity") } }
     /// Settings shows the essentials by default; theme, type, colour, surface and motion sit behind this.
     @Published var showAdvanced: Bool { didSet { save(showAdvanced, "showAdvancedSettings") } }
 
@@ -46,10 +50,45 @@ final class AppSettings: ObservableObject {
     var hoverIsDefault: Bool { openDelay == 0 && closeDelay == 0 }
     func resetLiveActivities() {
         musicActivity = Self.defaultMusicActivity; equalizerWhilePlaying = true
-        alertLowBattery = true; alertWifi = true
+        alertLowBattery = true; alertWifi = true; timerActivity = true
     }
     var liveActivitiesAreDefault: Bool {
-        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi
+        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi && timerActivity
+    }
+
+    // MARK: Widgets
+    func resetWidgets() { widgets = WidgetSetting.defaults }
+    var widgetsAreDefault: Bool { widgets == WidgetSetting.defaults }
+    func isEnabled(_ kind: WidgetKind) -> Bool { widgets.first { $0.kind == kind }?.enabled ?? false }
+    func setEnabled(_ kind: WidgetKind, _ on: Bool) {
+        guard let i = widgets.firstIndex(where: { $0.kind == kind }), widgets[i].enabled != on else { return }
+        widgets[i].enabled = on
+    }
+    /// Moves a widget one step among the *enabled* widgets, so ↑/↓ in the notch always visibly moves it.
+    func moveWidget(_ kind: WidgetKind, by step: Int) {
+        guard let i = widgets.firstIndex(where: { $0.kind == kind }) else { return }
+        var j = i + step
+        while widgets.indices.contains(j), !widgets[j].enabled { j += step }
+        guard widgets.indices.contains(j) else { return }
+        var w = widgets
+        let item = w.remove(at: i)
+        w.insert(item, at: j)
+        widgets = w
+    }
+    func moveWidgets(from source: IndexSet, to destination: Int) {
+        var w = widgets
+        let moving = source.map { w[$0] }
+        for i in source.sorted(by: >) { w.remove(at: i) }
+        let target = destination - source.filter { $0 < destination }.count
+        w.insert(contentsOf: moving, at: target)
+        widgets = w
+    }
+    /// First enabled widget, last enabled widget: for disabling ↑/↓ at the ends.
+    func canMove(_ kind: WidgetKind, by step: Int) -> Bool {
+        guard let i = widgets.firstIndex(where: { $0.kind == kind }) else { return false }
+        var j = i + step
+        while widgets.indices.contains(j) { if widgets[j].enabled { return true }; j += step }
+        return false
     }
 
     /// The theme a section reset returns to: the saved theme or preset the current one is named after, else Midnight.
@@ -60,7 +99,8 @@ final class AppSettings: ObservableObject {
     func themeIsDefault(_ group: Theme.Group) -> Bool { theme.matches(group, themeBase) }
 
     private init() {
-        theme = d.data(forKey: "theme").flatMap(Theme.decode) ?? .midnight
+        let savedTheme = d.data(forKey: "theme").flatMap(Theme.decode) ?? .midnight
+        theme = savedTheme
         savedThemes = d.data(forKey: "savedThemes").flatMap(Theme.decodeList) ?? []
         musicActivity = MusicActivity(rawValue: d.string(forKey: "musicActivity") ?? "") ?? Self.defaultMusicActivity
         alertLowBattery = d.object(forKey: "alertLowBattery") as? Bool ?? true
@@ -72,6 +112,14 @@ final class AppSettings: ObservableObject {
         closeDelay = d.object(forKey: "closeDelay") as? Double ?? 0
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
         showAdvanced = d.object(forKey: "showAdvancedSettings") as? Bool ?? false
+        timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
+        widgets = d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme)
+    }
+
+    /// One-time move of the old theme rows (order and visibility) into widgets; new kinds are appended.
+    private static func migratedWidgets(from theme: Theme) -> [WidgetSetting] {
+        let old = theme.rows.compactMap { r in WidgetKind(rawValue: r.kind.rawValue).map { WidgetSetting(kind: $0, enabled: r.visible) } }
+        return WidgetSetting.normalized(old)
     }
 
     // MARK: Themes
@@ -121,4 +169,5 @@ final class AppSettings: ObservableObject {
     private func saveTheme() { if let data = try? JSONEncoder().encode(theme) { d.set(data, forKey: "theme") } }
     private func persistSaved() { if let data = try? JSONEncoder().encode(savedThemes) { d.set(data, forKey: "savedThemes") } }
     private func save(_ value: Any, _ key: String) { d.set(value, forKey: key) }
+    private func saveWidgets() { if let data = try? JSONEncoder().encode(widgets) { d.set(data, forKey: "widgets") } }
 }
