@@ -42,8 +42,6 @@ final class AppSettings: ObservableObject {
     @Published var performanceMode: PerformanceMode { didSet { save(performanceMode.rawValue, "performanceMode") } }
     /// Bumped when macOS Low Power Mode changes, so `performance` re-resolves for Auto.
     @Published private(set) var powerStateRevision = 0
-    /// Settings shows the essentials by default; theme, type, colour, surface and motion sit behind this.
-    @Published var showAdvanced: Bool { didSet { save(showAdvanced, "showAdvancedSettings") } }
 
     private let d = UserDefaults.standard
 
@@ -136,7 +134,6 @@ final class AppSettings: ObservableObject {
         openDelay = d.object(forKey: "openDelay") as? Double ?? d.object(forKey: "hoverDelay") as? Double ?? 0
         closeDelay = d.object(forKey: "closeDelay") as? Double ?? 0
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
-        showAdvanced = d.object(forKey: "showAdvancedSettings") as? Bool ?? false
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
         widgets = d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme)

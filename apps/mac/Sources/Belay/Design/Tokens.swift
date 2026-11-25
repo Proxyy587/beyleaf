@@ -220,28 +220,6 @@ struct PillButton: View {
     }
 }
 
-/// On/off for the notch's own surface. Native switches turn grey in a non-key panel, so this one is drawn from
-/// tokens: on is an ink track with a notch-coloured knob (the same inversion as PillButton).
-struct NotchSwitch: View {
-    @Binding var isOn: Bool
-    let label: String
-    var body: some View {
-        Button { isOn.toggle() } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule().fill(isOn ? Tok.ink : Tok.ink.opacity(0.18))
-                Circle().fill(isOn ? Tok.notch : Tok.ink).padding(2)
-            }
-            .frame(width: 30, height: 18)
-            .animation(Tok.pressUp, value: isOn)
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .accessibilityValue(isOn ? "On" : "Off")
-        .accessibilityAddTraits(.isToggle)
-    }
-}
-
 /// Behind-window blur for the "Glass" surface, masked to the notch shape by the caller.
 struct GlassBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {

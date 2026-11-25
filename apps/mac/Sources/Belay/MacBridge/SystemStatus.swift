@@ -13,7 +13,7 @@ final class SystemStatus: ObservableObject {
     @Published private(set) var online = true
 
     private let path = NWPathMonitor()
-    private var timer: Timer?
+    private var powerSource: CFRunLoopSource?
 
     init() {
         path.pathUpdateHandler = { [weak self] p in
@@ -22,10 +22,18 @@ final class SystemStatus: ObservableObject {
         }
         path.start(queue: .global(qos: .utility))
         refresh()
-        // Battery changes slowly; one read every 30 s is plenty for the 20% and 10% alerts.
-        let t = Timer(timeInterval: 30, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.refresh() } }
-        RunLoop.main.add(t, forMode: .common)
-        timer = t
+        // macOS tells us when the power source changes (level, plugged in, unplugged): no polling. Macs without a
+        // battery never get a call, so they cost nothing.
+        guard battery != nil else { return }
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        if let src = IOPSNotificationCreateRunLoopSource({ ctx in
+            guard let ctx else { return }
+            let me = Unmanaged<SystemStatus>.fromOpaque(ctx).takeUnretainedValue()
+            MainActor.assumeIsolated { me.refresh() }
+        }, context)?.takeRetainedValue() {
+            CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
+            powerSource = src
+        }
     }
 
     /// Publishes only when the value changed: an unchanged @Published assignment still redraws the notch.
