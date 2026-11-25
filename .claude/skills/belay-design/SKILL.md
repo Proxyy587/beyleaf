@@ -34,9 +34,9 @@ unfair.so, dusk.bot and joinariapp.com, captured with `agent-browser` at 1440×9
 
 ## Tools
 - **`agent-browser`**: look at a reference or our website (screenshots, computed fonts and colours). Setup is in its `SOURCE.md`.
-- **Hallmark** (plugin, `/hallmark:hallmark`): only for new web pages (`apps/web`, the landing page, share cards) or when asked for a Hallmark `audit`.
+- **`frontend-design`**: new web pages only (`apps/web`, landing page, share cards). Pair it with `dusk-feel` for the look.
   - It doesn't know SwiftUI.
-  - Where it conflicts with `docs/design.md` (mono uppercase status lines, `A · B` meta), `docs/design.md` wins and the waiver goes in the stamp.
+  - Where it conflicts with `docs/design.md` (mono uppercase status lines, `A · B` meta), `docs/design.md` wins.
 
 ## Anti-slop gate (fail the change if any is true)
 1. A decorative gradient anywhere
