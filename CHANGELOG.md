@@ -7,6 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Added
+- **Buddies:** 15 buddies in two styles, traced from the owner's reference sheets (`brand/buddies/`). Smooth: vector SVGs with silhouette IoU 0.993–0.997 against the sheet. Pixel: each sprite's grid recovered and sampled cell by cell, faces redrawn on the grid, SVG + lossless PNG (IoU 0.953–0.993; the sheet's own grid drifts). Eyes are separate parts for blink, look, sleep and a happy ^ ^ with a hop. `comparison.png` shows reference beside ours for all 30; `preview/index.html` plays every animation; `tools/run.sh` rebuilds it all.
 - **Research:** competitive landscape, evidence of pain, technical feasibility, verdict, market growth (`docs/`).
 - **Product:** concept and hero moment, full ecosystem spec, locked v0.1/v0.2/v0.3 feature list, 2-week build plan, launch plan.
 - **Engineering:** tech stack, architecture, open-source reuse and AI-subscription rules.
