@@ -262,7 +262,7 @@ struct TimerCard: View {
             } title: {
                 Text("Timer").font(Tok.rowTitle).foregroundStyle(Tok.ink)
             } actions: {
-                presets
+                DurationPicker(timer: timer)
             }
         case .running, .paused:
             // One tick a second, only while the panel is open.
@@ -271,9 +271,10 @@ struct TimerCard: View {
                 WidgetCard(size: size, status: status(at: now), live: timer.isRunning) {
                     ProgressRing(fraction: p.fraction, lineWidth: 2.5).padding(2)
                 } title: {
+                    // No rolling-digit transition or ring animation per tick: together they cost ~10% CPU while
+                    // open (measured 2026-11-25) for motion too small to see. Digits swap; the ring steps.
                     Text(countdown(p.remaining)).font(Tok.font(15, .semibold, mono: true)).foregroundStyle(Tok.ink)
-                        .contentTransition(Tok.reduceMotion ? .identity : .numericText(countsDown: true))
-                        .animation(Tok.reveal, value: Int(p.remaining.rounded(.up)))
+
                 } actions: {
                     if timer.isRunning { IconButton(symbol: "pause.fill", label: "Pause timer") { timer.pause() } }
                     else { IconButton(symbol: "play.fill", label: "Resume timer") { timer.resume() } }
@@ -292,21 +293,53 @@ struct TimerCard: View {
         }
     }
 
-    /// Presets as chips: three fit a tile, four a wide row.
-    private var presets: some View {
-        HStack(spacing: Tok.s1) {
-            ForEach(size == .tile ? Array(NotchTimer.presets.prefix(3)) : NotchTimer.presets, id: \.self) { m in
-                Chip(title: "\(m)m", label: "Start a \(m) minute timer") { timer.start(minutes: m) }
-            }
-        }
-        .padding(.trailing, Tok.buttonInset)
-    }
-
     private func status(at now: Date) -> String {
         switch timer.state {
         case let .running(end, _): "Ends " + end.formatted(date: .omitted, time: .shortened)
         case .paused: "Paused"
         default: ""
+        }
+    }
+}
+
+/// − [25m] + ▶. Drag the number sideways to scrub; click ▶ (or the number) to start.
+struct DurationPicker: View {
+    @ObservedObject var timer: NotchTimer
+    @State private var dragStart: Int?
+    @State private var hover = false
+    var body: some View {
+        HStack(spacing: 0) {
+            IconButton(symbol: "minus", label: "Shorter") { timer.minutes = NotchTimer.step(timer.minutes, by: -1) }
+                .disabled(timer.minutes <= 1)
+            Text("\(timer.minutes)m")
+                .font(Tok.digits).foregroundStyle(Tok.ink)
+                .contentTransition(Tok.reduceMotion ? .identity : .numericText())
+                .animation(Tok.reveal, value: timer.minutes)
+                .frame(minWidth: 40)
+                .frame(height: Tok.button)
+                .background(Capsule().fill(hover ? Tok.pressedFill : Tok.hoverFill))
+                .contentShape(Capsule())
+                .onHover { h in withAnimation(Tok.hover) { hover = h } }
+                .gesture(DragGesture(minimumDistance: 2)
+                    .onChanged { v in
+                        let base = dragStart ?? timer.minutes
+                        if dragStart == nil { dragStart = base }
+                        var m = base
+                        let steps = Int(v.translation.width / 8)
+                        for _ in 0..<abs(steps) { m = NotchTimer.step(m, by: steps > 0 ? 1 : -1) }
+                        if m != timer.minutes { timer.minutes = m }
+                    }
+                    .onEnded { _ in dragStart = nil })
+                .onTapGesture { timer.start(minutes: timer.minutes) }
+                .help("Drag to change, click to start")
+                .accessibilityLabel("Timer length")
+                .accessibilityValue("\(timer.minutes) minutes")
+                .accessibilityAdjustableAction { d in
+                    timer.minutes = NotchTimer.step(timer.minutes, by: d == .increment ? 1 : -1)
+                }
+            IconButton(symbol: "plus", label: "Longer") { timer.minutes = NotchTimer.step(timer.minutes, by: 1) }
+                .disabled(timer.minutes >= 180)
+            IconButton(symbol: "play.fill", label: "Start timer") { timer.start(minutes: timer.minutes) }
         }
     }
 }

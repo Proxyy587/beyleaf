@@ -65,11 +65,11 @@ any row left with one tile: that tile is promoted to wide (its wide layout), so 
 | Widget | Live | Ready (nothing live) | Gone | Tile form | Wide form |
 |---|---|---|---|---|---|
 | **Now playing** | A track is known | A player is running but nothing is known or it's stopped: "Spotify" + Play | No player running | Art 36, title, play/pause | Art 56, title, artist, progress + times, prev/play/next on the right |
-| **Timer** (new) | Counting down or done | Presets 5 · 15 · 25 · 50 min as chips | Never (it always has an action) | Ring + mono countdown, pause, stop | Same, with a wider ring and the end time ("ends 14:32") |
+| **Timer** (new, **off by default**: a side option) | Counting down or done | − [25m] + ▶: any length 1–180 min (1-min steps to 10, then 5, then 15); drag the number to scrub; the last length is remembered | Never (it always has an action) | Ring + mono countdown, pause, stop | Same, with the end time ("ends 14:32") |
 | **Last screenshot** | Copied within the last 30 min | — | Otherwise | Thumbnail, "Copied", age · size, copy again, show in Finder | Same, with a larger thumbnail |
 | **Agents** | planned A1 | — | — | sessions list (planned) | — |
 
-Defaults: Now playing, Timer, Last screenshot, all on, in that order.
+Defaults: Now playing and Last screenshot on, Timer off (it's a convenience, not the product), in that order.
 
 **Why Timer passes the purpose test:** it's a real job (time-boxing a task while agents run). It's live (a ticking countdown and a done moment). The menu bar doesn't do it. It has designed ready, running, paused and done states. It isn't a readout. A Calendar "next event" widget is a candidate for v2: it needs the Calendar permission and has to be verified first.
 

@@ -12,7 +12,16 @@ final class NotchTimer: ObservableObject {
         case done(at: Date, total: TimeInterval)
     }
 
-    static let presets: [Int] = [5, 15, 25, 50]   // minutes
+    /// The duration the next start uses, kept between launches. Changed with − / + or by dragging the number.
+    @Published var minutes: Int { didSet { UserDefaults.standard.set(minutes, forKey: "timerMinutes") } }
+
+    init() { minutes = UserDefaults.standard.object(forKey: "timerMinutes") as? Int ?? 25 }
+
+    /// Finer steps for short timers: 1…10 by 1, then by 5 to an hour, then by 15 up to 3 hours.
+    static func step(_ m: Int, by dir: Int) -> Int {
+        if dir > 0 { return min(180, m < 10 ? m + 1 : m < 60 ? m + 5 : m + 15) }
+        return max(1, m <= 10 ? m - 1 : m <= 60 ? m - 5 : m - 15)
+    }
 
     @Published private(set) var state: State = .idle
     /// Increments when a countdown reaches zero, so the closed notch can flash "Done".

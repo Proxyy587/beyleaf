@@ -29,7 +29,8 @@ struct WidgetSetting: Codable, Equatable, Identifiable, Sendable {
     var enabled: Bool
     var id: WidgetKind { kind }
 
-    static let defaults: [WidgetSetting] = WidgetKind.allCases.map { WidgetSetting(kind: $0, enabled: true) }
+    /// The timer is a side option (owner, 2026-11-25): listed, but off until the user turns it on.
+    static let defaults: [WidgetSetting] = WidgetKind.allCases.map { WidgetSetting(kind: $0, enabled: $0 != .timer) }
 
     /// Tolerant decode: unknown kinds are dropped, duplicates keep the first, and kinds added since are appended.
     static func decode(_ data: Data) -> [WidgetSetting]? {

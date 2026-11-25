@@ -173,7 +173,6 @@ struct ProgressRing: View {
                 .stroke(Tok.ink, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
-        .animation(Tok.reveal, value: fraction)
         .accessibilityHidden(true)
     }
 }
