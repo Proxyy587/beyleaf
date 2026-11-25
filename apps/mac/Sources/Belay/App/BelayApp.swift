@@ -37,6 +37,9 @@ final class BelayApp: NSObject, NSApplicationDelegate {
         controller.start(openOnLaunch: CommandLine.arguments.contains("--expand"))
         installStatusItem()
         if CommandLine.arguments.contains("--settings") { settingsWindow.show() }
+        #if DEBUG
+        BuddyReviewWindow.showIfRequested()
+        #endif
         // Launch time from process start to here (docs/performance.md budget: < 300 ms). Counts only.
         DispatchQueue.main.async {
             Logger(subsystem: "app.belay.mac", category: "perf").notice("ready \(Self.msSinceProcessStart(), privacy: .public) ms after launch")

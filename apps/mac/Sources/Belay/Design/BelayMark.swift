@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Belay's mark: the notch, and the one point that needs you (brand/README.md). Drawn from the brand geometry on its
-/// 64 × 64 grid, never from a bitmap. `BelayMark.notch` and `.point` are the two parts; `BelayMarkView` puts them
-/// together with the brand's colour rules.
+/// 64 × 64 grid, never from a bitmap. `BelayMark.notch` and `.point` are the two parts.
+/// Only the menu bar icon uses it now; the notch and About draw beepo (`BrandSlot`, brand/buddies/).
 enum BelayMark {
     /// The grid the brand geometry is drawn on.
     static let grid: CGFloat = 64
@@ -54,23 +54,5 @@ enum BelayMark {
         image.isTemplate = true
         image.accessibilityDescription = "Belay"
         return image
-    }
-}
-
-/// The mark in a view. Ink on black by default. `live` paints the point in the live colour: only for "something needs
-/// you" (a status colour, design.md §3). `showsPoint: false` draws the notch alone. Still at rest: no loops.
-struct BelayMarkView: View {
-    var ink: Color = Tok.ink
-    var live = false
-    var showsPoint = true
-
-    var body: some View {
-        ZStack {
-            BelayMark.Notch(alone: !showsPoint).fill(ink)
-            if showsPoint { BelayMark.Point().fill(live ? Tok.live : ink) }
-        }
-        .aspectRatio(1, contentMode: .fit)
-        .accessibilityElement()
-        .accessibilityLabel("Belay")
     }
 }

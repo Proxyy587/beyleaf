@@ -2,6 +2,8 @@
 
 **The mark:** the notch, and the one point that needs you. Chosen 2026-11-24 from three rounds of exploration (`explore/`).
 
+**Temporary logo (2026-11-25):** beepo, the first of the buddies (`buddies/`), stands in for the logo in the notch's brand slot and Settings → About. The app icon and the menu bar icon still use the mark below until they are redesigned.
+
 | File | Use |
 |---|---|
 | `mark.svg` | Primary mark, ink `#F5F5F3`: docs, website, dark backgrounds |

@@ -87,6 +87,11 @@ enum Tok {
     }
     static var reveal: Animation { .easeOut(duration: (reduceMotion ? 0.1 : 0.2) / t.speed) }
     static var hover: Animation { .easeOut(duration: 0.12 / t.speed) }
+    /// Buddy eyes: a blink closes in 80 ms; looking and waking take the same quick ease. Reduced motion: no animation.
+    static var blink: Animation? { reduceMotion ? nil : .easeOut(duration: 0.08 / t.speed) }
+    /// Buddy body: hover lift. One hop is 140 ms up and 140 ms down (`hopHalf`).
+    static var lift: Animation? { reduceMotion ? nil : .easeOut(duration: 0.2 / t.speed) }
+    static var hopHalf: Double { 0.14 / t.speed }
     /// Press down quickly, release with a hair of overshoot (dusk-feel §4). Reduced motion: no scale at all.
     static var pressDown: Animation { .easeOut(duration: 0.12 / t.speed) }
     static var pressUp: Animation { .timingCurve(0.28, 1.4, 0.36, 1, duration: 0.2 / t.speed) }
