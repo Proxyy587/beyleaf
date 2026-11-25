@@ -8,7 +8,7 @@ Things the agents can't do for you: accounts, money, legal calls, physical hardw
 
 | ✓ | Task | Why | How |
 |---|---|---|---|
-| ☐ | **Install Bun** | The core daemon `belayd` (hooks, approvals, crew) is TypeScript on Bun | `curl -fsSL https://bun.sh/install \| bash`, then pin the version in `.bun-version` |
+| ✓ | **Install Bun** (1.4.5, 2026-11-25) | The core daemon `belayd` (hooks, approvals, crew) is TypeScript on Bun | `curl -fsSL https://bun.sh/install \| bash`, then pin the version in `.bun-version` |
 | ☐ | **Install Xcode** (optional, recommended) | Not needed to build today (ADR 0013). Needed for previews, Instruments (performance), asset catalogs and notarization tooling. | App Store → Xcode, then `sudo xcode-select -s /Applications/Xcode.app` |
 | ☐ | **Install cmake** | To build `mediaremote-adapter` (BSD-3) for now playing from **any** app (browsers, YouTube, Podcasts) with artwork | `brew install cmake` |
 | ☐ | **Grant Belay's permissions when asked** | Automation → Music/Spotify (controls, artwork). Later: Microphone + Speech Recognition (voice), Accessibility (global shortcuts, window layouts), Location (to show the Wi-Fi network name). | System Settings → Privacy & Security |

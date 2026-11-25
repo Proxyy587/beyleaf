@@ -65,6 +65,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Fixed:** opening the notch could launch Spotify (or Music). `tell application` starts an app that isn't running, and the position, artwork, seek and controls calls used the last-known player without checking. All player AppleScript now goes through one guard (checked in Swift and inside the script), and a player is forgotten the moment it quits.
 
 ### Changed
+- **Spike A0: GO.** A minimal `belayd` and `belay-hook` on Bun held a Claude Code permission request for 20 s, then denied it and steered Claude. Steering works only when it is the user's own words, quoted and attributed (ADR 0020). Bun pinned at 1.4.5.
 - **`docs/status.md`:** the product report: what is built, how, quality numbers, what is unverified, how we work, and the corrected next steps (A0 spike → A1–A6, then Crew). AGENTS.md now points new sessions there first.
 - **Open with Hover or Click** (General → Notch): click mode catches clicks only on the notch itself. **Open Belay at login** (General → Startup) via macOS Login Items. The open haptic now fires only on hover.
 - **Expand / compact:** a band button widens the open notch by 180 pt (up to 640), gives every widget its full layout and grows the album art; remembered between launches. Room for agents and Crew later.
