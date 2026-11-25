@@ -45,16 +45,17 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general = "General", theme = "Theme", typography = "Typography", colours = "Colours", surface = "Surface and shape",
+    case general = "General", widgets = "Widgets", theme = "Theme", typography = "Typography", colours = "Colours", surface = "Surface and shape",
          layout = "Layout", motion = "Motion", screenshots = "Screenshots", accounts = "AI accounts", about = "About"
     var id: String { rawValue }
     /// Shown to everyone. The rest (look and motion) appear with "Show advanced settings".
-    static let essentials: [SettingsSection] = [.general, .layout, .screenshots, .accounts, .about]
+    static let essentials: [SettingsSection] = [.general, .widgets, .layout, .screenshots, .accounts, .about]
     static let advanced: [SettingsSection] = [.theme, .typography, .colours, .surface, .motion]
     var isAdvanced: Bool { Self.advanced.contains(self) }
     var symbol: String {
         switch self {
         case .general: "gearshape"
+        case .widgets: "square.grid.2x2"
         case .theme: "swatchpalette"
         case .typography: "textformat"
         case .colours: "paintpalette"
@@ -101,6 +102,7 @@ struct SettingsView: View {
             Group {
                 switch section ?? .general {
                 case .general: GeneralPane()
+                case .widgets: WidgetsPane()
                 case .theme: ThemePane()
                 case .typography: TypographyPane()
                 case .colours: ColoursPane()
@@ -231,10 +233,11 @@ private struct NotchPreview: View {
     private var card: some View {
         let width = min(CGFloat(s.theme.width), 440)
         return VStack(alignment: .leading, spacing: Tok.s2) {
-            HStack {
-                Text(Date(), format: .dateTime.hour().minute()).font(Tok.digits).foregroundStyle(Tok.ink2)
+            HStack(spacing: 0) {
+                BrandSlot()
                 Spacer()
-                Image(systemName: "gearshape").font(Tok.buttonIcon).foregroundStyle(Tok.ink)
+                Image(systemName: "square.grid.2x2").font(Tok.buttonIcon).foregroundStyle(Tok.ink).frame(width: Tok.button)
+                Image(systemName: "gearshape").font(Tok.buttonIcon).foregroundStyle(Tok.ink).frame(width: Tok.button)
             }
             .frame(height: 28)
             .blurReveal(shown, delay: 0.03)
@@ -243,29 +246,28 @@ private struct NotchPreview: View {
                     Tok.raised
                     Image(systemName: "music.note").font(.system(size: 20, weight: .medium)).foregroundStyle(Tok.ink2)
                 }
-                .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 48 * 0.22, style: .continuous))
-                VStack(alignment: .leading, spacing: 3) {
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: 56 * 0.22, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Track title").font(Tok.rowTitle).foregroundStyle(Tok.ink)
-                    StatusLine(text: "Playing · Artist", live: true)
+                    Text("Artist").font(Tok.meta).foregroundStyle(Tok.ink2)
+                    Spacer(minLength: Tok.s1)
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Tok.ink.opacity(0.14))
+                        GeometryReader { g in Capsule().fill(Tok.ink).frame(width: g.size.width * 0.4) }
+                    }
+                    .frame(height: 3)
                 }
-                Spacer(minLength: 0)
+                .frame(height: 56)
+                Image(systemName: "pause.fill").font(Tok.buttonIcon).foregroundStyle(Tok.ink)
             }
+            .card()
             .blurReveal(shown, delay: 0.05)
-            HStack(spacing: Tok.s2) {
-                Text("1:12").font(Tok.digits).foregroundStyle(Tok.ink3)
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Tok.ink.opacity(0.14))
-                    GeometryReader { g in Capsule().fill(Tok.ink).frame(width: g.size.width * 0.4) }
-                }
-                .frame(height: 3)
-                Text("-1:48").font(Tok.digits).foregroundStyle(Tok.ink3)
-            }
-            .blurReveal(shown, delay: 0.075)
         }
-        .padding(.horizontal, Tok.rOpenEar + Tok.s4)
-        .padding(.top, Tok.s2)
-        .padding(.bottom, Tok.s4)
+        .padding(.horizontal, Tok.s2)
+        .padding(.top, Tok.s1)
+        .padding(.bottom, Tok.s2)
+        .padding(.horizontal, Tok.rOpenEar)
         .frame(width: width)
         .background {
             let shape = NotchShape(earRadius: Tok.rOpenEar, bottomRadius: Tok.rOpenBottom)
@@ -488,27 +490,6 @@ private struct LayoutPane: View {
                 ResetHeader(title: "Open notch", isDefault: s.themeIsDefault(.openNotch)) { s.resetTheme(.openNotch) }
             }
             Section {
-                ForEach(Array(s.theme.rows.enumerated()), id: \.element.id) { index, row in
-                    LabeledContent(row.kind.name) {
-                        HStack(spacing: 4) {
-                            Button { move(index, by: -1) } label: { Image(systemName: "chevron.up") }
-                                .buttonStyle(.borderless).disabled(index == 0)
-                                .accessibilityLabel("Move \(row.kind.name) up").help("Move up")
-                            Button { move(index, by: 1) } label: { Image(systemName: "chevron.down") }
-                                .buttonStyle(.borderless).disabled(index == s.theme.rows.count - 1)
-                                .accessibilityLabel("Move \(row.kind.name) down").help("Move down")
-                            Toggle(row.kind.name, isOn: Binding(get: { s.theme.rows[index].visible },
-                                                                set: { s.theme.rows[index].visible = $0 }))
-                                .labelsHidden().padding(.leading, 8)
-                        }
-                    }
-                }
-            } header: {
-                ResetHeader(title: "Rows", isDefault: s.themeIsDefault(.rows)) { s.resetTheme(.rows) }
-            } footer: {
-                Text("Last screenshot appears only after Belay copies one.").foregroundStyle(.secondary)
-            }
-            Section {
                 Picker("While music plays", selection: $s.musicActivity) {
                     ForEach(AppSettings.MusicActivity.allCases) { Text($0.name).tag($0) }
                 }
@@ -516,17 +497,47 @@ private struct LayoutPane: View {
                 Toggle("Music bars follow the beat", isOn: $s.equalizerWhilePlaying)
                 Toggle("Low battery", isOn: $s.alertLowBattery)
                 Toggle("Internet lost or back", isOn: $s.alertWifi)
+                Toggle("Timer", isOn: $s.timerActivity)
             } header: {
                 ResetHeader(title: "Live activities", isDefault: s.liveActivitiesAreDefault) { s.resetLiveActivities() }
+            } footer: {
+                Text("A running timer shows beside the camera when music isn't playing.").foregroundStyle(.secondary)
             }
         }
         .toggleStyle(.switch)
     }
+}
 
-    private func move(_ i: Int, by d: Int) {
-        let j = i + d
-        guard s.theme.rows.indices.contains(j) else { return }
-        s.theme.rows.swapAt(i, j)
+/// What the open notch shows and in what order (ADR 0019). Drag to reorder; the notch repacks live.
+private struct WidgetsPane: View {
+    @ObservedObject var s = AppSettings.shared
+    var body: some View {
+        Form {
+            Section {
+                List {
+                    ForEach(s.widgets) { w in
+                        HStack(spacing: 10) {
+                            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
+                            Label(w.kind.name, systemImage: w.kind.symbol)
+                            Spacer()
+                            Toggle(w.kind.name, isOn: Binding(get: { w.enabled }, set: { s.setEnabled(w.kind, $0) }))
+                                .labelsHidden()
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .onMove { s.moveWidgets(from: $0, to: $1) }
+                }
+                .frame(height: CGFloat(s.widgets.count) * 34 + 8)
+                .scrollDisabled(true)
+            } header: {
+                ResetHeader(title: "Widgets", isDefault: s.widgetsAreDefault) { s.resetWidgets() }
+            } footer: {
+                Text("Drag to reorder. Small widgets pair up side by side; one with nothing to show takes no space.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
     }
 }
 

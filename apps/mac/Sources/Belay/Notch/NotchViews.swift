@@ -72,8 +72,8 @@ struct ExpandedView: View {
         switch p.kind {
         case .nowPlaying:
             if music.title != nil { NowPlayingCard(music: music) } else { PlayerReadyCard(music: music, size: p.size) }
-        case .timer: TimerCard(timer: timer, size: p.size)
-        case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size) }
+        case .timer: TimerCard(timer: timer, size: p.size, ticking: shown)
+        case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
 
@@ -252,6 +252,7 @@ struct ProgressBar: View {
 struct TimerCard: View {
     @ObservedObject var timer: NotchTimer
     let size: WidgetSize
+    var ticking = true
 
     var body: some View {
         switch timer.state {
@@ -264,10 +265,10 @@ struct TimerCard: View {
                 presets
             }
         case .running, .paused:
-            // One tick a second, only while this card is on screen.
-            TimelineView(.periodic(from: .now, by: 1)) { ctx in
-                let p = timer.progress(at: ctx.date)
-                WidgetCard(size: size, status: status(at: ctx.date), live: timer.isRunning) {
+            // One tick a second, only while the panel is open.
+            Ticking(seconds: 1, active: ticking && timer.isRunning) { now in
+                let p = timer.progress(at: now)
+                WidgetCard(size: size, status: status(at: now), live: timer.isRunning) {
                     ProgressRing(fraction: p.fraction, lineWidth: 2.5).padding(2)
                 } title: {
                     Text(countdown(p.remaining)).font(Tok.font(15, .semibold, mono: true)).foregroundStyle(Tok.ink)
@@ -316,9 +317,10 @@ struct ScreenshotCard: View {
     let copied: Screenshots.Copied
     @ObservedObject var shots: Screenshots
     let size: WidgetSize
+    var ticking = true
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { ctx in
-            WidgetCard(size: size, status: "\(relative(copied.at, now: ctx.date)) · \(ByteCountFormatter.string(fromByteCount: Int64(copied.bytes), countStyle: .file))") {
+        Ticking(seconds: 30, active: ticking) { now in
+            WidgetCard(size: size, status: "\(relative(copied.at, now: now)) · \(ByteCountFormatter.string(fromByteCount: Int64(copied.bytes), countStyle: .file))") {
                 Thumbnail(url: copied.url)
             } title: {
                 Text(size == .tile ? "Copied" : "Screenshot copied").font(Tok.rowTitle).foregroundStyle(Tok.ink)

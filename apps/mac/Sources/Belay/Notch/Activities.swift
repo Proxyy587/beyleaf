@@ -140,12 +140,12 @@ struct ActivityWing: View {
                 StatusLine(text: online ? "Online" : "Offline", live: online)
             case (.timer, .leading):
                 // A minute's resolution is enough at a glance; 5 s ticks keep the closed notch nearly free.
-                TimelineView(.periodic(from: .now, by: 5)) { ctx in
-                    ProgressRing(fraction: timer.progress(at: ctx.date).fraction, lineWidth: 2.5).frame(width: 15, height: 15)
+                Ticking(seconds: 5) { now in
+                    ProgressRing(fraction: timer.progress(at: now).fraction, lineWidth: 2.5).frame(width: 15, height: 15)
                 }
             case (.timer, .trailing):
-                TimelineView(.periodic(from: .now, by: 5)) { ctx in
-                    let r = timer.progress(at: ctx.date).remaining
+                Ticking(seconds: 5) { now in
+                    let r = timer.progress(at: now).remaining
                     Text(r < 60 ? "<1m" : "\(Int((r / 60).rounded(.up)))m").font(Tok.digits).foregroundStyle(Tok.ink)
                         .contentTransition(.numericText(countsDown: true))
                 }

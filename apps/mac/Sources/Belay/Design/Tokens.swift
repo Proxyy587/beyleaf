@@ -143,6 +143,23 @@ extension View {
     }
 }
 
+/// Re-renders its content every `seconds`, only while `active` (hidden views don't tick).
+/// The schedule's anchor is fixed: `.periodic(from: .now, …)` restarts on every re-render and fires immediately,
+/// which turns a 1 s tick into a continuous redraw (measured at 12% CPU).
+struct Ticking<Content: View>: View {
+    let seconds: TimeInterval
+    var active = true
+    @ViewBuilder let content: (Date) -> Content
+    private static var anchor: Date { Date(timeIntervalSinceReferenceDate: 0) }
+    var body: some View {
+        if active {
+            TimelineView(.periodic(from: Self.anchor, by: seconds)) { ctx in content(ctx.date) }
+        } else {
+            content(Date())
+        }
+    }
+}
+
 /// A thin progress ring (timer). Track at ink 14%, progress in ink.
 struct ProgressRing: View {
     let fraction: Double
