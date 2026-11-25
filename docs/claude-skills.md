@@ -29,6 +29,11 @@ Built into Claude Code already, so not copied: `/code-review` (correctness revie
 - **slack-gif-creator** (Anthropic): depends on FFmpeg (GPL-3.0 per its notices); off-topic and against ADR 0003.
 - **docx, pdf, pptx, xlsx, canvas-design, algorithmic-art, theme-factory, internal-comms, web-artifacts-builder,
   discernment-nudge**: not about building Belay.
+- **glassmorphism**, **ascii-animation** (iart-ai/web-animation-skills, MIT): CSS and canvas only. Belay's glass is native
+  SwiftUI, so its rules live in `swiftui-macos`. Dithered and ASCII art is a website hero idea for `apps/web`; revisit then.
+- **liquid-glass** skills: zakisheriff and haider-nawaz have no licence, so they're out. Armitanemati (MIT) is mostly web
+  (3 SwiftUI mentions in 538 lines). Covered natively in `swiftui-macos`.
+- **apple-native-ui**: no skill by that name found (2026-11-25). Apple-native rules are in `swiftui-macos` and `docs/design.md`.
 - Unvetted community collections: not read in full, so not adopted.
 
 **Rule for adding one:** permissive licence (MIT, Apache-2.0, BSD), read the whole `SKILL.md`, no scripts unless each

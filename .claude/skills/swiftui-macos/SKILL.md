@@ -42,6 +42,13 @@ Pair with `belay-design` (what it should look like) and `belay` (commits, ADRs, 
   `final class …: @unchecked Sendable` confined to its own serial queue; publish to SwiftUI at ≤ 30 Hz.
 - **Availability.** The app targets macOS 14.0. Gate newer APIs with `@available` / `#available`, and store such
   objects as `AnyObject?` if a stored property's type would need the newer OS.
+- **Glass and materials** (the CLT SDK is macOS 26.2, so Liquid Glass compiles, but the app targets 14):
+  - **The notch stays pure black.** Glass belongs to floating things off the notch: Settings sidebars, popovers, cards.
+  - Gate macOS 26 APIs with `#available(macOS 26, *)`: `.glassEffect(.regular, in: shape)`, `GlassEffectContainer`, `.buttonStyle(.glass)`, `NSGlassEffectView`.
+  - On 14–15, fall back to `.background(.regularMaterial)` or `NSVisualEffectView`.
+  - **One material per surface.** Never stack glass on glass. Never add a border and a shadow on top of glass.
+  - Honour Reduce Transparency: `@Environment(\.accessibilityReduceTransparency)` switches glass to a solid `Tok` surface.
+  - Text on glass must still clear 4.5:1. Check it on a light and a dark wallpaper.
 - **Lifecycles cost battery.** Anything that polls, taps or animates runs only while visible and useful, and stops
   otherwise (see `NotchController.updateBeat`, `status.setActive`, `music.setProgressActive`).
 - **Brand.** `BelayMark` / `BelayMarkView` draw the logo from `brand/README.md` geometry. No brand text on the notch.
