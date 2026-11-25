@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- W · Eight brand: optically tuned figure-8 with flat notch-top. Ribbon weight. -->
+  <path fill="none" stroke="#F5F5F3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M32 18
+      C42 18 48 23 48 30
+      C48 36 43 39.5 32 42
+      C21 39.5 16 36 16 30
+      C16 23 22 18 32 18
+      Z
+    "/>
+  <path fill="none" stroke="#F5F5F3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M32 42
+      C44 44.5 50 49 50 55.5
+      C50 61 42.5 65 32 65
+      C21.5 65 14 61 14 55.5
+      C14 49 20 44.5 32 42
+      Z
+    "/>
+</svg>

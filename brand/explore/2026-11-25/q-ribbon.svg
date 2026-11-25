@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Q · Ribbon: one continuous thick stroke  notch ear into figure-8 catch. -->
+  <path fill="none" stroke="#F5F5F3" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M10 18
+      H22
+      C22 18 22 26 32 26
+      C42 26 42 18 42 18
+      H54
+      M32 26
+      V36
+      C42 36 48 42 48 50
+      C48 56.5 41.5 61 32 61
+      C22.5 61 16 56.5 16 50
+      C16 42 22 36 32 36
+      C38 36 42 40 42 45
+    "/>
+</svg>

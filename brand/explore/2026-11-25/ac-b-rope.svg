@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- AC · B-rope: a capital B drawn as one thick rope  lettermark with climbing DNA. -->
+  <path fill="none" stroke="#F5F5F3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M18 10
+      V54
+      M18 10
+      H34
+      C46 10 52 16 52 24
+      C52 30 48 34 40 36
+      C50 38 54 44 54 50
+      C54 58 46 64 32 64
+      H18
+    "/>
+</svg>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- AG · Ship: optically tuned notchface. Hardware ears, island jaw, eye cutouts. -->
+  <path fill="#F5F5F3" fill-rule="evenodd" d="
+    M2 16
+    H16.5
+    C16.5 16 16.8 22 23 26.5
+    H41
+    C47.2 22 47.5 16 47.5 16
+    H62
+    V21.5
+    C54 21.5 51.5 26.5 51.5 32
+    V37.5
+    C51.5 48 43 55 32 55
+    C21 55 12.5 48 12.5 37.5
+    V32
+    C12.5 26.5 10 21.5 2 21.5
+    Z
+    M23 38
+    A5.35 5.35 0 1 0 23.01 38
+    Z
+    M41 38
+    A5.35 5.35 0 1 0 41.01 38
+    Z
+  "/>
+</svg>

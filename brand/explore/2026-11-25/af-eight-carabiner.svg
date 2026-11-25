@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- AF · Eight×gate: figure-8 with a carabiner gate gap on the upper right  belay tool, not a digit. -->
+  <path fill="none" stroke="#F5F5F3" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M32 20.5
+      C40.5 20.5 46 25.2 46 31
+      C46 36 41.5 39.2 32 41.5
+      C22.5 39.2 18 36 18 31
+      C18 25.2 23.5 20.5 32 20.5
+    "/>
+  <path fill="none" stroke="#F5F5F3" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"
+    d="
+      M32 41.5
+      C43 43.8 48.5 48.5 48.5 54.5
+      C48.5 60.2 41.5 64.5 32 64.5
+      C22.5 64.5 15.5 60.2 15.5 54.5
+      C15.5 48.5 21 43.8 32 41.5
+    "/>
+  <!-- gate tick  open carabiner cue on the top loop -->
+  <path fill="none" stroke="#F5F5F3" stroke-width="6.5" stroke-linecap="round"
+    d="M46 26 V31"/>
+</svg>

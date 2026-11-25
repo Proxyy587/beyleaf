@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Asymmetric climbing hold — unique outline, still a pet. -->
+  <path fill="#F5F5F3" fill-rule="evenodd" d="
+    M16 24
+    C20 8 40 4 50 14
+    C58 22 56 40 46 50
+    C34 60 14 56 10 40
+    C8 30 12 26 16 24
+    Z
+    M20 30
+    a 3.2 5.5 0 1 0 6.4 0
+    a 3.2 5.5 0 1 0 -6.4 0
+    Z
+    M34 29
+    a 3.2 5.5 0 1 0 6.4 0
+    a 3.2 5.5 0 1 0 -6.4 0
+    Z
+  "/>
+</svg>

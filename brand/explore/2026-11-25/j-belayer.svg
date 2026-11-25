@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- J · Belayer: flat geometric character  helmet, cutout eyes, rope in hand. -->
+  <g fill="#F5F5F3">
+    <!-- helmet / head -->
+    <rect x="18" y="10" width="28" height="26" rx="13"/>
+    <!-- torso -->
+    <rect x="24" y="36" width="16" height="14" rx="4"/>
+    <!-- rope (right hand side) -->
+    <rect x="40" y="38" width="4" height="18" rx="2"/>
+    <!-- rope end knot -->
+    <circle cx="42" cy="58" r="4"/>
+  </g>
+  <!-- eye cutouts -->
+  <g fill="#000000">
+    <circle cx="26.5" cy="22" r="3.2"/>
+    <circle cx="37.5" cy="22" r="3.2"/>
+  </g>
+</svg>
