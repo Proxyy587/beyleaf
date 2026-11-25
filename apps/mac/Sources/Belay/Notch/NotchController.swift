@@ -79,7 +79,8 @@ final class NotchController {
     private var settingsSub: Any?
     var onOpenSettings: () -> Void = {}
     private var hoverSince: Date?
-    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots, timer: countdown)
+    private let stopwatch = NotchStopwatch()
+    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots, timer: countdown, stopwatch: stopwatch)
     private var activitySub: Any?
     private var pulseSub: Any?
 
@@ -121,7 +122,7 @@ final class NotchController {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, activities: activities, beat: beat,
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, stopwatch: stopwatch, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() },
                              openFromClick: { [weak self] in self?.openFromClick() })
         let host = FirstClickHostingView(rootView: root)
@@ -168,6 +169,8 @@ final class NotchController {
         }
         // `--start-timer <minutes>` / `--edit-widgets`: put the notch in those states for screenshots.
         let a = CommandLine.arguments
+        if a.contains("--start-stopwatch") { stopwatch.start() }
+        if a.contains("--demo-stopwatch") { stopwatch.demo() }
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
         if let i = a.firstIndex(of: "--page-limit"), a.indices.contains(i + 1), let v = Double(a[i + 1]) { NotchModel.debugLimit = CGFloat(v) }
         if a.contains("--edit-widgets") { model.editing = true }

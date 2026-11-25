@@ -8,6 +8,7 @@ struct NotchRoot: View {
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
     @ObservedObject var timer: NotchTimer
+    @ObservedObject var stopwatch: NotchStopwatch
     @ObservedObject var activities: ActivityCenter
     var beat: MusicBeat
     @ObservedObject var settings = AppSettings.shared
@@ -48,7 +49,7 @@ struct NotchRoot: View {
                         .id(settings.themeRevision)
                 }
 
-                ExpandedView(model: model, music: music, shots: shots, timer: timer, shown: open, showBand: !headerInBand, openSettings: openSettings)
+                ExpandedView(model: model, music: music, shots: shots, timer: timer, stopwatch: stopwatch, shown: open, showBand: !headerInBand, openSettings: openSettings)
                     .padding(.horizontal, Tok.rOpenEar)
                     .padding(.top, notchH)
                     .fixedSize(horizontal: false, vertical: true)
@@ -85,7 +86,7 @@ struct NotchRoot: View {
     @ViewBuilder private func wing(_ side: HorizontalEdge) -> some View {
         // Wings exist only for live activities: at rest the closed notch fits the hardware exactly (ui-inventory §1.1).
         if let a = activities.current {
-            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat, timer: timer)
+            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat, timer: timer, stopwatch: stopwatch)
                 .blurSwap(on: a)
         }
     }

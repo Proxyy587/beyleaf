@@ -41,7 +41,9 @@ final class AppSettings: ObservableObject {
     /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
     @Published var timerActivity: Bool { didSet { save(timerActivity, "timerActivity") } }
     /// Other time zones the Clock shows, by identifier, at most three (docs/widget-hub.md §3.1).
-    @Published var clockZones: [String] { didSet { let c = ClockLogic.clean(clockZones); if c != clockZones { clockZones = c } else { save(c, "clockZones") } } }
+    @Published var clockZones: [String] { didSet { let c = ClockLogic.clean(clockZones); if c != clockZones { clockZones = c } else if persistsPages { save(c, "clockZones") } } }
+    /// Show a running stopwatch in the closed notch (when neither music nor a timer is live).
+    @Published var stopwatchActivity: Bool { didSet { save(stopwatchActivity, "stopwatchActivity") } }
     /// Hover the notch to open it (default), or click it. Click mode catches clicks only on the notch itself.
     @Published var openOnClick: Bool { didSet { save(openOnClick, "openOnClick") } }
     /// Compact (the theme's width) or expanded (wider, every widget in its full layout). Toggled from the band.
@@ -60,10 +62,10 @@ final class AppSettings: ObservableObject {
     var hoverIsDefault: Bool { openDelay == 0 && closeDelay == 0 && !openOnClick }
     func resetLiveActivities() {
         musicActivity = Self.defaultMusicActivity; equalizerWhilePlaying = true
-        alertLowBattery = true; alertWifi = true; timerActivity = true
+        alertLowBattery = true; alertWifi = true; timerActivity = true; stopwatchActivity = true
     }
     var liveActivitiesAreDefault: Bool {
-        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi && timerActivity
+        musicActivity == Self.defaultMusicActivity && equalizerWhilePlaying && alertLowBattery && alertWifi && timerActivity && stopwatchActivity
     }
 
     // MARK: Performance
@@ -150,6 +152,7 @@ final class AppSettings: ObservableObject {
         openOnClick = d.object(forKey: "openOnClick") as? Bool ?? false
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
+        stopwatchActivity = d.object(forKey: "stopwatchActivity") as? Bool ?? true
         clockZones = ClockLogic.clean(d.stringArray(forKey: "clockZones") ?? [])
         // Pages replace the single widget list (ADR 0021). Migrate once from `widgets` (or, older still, the theme's rows).
         pages = d.data(forKey: "pages").flatMap(Pages.decode)
@@ -159,8 +162,12 @@ final class AppSettings: ObservableObject {
         #if DEBUG
         let a = CommandLine.arguments
         if a.contains("--demo-pages") || a.contains("--page") { persistsPages = false }
-        // In init, so the didSet never runs: the user's saved zones are untouched.
-        if let i = a.firstIndex(of: "--clock-zones"), a.indices.contains(i + 1) { clockZones = ClockLogic.clean(a[i + 1].split(separator: ",").map(String.init)) }
+        // Debug zones are for this run only (persistsPages off stops the save).
+        if let i = a.firstIndex(of: "--clock-zones"), a.indices.contains(i + 1) { persistsPages = false; clockZones = ClockLogic.clean(a[i + 1].split(separator: ",").map(String.init)) }
+        // `--enable-widget stopwatch`: turn a widget on for this run only (pages are not saved while it's given).
+        if let i = a.firstIndex(of: "--enable-widget"), a.indices.contains(i + 1), let k = WidgetKind(rawValue: a[i + 1]) {
+            persistsPages = false; var p = pages; Pages.setEnabled(k, true, in: &p); pages = p
+        }
         if a.contains("--demo-pages") { var p = pages; Pages.move(.timer, to: .day, in: &p); pages = p }
         if let i = a.firstIndex(of: "--page"), a.indices.contains(i + 1), let k = PageKind(rawValue: a[i + 1]) { page = k }
         #endif

@@ -87,7 +87,7 @@ check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the rem
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
 var stepped = Pages.defaults
 Pages.step(.screenshot, by: -1, skippingDisabled: false, in: &stepped)
-check(stepped[0].widgets.map(\.kind) == [.clock, .nowPlaying, .screenshot, .timer], "step moves within the page")
+check(stepped[0].widgets.map(\.kind) == [.clock, .nowPlaying, .timer, .screenshot, .stopwatch], "step moves within the page")
 check(!Pages.canStep(.clock, by: -1, in: Pages.defaults), "step stops at the page's start")
 
 // 12. Overflow: a page taller than the room scrolls inside it; otherwise it hugs its rows.
@@ -157,6 +157,34 @@ do {
     check(ClockLogic.search("lond").first == "Europe/London", "clock: search finds London by prefix")
     check(ClockLogic.search("new york").contains("America/New_York") && ClockLogic.search("").isEmpty, "clock: multi-word search; empty query gives nothing")
     check(ClockLogic.spoken(t, zones: ["Europe/London"], is24: true).contains("London 14:32."), "clock: spoken label names the zones")
+}
+
+// Stopwatch (docs/widget-hub.md §3.3)
+do {
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
+    var w = StopwatchState()
+    check(w.isReady && w.elapsed(at: at(50)) == 0, "stopwatch: ready shows zero")
+    check(!w.lap(at: at(1)) && w.laps.isEmpty, "stopwatch: no lap while ready")
+    w.start(at: at(0))
+    check(w.isRunning && w.elapsed(at: at(12)) == 12, "stopwatch: running counts from start")
+    w.pause(at: at(30))
+    check(!w.isRunning && w.elapsed(at: at(500)) == 30, "stopwatch: paused holds its value")
+    check(!w.lap(at: at(500)), "stopwatch: no lap while paused")
+    w.resume(at: at(100))
+    check(w.elapsed(at: at(110)) == 40, "stopwatch: resume continues from the paused value, not wall time")
+    w.start(at: at(200))
+    check(w.elapsed(at: at(110)) == 40, "stopwatch: start while running is ignored")
+    var l = StopwatchState(); l.start(at: at(0))
+    l.lap(at: at(41.37)); l.lap(at: at(60)); l.lap(at: at(61)); l.lap(at: at(100))
+    check(l.laps.count == 4 && abs(l.laps[0] - 41.37) < 1e-4 && abs(l.laps[1] - 18.63) < 1e-4, "stopwatch: laps are measured from the previous lap")
+    check(l.recentLaps.map(\.number) == [4, 3, 2], "stopwatch: last three laps, newest first, numbered")
+    l.reset()
+    check(l.isReady && l.laps.isEmpty && l.elapsed(at: at(999)) == 0, "stopwatch: reset returns to ready and clears laps")
+    check(StopwatchFormat.elapsed(724) == "12:04" && StopwatchFormat.elapsed(3725) == "1:02:05" && StopwatchFormat.elapsed(5) == "0:05", "stopwatch: elapsed format")
+    check(StopwatchFormat.precise(41.37) == "0:41.37" && StopwatchFormat.precise(3725.5) == "1:02:05.50", "stopwatch: lap format shows hundredths")
+    check(StopwatchFormat.wing(30) == "<1m" && StopwatchFormat.wing(724) == "12m", "stopwatch: closed notch label")
+    check(StopwatchFormat.spoken(724, running: true) == "Stopwatch, 12 minutes 4 seconds, running", "stopwatch: spoken label")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")

@@ -330,6 +330,7 @@ private struct GeneralPane: View {
                 Toggle("Low battery", isOn: $s.alertLowBattery)
                 Toggle("Internet lost or back", isOn: $s.alertWifi)
                 Toggle("Timer", isOn: $s.timerActivity)
+                Toggle("Stopwatch", isOn: $s.stopwatchActivity)
             } header: {
                 ResetHeader(title: "Live activities", isDefault: s.liveActivitiesAreDefault) { s.resetLiveActivities() }
             } footer: {

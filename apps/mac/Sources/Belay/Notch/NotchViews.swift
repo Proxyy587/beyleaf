@@ -10,6 +10,7 @@ struct ExpandedView: View {
     @ObservedObject var music: NowPlaying
     @ObservedObject var shots: Screenshots
     @ObservedObject var timer: NotchTimer
+    @ObservedObject var stopwatch: NotchStopwatch
     @ObservedObject var settings = AppSettings.shared
     var shown: Bool
     /// No notch (external display): the band is the panel's first line instead of sitting beside the camera.
@@ -90,6 +91,8 @@ struct ExpandedView: View {
             return music.availablePlayer != nil ? .tile : nil
         case .timer:
             return .tile
+        case .stopwatch:
+            return stopwatch.state.laps.isEmpty ? .tile : .wide
         case .screenshot:
             guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
             return .tile
@@ -109,6 +112,7 @@ struct ExpandedView: View {
         case .nowPlaying:
             if music.title != nil { NowPlayingCard(music: music) } else { PlayerReadyCard(music: music, size: p.size) }
         case .timer: TimerCard(timer: timer, size: p.size, ticking: shown)
+        case .stopwatch: StopwatchCard(stopwatch: stopwatch, size: p.size, ticking: shown)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
@@ -437,6 +441,60 @@ struct ClockCard: View {
                 .frame(maxWidth: 110, alignment: .trailing).gridColumnAlignment(.trailing)
             Text(ClockLogic.time(now, in: z, is24: is24)).font(Tok.digits).foregroundStyle(Tok.ink)
             Text(ClockLogic.note(now, zone: z)).font(Tok.status).foregroundStyle(Tok.ink3)
+        }
+    }
+}
+
+// MARK: - Stopwatch
+
+/// Ready: one action. Running or paused: elapsed time, lap and pause (or reset and resume). Wide adds the last three laps.
+struct StopwatchCard: View {
+    @ObservedObject var stopwatch: NotchStopwatch
+    let size: WidgetSize
+    var ticking = true
+
+    var body: some View {
+        let s = stopwatch.state
+        if s.isReady {
+            WidgetCard(size: size, status: "") {
+                Image(systemName: "stopwatch").font(Tok.icon).foregroundStyle(Tok.ink2)
+            } title: {
+                Text("Stopwatch").font(Tok.rowTitle).foregroundStyle(Tok.ink)
+            } actions: {
+                IconButton(symbol: "play.fill", label: "Start stopwatch") { stopwatch.start() }
+            }
+        } else {
+            // One tick a second while running, only while the page is visible. Paused shows hundredths and never ticks.
+            Ticking(seconds: 1, active: ticking && s.isRunning) { now in
+                let e = stopwatch.elapsed(at: now)
+                WidgetCard(size: size, status: s.isRunning ? "Running" : "Paused", live: s.isRunning) {
+                    Image(systemName: "stopwatch").font(Tok.icon).foregroundStyle(s.isRunning ? Tok.live : Tok.ink2)
+                } title: {
+                    Text(s.isRunning ? StopwatchFormat.elapsed(e) : StopwatchFormat.precise(e))
+                        .font(Tok.font(15, .semibold, mono: true)).foregroundStyle(Tok.ink)
+                } actions: {
+                    if size == .wide, !s.recentLaps.isEmpty {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            ForEach(s.recentLaps, id: \.number) { lap in
+                                HStack(spacing: Tok.s2) {
+                                    Text("Lap \(lap.number)").font(Tok.status).foregroundStyle(Tok.ink3)
+                                    Text(StopwatchFormat.precise(lap.time)).font(Tok.digits).foregroundStyle(Tok.ink)
+                                }
+                            }
+                        }
+                        .padding(.trailing, Tok.buttonInset + Tok.s2)
+                    }
+                    if s.isRunning {
+                        IconButton(symbol: "flag.fill", label: "Lap") { stopwatch.lap() }
+                        IconButton(symbol: "pause.fill", label: "Pause stopwatch") { stopwatch.pause() }
+                    } else {
+                        IconButton(symbol: "arrow.counterclockwise", label: "Reset stopwatch") { stopwatch.reset() }
+                        IconButton(symbol: "play.fill", label: "Resume stopwatch") { stopwatch.resume() }
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(StopwatchFormat.spoken(e, running: s.isRunning))
+            }
         }
     }
 }
