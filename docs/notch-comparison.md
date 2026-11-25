@@ -15,7 +15,7 @@
 | At rest | Pill around the camera; empty unless something is live | Notch-sized; music activity while playing (README) | Exactly the hardware notch: invisible until something is live |
 | Live, one thing | **Compact:** leading + trailing views beside the camera | "Playback live activity", charging indicator (README) | **Wings:** leading + trailing beside the camera (music art + beat bars, timer ring + minutes) |
 | Live, several things | **Minimal:** up to 3; one attached, others detached circles/ovals | UNVERIFIED | One at a time by priority (agent > alert > music > timer); hover shows all |
-| A moment that needs words | Expanded on alerts (system) | UNVERIFIED | **Drop:** the shape grows down one line ("Screenshot copied · ⌘V to paste") |
+| A quick confirmation | Compact leading + trailing | UNVERIFIED | Wings only: what happened on the left (copy icon), the confirmation on the right (check draws in) |
 | Full view | **Expanded:** touch and hold; height follows content | Hover to expand (README) | Hover (or menu) opens the panel; **height hugs content** |
 | Layout of the full view | App-designed regions: leading, trailing, center, bottom | Fixed views; "Customizable Layout options" is still an open roadmap item (README) | **User-arranged widgets**: drag into slots, tiles pair, nothing leaves a hole (ADR 0019) |
 | Customization | None for users | Notch sizing, gestures (README) | Widgets, order, themes (fonts, colours, glass, roundness, width, density, motion), import/export |
@@ -38,7 +38,6 @@
   - Worth copying for agents: two sessions waiting should both be visible. Planned with A1.
 - **Shape-first motion.** Content morphs with the shape, never just appearing inside it.
   - Belay's jelly spring and blur-swap aim for this.
-  - Our drop line still fades in after the shape moves, rather than morphing with it.
 
 **Boring Notch**
 - **Breadth:** calendar, reminders, mirror, AirDrop shelf, HUD replacement.
@@ -59,7 +58,7 @@
 
 ## 4. What Belay should take next
 1. **Minimal presentation for agents:** when two or more agents need you, show detached dots or ovals beside the wings, like iPhone's minimal style.
-2. **Morph, don't fade:** the drop line should grow out of the shape's bottom edge with the jelly spring, not fade in after it.
+2. **Morph, don't fade:** wing contents should grow with the shape's jelly spring, not fade in after it.
 3. **Limited-width fallback:** on an external display without a notch, use a single leading view (Apple's 28 pt circle guidance), never truncated text.
 4. **Not taking:** HUD replacement, calendar, camera mirror. They duplicate the system or need permissions without a notch-only job.
 

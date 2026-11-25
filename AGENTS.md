@@ -20,6 +20,7 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 | Sub-agents (Crew) design | `docs/crew.md` |
 | Design rules (UI, anti-slop) | `docs/design.md`; widgets `docs/notch-widgets.md`; vs Dynamic Island and Boring Notch `docs/notch-comparison.md` |
 | Every UI element, its purpose and status; what was cut and why | `docs/ui-inventory.md` |
+| Performance budgets, measured numbers, how to measure | `docs/performance.md` |
 | What only the human can do (accounts, legal, hardware) | `docs/prerequisites.md` |
 | What changed recently | `CHANGELOG.md` |
 | Claude Code playbooks (commit, vendor, ADR, feature, crew) + repo checks | `.claude/skills/belay/` (project skill, loads automatically in Claude Code) |

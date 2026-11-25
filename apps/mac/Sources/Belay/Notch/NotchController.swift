@@ -20,14 +20,12 @@ final class NotchModel: ObservableObject {
     @Published var wingWidth: CGFloat = 40
     /// Wings are shown only for a live activity (music, screenshot copied, low battery, internet).
     @Published var wingsVisible = false
-    /// Height of a sentence row below the notch line during a drop activity (screenshot copied).
-    @Published var dropHeight: CGFloat = 0
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
     /// Exactly the hardware notch unless wings are visible.
     var closedSize: CGSize {
-        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height + dropHeight)
+        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height)
     }
     var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
@@ -60,9 +58,8 @@ final class NotchController {
         let activity = activities.current
         let show = activity != nil
         let width = activity?.wingWidth ?? NotchModel.wing
-        let drop = activity?.dropHeight ?? 0
-        guard show != model.wingsVisible || width != model.wingWidth || drop != model.dropHeight else { return }
-        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width; model.dropHeight = drop }
+        guard show != model.wingsVisible || width != model.wingWidth else { return }
+        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width }
     }
     /// Listen to the player's audio only while the bars are on screen: music playing, the music wing showing (closed
     /// notch), bars on, motion allowed, screens awake. Everything else stops the tap (battery, privacy).
@@ -93,6 +90,8 @@ final class NotchController {
         let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
+        // The canvas never changes size; don't let SwiftUI recompute intrinsic size and constraints on every frame.
+        host.sizingOptions = []
         host.frame = NSRect(origin: .zero, size: Self.canvas)
         panel.contentView = host
         panel.orderFrontRegardless()
@@ -136,6 +135,15 @@ final class NotchController {
         let a = CommandLine.arguments
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
         if a.contains("--edit-widgets") { model.editing = true }
+        // `--cycle-open`: open and close every 1.5 s forever, to measure what the animation costs.
+        if a.contains("--cycle-open") {
+            let t = Timer(timeInterval: 0.75, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { guard let self else { return }; self.model.isOpen ? self.close() : self.open() }
+            }
+            RunLoop.main.add(t, forMode: .common)
+        }
+        // `--beat-demo`: show the music wing with synthetic bars (no audio) to measure drawing cost.
+        if a.contains("--beat-demo") { probing = true; beat.startDemo(); activities.flash(.nowPlaying, for: 3600) }
         // `--flash-copied`: play the "screenshot copied" moment (held 20 s) without taking a screenshot.
         if a.contains("--flash-copied") { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.activities.flash(.copied, for: 20) } }
         #endif

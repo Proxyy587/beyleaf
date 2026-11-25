@@ -307,6 +307,14 @@ private struct GeneralPane: View {
                     .foregroundStyle(.secondary)
             }
             Section {
+                SegmentedRow(title: "Mode", selection: $s.performanceMode, options: AppSettings.PerformanceMode.allCases) { $0.name }
+                LiveCost()
+            } header: {
+                ResetHeader(title: "Performance", isDefault: s.performanceMode == .auto) { s.performanceMode = .auto }
+            } footer: {
+                Text(performanceFooter).foregroundStyle(.secondary)
+            }
+            Section {
                 Picker("While music plays", selection: $s.musicActivity) {
                     ForEach(AppSettings.MusicActivity.allCases) { Text($0.name).tag($0) }
                 }
@@ -333,6 +341,40 @@ private struct GeneralPane: View {
                 ResetHeader(title: "Settings", isDefault: s.previewWhileEditing) { s.previewWhileEditing = true }
             }
         }
+    }
+}
+
+private extension GeneralPane {
+    var performanceFooter: String {
+        let p = s.performance
+        let now = "Now: animation up to \(Int(p.maxFPS)) fps, blur \(p.blur ? "on" : "off")."
+        switch s.performanceMode {
+        case .auto: return "Smoothest normally; saves energy in Low Power Mode. " + now
+        case .efficient: return "Caps animation at 30 fps and turns blur off. " + now
+        case .smooth: return "Animation at your display's full rate. " + now
+        }
+    }
+}
+
+/// Belay's own CPU and memory, refreshed every 2 s while this row is on screen.
+private struct LiveCost: View {
+    @State private var last = ProcessStats.sample()
+    @State private var text = "Measuring…"
+    var body: some View {
+        LabeledContent("Belay right now") {
+            Text(text).monospacedDigit().foregroundStyle(.secondary)
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                let now = ProcessStats.sample()
+                let cpu = ProcessStats.cpuPercent(from: last, to: now)
+                last = now
+                let mb = Double(ProcessStats.memoryFootprint()) / 1_048_576
+                text = String(format: "%.1f%% CPU · %.0f MB", cpu, mb)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
