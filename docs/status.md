@@ -13,7 +13,7 @@
 |---|---|
 | Research, product, plan, architecture | **Done:** `docs/` (landscape → verdict → product → features-final → architecture), ADRs 0001–0019 |
 | Notch shell (Swift) | **Built and polished:** window, live activities, widgets, themes, Settings, performance modes |
-| **Agent supervision (the product, A1–A6)** | **Not started.** Next. Blocked on installing Bun (§7) |
+| **Agent supervision (the product, A1–A6)** | **A0 spike passed** (hold, deny, allow, steer). A1 onward not started |
 | Crew (dusk/grok-style helper agents, K1–K8) | Designed (`docs/crew.md`, ADRs 0009–0011). v0.2 / v0.3 |
 | Brand | Mark system chosen (notch + point). A newer belayer mark is in progress in another agent's working tree (uncommitted `brand/`, `BelayMark.swift`). `BrandSlot` is the one place the notch draws it |
 | Distribution | Not set up: ad-hoc signed only; needs the Apple Developer Program (§7) |
@@ -116,7 +116,7 @@
 ## 7. What's next
 
 ### Before anything (the owner, `docs/prerequisites.md`)
-1. **Install Bun:** `curl -fsSL https://bun.sh/install | bash`. `belayd` can't start without it.
+1. ~~Install Bun~~: done (1.4.5).
 2. Install the Codex CLI to test Codex hooks.
 3. Check the unverified items in §5 that only you can check, especially the live music cost.
 4. Later, before sharing builds: Apple Developer Program (signing and notarization), final name check (Belay vs the repo name `beyleaf`), and legal review before any trading work.
@@ -127,7 +127,7 @@
 
 | Step | Deliverable | Done when |
 |---|---|---|
-| A0 · go/no-go spike | Minimal `belayd` on Bun logs every Claude Code hook; hold a `PermissionRequest` 20 s, then deny with a message | Claude Code accepts the denial message and changes course |
+| A0 · go/no-go spike | **Done: GO** (2026-11-25, `docs/spikes/a0-hooks.md`). Hold, deny and allow work; steering works when it's the user's words verbatim (ADR 0020) | ✓ |
 | A1 | Session store and states (working, waiting, done, error) over protocol v1. The **brand slot becomes the status light**; a closed-notch wing per session | 3 sessions show correct states within 150 ms |
 | A2 | Rope-drop approval card in the notch: Allow ↵ / Deny ⎋ / Always ⇧↵. Timeout hands back to the terminal (fail open, ADR 0005) | Approve a real command from the notch in < 1 s |
 | A3 | Danger rules and the catch (rm -rf, force-push, prod DB, `curl \| sh`, secrets) | ≥ 50 rule tests pass |
