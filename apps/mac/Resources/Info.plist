@@ -26,6 +26,10 @@
 	<string>Belay shows what's playing in Music or Spotify and lets you play, pause and skip from the notch.</string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Belay listens to your music app, only while it plays, so the bars in the notch move with the beat. Nothing is recorded or sent anywhere.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Belay shows your next events in the notch, so you can see what's coming and join calls. Events stay on your Mac.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Belay shows your next events in the notch, so you can see what's coming and join calls. Events stay on your Mac.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

@@ -8,6 +8,8 @@ struct NotchRoot: View {
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
     @ObservedObject var timer: NotchTimer
+    @ObservedObject var stopwatch: NotchStopwatch
+    @ObservedObject var notes: NotesStore
     @ObservedObject var activities: ActivityCenter
     var beat: MusicBeat
     @ObservedObject var settings = AppSettings.shared
@@ -48,7 +50,7 @@ struct NotchRoot: View {
                         .id(settings.themeRevision)
                 }
 
-                ExpandedView(model: model, music: music, shots: shots, timer: timer, shown: open, showBand: !headerInBand, openSettings: openSettings)
+                ExpandedView(model: model, music: music, shots: shots, timer: timer, stopwatch: stopwatch, notes: notes, shown: open, showBand: !headerInBand, openSettings: openSettings)
                     .padding(.horizontal, Tok.rOpenEar)
                     .padding(.top, notchH)
                     .fixedSize(horizontal: false, vertical: true)
@@ -73,15 +75,27 @@ struct NotchRoot: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onPreferenceChange(PagesShown.self) { v in
+            if v.visible != model.visiblePages { model.visiblePages = v.visible }
+            if v.current != model.currentPage {
+                #if DEBUG
+                if NotchController.traceInput { FileHandle.standardError.write(Data("page -> \(String(describing: v.current)) at \(Date().timeIntervalSince1970)\n".utf8)) }
+                #endif
+                model.currentPage = v.current
+            }
+        }
         .onPreferenceChange(ContentHeight.self) { h in
-            if h > 0, abs(h - model.openContentHeight) > 0.5 { model.openContentHeight = h }
+            if h > 0, abs(h - model.openContentHeight) > 0.5 {
+                // The panel follows the page's height with the page's own spring, in one transaction.
+                withAnimation(model.isOpen ? Tok.open : nil) { model.openContentHeight = h }
+            }
         }
     }
 
     @ViewBuilder private func wing(_ side: HorizontalEdge) -> some View {
         // Wings exist only for live activities: at rest the closed notch fits the hardware exactly (ui-inventory §1.1).
         if let a = activities.current {
-            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat, timer: timer)
+            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat, timer: timer, stopwatch: stopwatch)
                 .blurSwap(on: a)
         }
     }

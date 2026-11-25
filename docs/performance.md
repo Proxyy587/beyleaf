@@ -17,6 +17,7 @@ Belay sits on screen all day, so it must cost nothing at rest and very little wh
 | Open/close animation | ≤ 8.3 ms CPU per frame (120 Hz) | ~3 ms per frame (~70 ms per transition) | `--cycle-open` |
 | Buddies at rest (beepo in the notch and About) | 0.0% | 0.0–0.2% (`--buddies --one`); 64 buddies on screen settle to 0.1% | `--buddies [--one]` |
 | Buddy motion (blink, look, hop) | ≤ 5% while moving | 2.2–3.8% with one buddy per style moving every 0.5 s (worst case); 7–20% with 64 buddies moving at once | `--buddies-cycle [--one]` |
+| Open, System widget on screen | ≤ 0.5% (one sample per 2 s) | **UNVERIFIED** (sampler run alone outside the app; not measured in the notch) | `--expand --enable-widget system`, then `top` |
 | Memory at rest | ≤ 40 MB | 17 MB physical footprint | `footprint $(pgrep -x Belay)` |
 | Launch, warm | our setup ≤ 100 ms | ~60 ms ours + ~210 ms OS before `main()` | log `app.belay.mac:perf` "ready … ms" |
 

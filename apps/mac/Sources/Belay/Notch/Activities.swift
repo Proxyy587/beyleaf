@@ -12,12 +12,14 @@ enum NotchActivity: Hashable {
     case wifi(online: Bool)
     case timer
     case timerDone
+    case stopwatch
+    case meeting
 
     /// Width of each wing beside the camera for this activity.
     var wingWidth: CGFloat {
         switch self {
         case .nowPlaying, .copied: 44
-        case .lowBattery, .timer: 52
+        case .lowBattery, .timer, .stopwatch, .meeting: 52
         case .wifi, .timerDone: 72
         }
     }
@@ -33,6 +35,7 @@ final class ActivityCenter: ObservableObject {
     private let status: SystemStatus
     private let shots: Screenshots
     private let timer: NotchTimer
+    private let stopwatch: NotchStopwatch
     private let settings = AppSettings.shared
     private var transient: NotchActivity?
     private var transientTask: Task<Void, Never>?
@@ -41,8 +44,10 @@ final class ActivityCenter: ObservableObject {
     private var lastBattery: SystemStatus.Battery?
     private var lastOnline: Bool?
 
-    init(music: NowPlaying, status: SystemStatus, shots: Screenshots, timer: NotchTimer) {
-        self.music = music; self.status = status; self.shots = shots; self.timer = timer
+    init(music: NowPlaying, status: SystemStatus, shots: Screenshots, timer: NotchTimer, stopwatch: NotchStopwatch) {
+        self.music = music; self.status = status; self.shots = shots; self.timer = timer; self.stopwatch = stopwatch
+        CalendarService.shared.$soon.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
+        stopwatch.$state.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
         timer.$state.sink { [weak self] _ in DispatchQueue.main.async { self?.resolve() } }.store(in: &subs)
         timer.$finished.dropFirst().sink { [weak self] _ in DispatchQueue.main.async { self?.timerDone() } }.store(in: &subs)
         music.$trackChange.dropFirst().sink { [weak self] _ in DispatchQueue.main.async { self?.newTrack() } }.store(in: &subs)
@@ -101,9 +106,12 @@ final class ActivityCenter: ObservableObject {
             case .off: return false
             }
         }()
-        // Music outranks a running timer; hovering shows both.
+        // Music outranks a running timer, which outranks a running stopwatch; hovering shows all.
         let timerOn = settings.timerActivity && timer.isRunning
-        let next = transient ?? (musicOn ? .nowPlaying : timerOn ? .timer : nil)
+        let stopwatchOn = settings.stopwatchActivity && stopwatch.isRunning
+        // A meeting about to start is time-critical, so it outranks music.
+        let meetingOn = settings.upcomingActivity && CalendarService.shared.soon != nil
+        let next = transient ?? (meetingOn ? .meeting : musicOn ? .nowPlaying : timerOn ? .timer : stopwatchOn ? .stopwatch : nil)
         if next != current { current = next }
     }
 }
@@ -116,6 +124,7 @@ struct ActivityWing: View {
     @ObservedObject var shots: Screenshots
     @ObservedObject var beat: MusicBeat
     @ObservedObject var timer: NotchTimer
+    @ObservedObject var stopwatch: NotchStopwatch
 
     var body: some View {
         Group {
@@ -148,6 +157,21 @@ struct ActivityWing: View {
                     let r = timer.progress(at: now).remaining
                     Text(r < 60 ? "<1m" : "\(Int((r / 60).rounded(.up)))m").font(Tok.digits).foregroundStyle(Tok.ink)
                         .contentTransition(.numericText(countsDown: true))
+                }
+            case (.stopwatch, .leading):
+                Image(systemName: "stopwatch").font(Tok.icon).foregroundStyle(Tok.ink)
+            case (.stopwatch, .trailing):
+                Ticking(seconds: 5) { now in
+                    Text(StopwatchFormat.wing(stopwatch.elapsed(at: now))).font(Tok.digits).foregroundStyle(Tok.ink)
+                }
+            case (.meeting, .leading):
+                Image(systemName: CalendarService.shared.soon.flatMap { CalendarLogic.joinLink(url: $0.url, location: $0.location, notes: $0.notes) } != nil ? "video" : "calendar")
+                    .font(Tok.icon).foregroundStyle(Tok.ink)
+            case (.meeting, .trailing):
+                Ticking(seconds: 5) { now in
+                    if let e = CalendarService.shared.soon {
+                        Text(CalendarLogic.wingLabel(e, now: now)).font(Tok.digits).foregroundStyle(CalendarLogic.isImminent(e, now: now) ? Tok.live : Tok.ink)
+                    }
                 }
             case (.timerDone, .leading):
                 Image(systemName: "timer").font(Tok.icon).foregroundStyle(Tok.live)

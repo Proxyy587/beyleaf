@@ -14,8 +14,11 @@ final class NotchPanel: NSPanel {
         isMovable = false
         hidesOnDeactivate = false
         ignoresMouseEvents = true
+        becomesKeyOnlyIfNeeded = true      // a click on a button never makes the panel key; a text field does
     }
-    override var canBecomeKey: Bool { false }
+    /// Key only while the notch is open (docs/widget-hub.md §1.5); the page keys (⌘[ ⌘] ⌘1…) and Esc need it.
+    var keyable = false
+    override var canBecomeKey: Bool { keyable }
     override var canBecomeMain: Bool { false }
 }
 

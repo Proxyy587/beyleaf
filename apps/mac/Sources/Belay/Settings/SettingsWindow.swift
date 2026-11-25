@@ -310,7 +310,7 @@ private struct GeneralPane: View {
             } header: {
                 ResetHeader(title: "Notch", isDefault: s.hoverIsDefault && s.haptics) { s.resetHover(); s.haptics = true }
             } footer: {
-                Text("The tick is felt on Force Touch trackpads when the notch opens under your finger. Clicks never buzz.")
+                Text("The tick is felt on Force Touch trackpads when the notch opens under your finger. Clicks never buzz. After you leave, the notch waits at least 0.3 s, and it stays open while you scroll, type or drag.")
                     .foregroundStyle(.secondary)
             }
             Section {
@@ -330,6 +330,8 @@ private struct GeneralPane: View {
                 Toggle("Low battery", isOn: $s.alertLowBattery)
                 Toggle("Internet lost or back", isOn: $s.alertWifi)
                 Toggle("Timer", isOn: $s.timerActivity)
+                Toggle("Stopwatch", isOn: $s.stopwatchActivity)
+                Toggle("Upcoming events", isOn: $s.upcomingActivity)
             } header: {
                 ResetHeader(title: "Live activities", isDefault: s.liveActivitiesAreDefault) { s.resetLiveActivities() }
             } footer: {
@@ -655,36 +657,148 @@ private struct LayoutPane: View {
     }
 }
 
-/// What the open notch shows and in what order (ADR 0019). Drag to reorder; the notch repacks live.
+/// What the open notch shows (ADR 0021): which pages, in what order, and each page's widgets. Changes apply live.
 private struct WidgetsPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
         Group {
             Section {
                 List {
-                    ForEach(s.widgets) { w in
+                    ForEach(s.pages) { p in
                         HStack(spacing: 10) {
-                            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
-                                .accessibilityHidden(true)
-                            Label(w.kind.name, systemImage: w.kind.symbol)
+                            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
+                            Label(p.kind.name, systemImage: p.kind.symbol)
                             Spacer()
-                            Toggle(w.kind.name, isOn: Binding(get: { w.enabled }, set: { s.setEnabled(w.kind, $0) }))
-                                .labelsHidden()
+                            Toggle(p.kind.name, isOn: Binding(get: { p.enabled }, set: { s.setPageEnabled(p.kind, $0) })).labelsHidden()
                         }
                         .padding(.vertical, 2)
                     }
-                    .onMove { s.moveWidgets(from: $0, to: $1) }
+                    .onMove { s.movePages(from: $0, to: $1) }
                 }
-                .frame(height: CGFloat(s.widgets.count) * 34 + 8)
+                .frame(height: CGFloat(s.pages.count) * 34 + 8)
                 .scrollDisabled(true)
             } header: {
-                ResetHeader(title: "Widgets", isDefault: s.widgetsAreDefault) { s.resetWidgets() }
+                ResetHeader(title: "Pages", isDefault: s.widgetsAreDefault) { s.resetWidgets() }
             } footer: {
-                Text("Drag to reorder. Small widgets pair up side by side; one with nothing to show takes no space.")
+                Text("Swipe with two fingers in the notch to change page. A page with nothing to show is skipped. Each widget has a size: small is one column, wide is two, full is a whole row. The notch has two columns, or three when expanded. Widgets stay as you arrange them.")
                     .foregroundStyle(.secondary)
+            }
+            ClockZonesSection()
+            WeatherSection()
+            Section {
+                Toggle("Capture shortcut ⌃⌥N", isOn: $s.notesShortcut)
+                if s.notesShortcut && s.notesShortcutTaken { Text("⌃⌥N is taken by another app.").foregroundStyle(Tok.warning) }
+            } header: { Text("Notes") } footer: {
+                Text("Opens the notch on Notes with the field ready. Needs no extra permission. Notes stay on this Mac.").foregroundStyle(.secondary)
+            }
+            ForEach(s.pages) { page in
+                Section(page.kind.name) {
+                    if page.widgets.isEmpty {
+                        Text("No widgets. Move one here with its Page menu.").foregroundStyle(.secondary)
+                    } else {
+                        List {
+                            ForEach(page.widgets) { w in
+                                HStack(spacing: 10) {
+                                    Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
+                                    Label(w.kind.name, systemImage: w.kind.symbol)
+                                    Spacer()
+                                    Menu {
+                                        ForEach(w.kind.spans) { span in
+                                            Button(span.name) { s.setSpan(w.kind, span) }.disabled(span == w.span)
+                                        }
+                                    } label: { Text(w.span.name) }
+                                    .menuStyle(.borderlessButton).fixedSize()
+                                    .accessibilityLabel("Size of \(w.kind.name)")
+                                    Menu {
+                                        ForEach(PageKind.allCases) { other in
+                                            Button(other.name) { s.moveWidget(w.kind, to: other, enabled: w.enabled) }.disabled(other == page.kind)
+                                        }
+                                    } label: { Text(page.kind.name) }
+                                    .menuStyle(.borderlessButton).fixedSize()
+                                    .accessibilityLabel("Page for \(w.kind.name)")
+                                    Toggle(w.kind.name, isOn: Binding(get: { w.enabled }, set: { s.setEnabled(w.kind, $0) })).labelsHidden()
+                                }
+                                .padding(.vertical, 2)
+                            }
+                            .onMove { s.moveWidgets(on: page.kind, from: $0, to: $1) }
+                        }
+                        .frame(height: CGFloat(page.widgets.count) * 34 + 8)
+                        .scrollDisabled(true)
+                    }
+                }
             }
         }
         .toggleStyle(.switch)
+    }
+}
+
+/// Weather → city (typed and searched, never Location) and units.
+private struct WeatherSection: View {
+    @ObservedObject var s = AppSettings.shared
+    @State private var query = ""
+    @State private var results: [WeatherCity] = []
+    @State private var failed = false
+    var body: some View {
+        Section {
+            if let c = s.weatherCity {
+                HStack {
+                    Text(c.label)
+                    Spacer()
+                    Button { s.weatherCity = nil } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).accessibilityLabel("Remove \(c.name)")
+                }
+            }
+            TextField(s.weatherCity == nil ? "Search for a city" : "Change city", text: $query)
+                .task(id: query) {
+                    // Debounced 300 ms; fetches only while you type.
+                    failed = false
+                    guard query.trimmingCharacters(in: .whitespaces).count >= 2 else { results = []; return }
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    if let r = await WeatherService.shared.search(query) { results = r } else { results = []; failed = true }
+                }
+            if failed { Text("Couldn't reach Open-Meteo.").foregroundStyle(Tok.warning) }
+            ForEach(results, id: \.label) { c in
+                Button(c.label) { s.weatherCity = c; query = ""; results = [] }.buttonStyle(.borderless)
+            }
+            Picker("Units", selection: $s.weatherUnits) { ForEach(WeatherUnits.allCases) { Text($0.name).tag($0) } }
+        } header: {
+            Text("Weather")
+        } footer: {
+            Text("Weather data by Open-Meteo.com (CC BY 4.0). Places from GeoNames (CC BY 4.0). Only the city's coordinates are sent; Belay never uses your location.")
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Clock → other time zones (max 3): search the system's zone list by city, remove, reorder.
+private struct ClockZonesSection: View {
+    @ObservedObject var s = AppSettings.shared
+    @State private var query = ""
+    var body: some View {
+        Section {
+            ForEach(Array(s.clockZones.enumerated()), id: \.element) { i, id in
+                HStack {
+                    Text(ClockLogic.city(id))
+                    Spacer()
+                    Button { s.clockZones.swapAt(i, i - 1) } label: { Image(systemName: "chevron.up") }
+                        .disabled(i == 0).accessibilityLabel("Move \(ClockLogic.city(id)) up")
+                    Button { s.clockZones.remove(at: i) } label: { Image(systemName: "minus.circle") }
+                        .accessibilityLabel("Remove \(ClockLogic.city(id))")
+                }
+                .buttonStyle(.borderless)
+            }
+            if s.clockZones.count < ClockLogic.maxZones {
+                TextField("Add a city", text: $query)
+                ForEach(ClockLogic.search(query).filter { !s.clockZones.contains($0) }.prefix(5), id: \.self) { id in
+                    Button("\(ClockLogic.city(id)) (\(id))") { s.clockZones.append(id); query = "" }.buttonStyle(.borderless)
+                }
+            }
+        } header: {
+            Text("Clock: other time zones")
+        } footer: {
+            Text("Up to three. With none, the clock is a single large time. 24-hour follows the system.").foregroundStyle(.secondary)
+        }
     }
 }
 

@@ -9,6 +9,21 @@
 > packed widget grid as before (ADR 0019). Only the page you're looking at does any work, and the closed notch shows
 > only what's live.
 
+> **Update 2026-11-26 (ADR 0023):** the packing rule below (tiles pair, a lone tile is promoted, some widgets always
+> wide) is superseded. Each widget has a user-chosen **span** (small 1, wide 2, full 3 columns) on a grid of 2 columns
+> (3 when expanded); layout flows in the user's order and is never re-packed. Small draws the tile form, wide and full the
+> wide form. **Expand** adds a third column of the same width, so more widgets fit and none grow. Edit mode: drag to
+> reorder, tap to cycle size; also right-click → Size and Settings → Widgets → Size. Cells have a minimum height.
+> Where this page says "tile", "wide", "promoted" or "expanded is 180 pt wider", read it through ADR 0023.
+> A new widget kind declares `defaultSpan` (and optionally `minSpan`) in `WidgetLayout.swift` and designs a `.tile` and
+> a `.wide` form.
+
+## 1.7 Staying open while in use
+The open notch closes only after a genuine leave: the pointer outside the panel plus 20 pt at the sides and 28 pt below
+(the tallest recent height counts for 1.2 s), for at least 0.3 s (longer if Settings says so), and not within 1.5 s of
+a scroll or key press, never while a mouse button is down (drag) or while the Notes field holds unsaved typing.
+Pure rules in `HoverLogic.swift`, self-tested.
+
 ## 0. The owner's ask, and what we changed
 - **Asked:** clock, smart timer, stopwatch, instant notes, chat with agents, music, weather, a calendar hub. "Don't make it
   feel like too much stuff, or let users put whatever they want. Slides you switch between." UI and performance are
@@ -38,7 +53,7 @@
 
 | Page | Widgets (in order) | On by default |
 |---|---|---|
-| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot | Clock, Now playing, Last screenshot (Timer and Stopwatch are side options, as the Timer was in ADR 0019) |
+| Now | Clock, Now playing, Timer, Stopwatch, Last screenshot, System, Keep awake, Moon, Roll | Clock, Now playing, Last screenshot (Timer, Stopwatch, System, Keep awake, Moon and Roll are side options, as the Timer was in ADR 0019) |
 | Notes | Notes | Notes |
 | Day | Calendar, Weather | Both |
 
@@ -260,6 +275,83 @@ accessibility · CPU budget.
 - **UNVERIFIED:** the live permission flow (prompt text, grant, deny, write-only), real events and the Join button: the
   agent can't click the system prompt. Layout is checked with the DEBUG flag `--calendar-demo` (sample events, never
   written anywhere).
+
+### 3.9 System (Now, new, off by default)
+- **Job:** see what the Mac is doing (is the build chewing the CPU, is memory tight, is the disk nearly full, is the
+  network busy, how long is the battery good for) without opening Activity Monitor. "PC specs and utilisation".
+- **Forms:** **wide** always (it is a set of rows; it never pairs).
+  - **Compact:** a title line, then CPU, MEM, NET and (laptops) BAT rows: `LABEL ▬▬▬▭▭ value`, a 4 pt bar in ink
+    (warning past 90% CPU, under memory pressure, under 20% battery unplugged, over 95% disk), the value in mono.
+  - **Expanded** (two columns): left CPU, one tiny bar per core (max 16), MEM; right DISK (free), NET `↓ 1.2 MB/s ↑ 40 KB/s`,
+    BAT with a status line ("Charging · 1 h 20 min to full", "3 h 4 min left", "Plugged in", "Charged"). The title line
+    carries "About this Mac" once: `Apple M4 · 10 cores · 16 GB` (chip from `machdep.cpu.brand_string`).
+- **States:** always live while enabled. No battery (desktop Mac): no BAT row. First sample: CPU shows "–" until the
+  second sample gives a delta. Never gone, never ready.
+- **Closed notch:** nothing.
+- **Data, public APIs only, no permission, no network:**
+  | Figure | Source |
+  |---|---|
+  | CPU, per core | `host_processor_info(PROCESSOR_CPU_LOAD_INFO)`: cumulative ticks, diffed between samples (32-bit, wrap-safe) |
+  | Memory used | `host_statistics64(HOST_VM_INFO64)`: app memory (anonymous minus purgeable) + wired + compressed, as Activity Monitor adds it |
+  | Memory pressure | `sysctl kern.memorystatus_vm_pressure_level` (1 normal, 2 warning, 4 critical) |
+  | Disk | `URLResourceValues` `volumeAvailableCapacityForImportantUsage` and `volumeTotalCapacity` for `/` |
+  | Network | `getifaddrs` byte counters of `en*` interfaces (Wi-Fi, Ethernet; tunnels skipped so traffic isn't doubled), diffed |
+  | Battery | IOKit power sources (`IOPSCopyPowerSourcesInfo`), "Time to Empty" / "Time to Full Charge" |
+- **Sampling:** `SystemStats.start()` when the card is on screen and `ticking`, `stop()` when the page hides or the notch
+  closes. One sample every **2 s** (timer tolerance 0.5 s); disk and battery every 10 s. A hidden or closed notch does
+  no work at all. The snapshot is published only when a value changes, and only this card observes it, so a sample
+  re-renders one card, never the panel.
+- **Pure logic** (`SystemStatsLogic.swift`, self-tested with fixtures): ticks to percentages, wrap-safe deltas,
+  memory arithmetic, byte and rate text, battery and about lines.
+- **A11y:** one element: "CPU 23%. Memory 8.0 GB of 16 GB, pressure high. Disk 200 GB free. Network down 1.2 MB/s, up 0 B/s.
+  Battery 80 percent, Plugged in."
+- **CPU budget:** open on the page ≤ 0.5% (target); closed or on another page 0.0%. **UNVERIFIED** in the app (see
+  `docs/performance.md`). The sampler alone was run outside the app for 5 s: values were plausible against `top`.
+
+### 3.10 Keep awake (Now, new, off by default)
+- **Job:** stop the Mac and its display from idle-sleeping while a long agent run, build or download finishes, with one
+  click and an automatic stop, so you never leave it on by accident. It is `caffeinate -d` without the terminal.
+- **Forms:** tile or wide (the shared widget card). Ready: [cup] Keep awake, status `OFF`, a length chip (`1h`, click to
+  cycle `30m 1h 2h 4h ∞`) and ▶. On: filled cup in live green, status `UNTIL 15:40` (or `NO LIMIT`), ■ to stop.
+- **How:** one public IOKit power assertion, `IOPMAssertionCreateWithName("PreventUserIdleDisplaySleep")`, created on
+  the click and released on stop, at the end of the length, or when Belay quits (the system drops a process's
+  assertions with it). It shows in `pmset -g assertions` as "Belay: keep awake (user started it)". **No permission.**
+  Never started automatically, never started by anything but a click; a Mac in a closed lid or on a low battery still
+  sleeps by system policy.
+- **Closed notch:** nothing. (Considered: a cup glyph in the wing; cut, since the menu bar already shows the assertion.)
+- **Cost:** nothing ticks. The end time is a clock time, and one `DispatchWorkItem` fires once at the deadline.
+- **Data:** in memory; the chosen length is remembered for the session only.
+- **A11y:** "Keep awake, off. Length 1h." / "Keep awake, on. until 15:40."; buttons "Keep awake for 1h", "Length 1h, change", "Stop keeping awake".
+
+### 3.11 Moon (Now, new, off by default)
+- **Job:** a small, calm glance at the moon: tonight's phase and how lit it is, and when the next full or new moon is.
+  Useful for late sessions, walks and photographers; delightful rather than urgent, which is why it is off by default.
+- **Forms:** tile: a 32 pt disc (ink 14% track, lit part in ink), the phase name ("Waxing gibbous"), `63% LIT`. Wide
+  adds "Full moon in 5 days" (or "New moon tomorrow") on the right in ink2, truncating tail.
+- **Data:** date math only, no network, no location, no permission. The phase comes from the mean synodic month
+  (29.530589 days) counted from the new moon of 2000-01-06 18:14 UTC; illumination is `(1 - cos 2π·cycle) / 2`. Accurate
+  to about half a day (the real moon's speed varies), which is fine for a glance and is not an almanac.
+- **Drawing:** a static polygon (limb plus terminator, 66 points) as a `Shape`; no animation, no `Canvas`, drawn once.
+  Waxing is lit on the right, waning on the left, **as seen from the northern hemisphere** (a southern-hemisphere flip
+  is not built; UNVERIFIED need).
+- **Eight phases**, each an eighth of the month centred on its moment: New, Waxing crescent, First quarter, Waxing
+  gibbous, Full, Waning gibbous, Last quarter, Waning crescent.
+- **Closed notch:** nothing.
+- **A11y:** one element: "Moon, waxing gibbous, 63% lit. Full moon in 5 days."
+- **CPU:** `Ticking(seconds: 3600, active: visible)`: one redraw an hour while its page is visible; otherwise nothing.
+
+### 3.12 Roll (Now, new, off by default)
+- **Job:** settle a small question (who goes first, which of two options, a number from 1 to 20) with one click, without
+  opening a site or a search.
+- **Forms:** tile or wide (the shared widget card). Ready: [die] Roll, a mode chip (`Coin`, click to cycle `Coin D6 D20`)
+  and a roll button. After a roll: the result in mono 15 semibold ("Heads", "4"), status = the mode (`D6`). Wide also
+  shows the previous results (up to 4) in ink3 beside the buttons.
+- **Randomness:** Swift's `SystemRandomNumberGenerator` (secure, unbiased `Int.random(in:)`); the pure logic takes any
+  generator, so the self-test uses a seeded one and checks range, coverage and a fair coin.
+- **State:** in memory only. Changing the mode clears the result and history, so a "4" never sits under "Coin".
+- **Closed notch:** nothing. **Data, network, permission:** none. **Motion:** the result swaps with the standard blur-swap.
+- **A11y:** "D6 roll: 4."; buttons "Flip the coin" / "Roll the D6", "Rolling D6, change".
+- **CPU:** nothing ticks; a click is the only work.
 
 ## 4. Customization
 - **What users choose:** which pages exist (on/off), their order, which widgets are on each page, their order, and which

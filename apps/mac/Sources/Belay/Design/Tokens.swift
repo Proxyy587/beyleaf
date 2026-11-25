@@ -42,6 +42,8 @@ enum Tok {
     static var status: Font { font(10, mono: true) }
     static var statusTracking: CGFloat { t.statusTracking }
     static var statusUppercase: Bool { t.statusUppercase }
+    /// The clock's time only (docs/widget-hub.md §2): large and glanceable, tabular digits.
+    static var display: Font { font(28, .medium, mono: false).monospacedDigit() }
     static var digits: Font { font(12, .medium, mono: true) }
     static var icon: Font { .system(size: 14 * t.textScale, weight: .medium) }
     static var buttonIcon: Font { .system(size: 15 * t.textScale, weight: .medium) }
@@ -62,10 +64,15 @@ enum Tok {
     /// Space between an icon button's edge and its glyph. Buttons at a row's edge pull out by this much, so the glyph
     /// (not the invisible hit area) lines up with text and values above and below.
     static var buttonInset: CGFloat { (button - 15 * t.textScale) / 2 }
-    /// The open panel's width: the theme's, or 180 pt wider when expanded (capped so the shadow fits the canvas).
-    static var openWidth: CGFloat { AppSettings.shared.expanded ? min(CGFloat(t.width) + 180, 640) : CGFloat(t.width) }
-    /// Album art in the Now playing card.
-    static var heroArt: CGFloat { AppSettings.shared.expanded ? 72 : 56 }
+    /// The open panel's width: the theme's, or one grid column (and its gap) wider when expanded, so the extra room
+    /// holds more widgets rather than bigger ones (ADR 0023). Capped so the shadow fits the canvas.
+    static var openWidth: CGFloat {
+        let base = CGFloat(t.width)
+        guard AppSettings.shared.expanded else { return base }
+        return WidgetLayout.expandedWidth(base: base, inner: base - 2 * rOpenEar - 2 * s2, gap: s2, cap: 680)
+    }
+    /// Album art in the wide Now playing card.
+    static let heroArt: CGFloat = 56
 
     // MARK: Motion (300 ms ceiling at speed 1; blur is subtle and off for reduced motion)
     static var reduceMotion: Bool {
@@ -142,7 +149,7 @@ extension View {
     /// A widget card: one tonal surface, no border, no shadow (dusk-feel §1).
     func card(inset: CGFloat = Tok.s3) -> some View {
         self.padding(inset)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)   // fills the row's height beside a taller neighbour
             .background(RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous).fill(Tok.raised))
     }
 

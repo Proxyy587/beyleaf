@@ -15,6 +15,7 @@
 | Notch shell (Swift) | **Built and polished:** window, live activities, widgets, themes, Settings, performance modes |
 | **Agent supervision (the product, A1–A6)** | **A0 spike passed** (hold, deny, allow, steer). A1 onward not started |
 | Crew (dusk/grok-style helper agents, K1–K8) | Designed (`docs/crew.md`, ADRs 0009–0011). v0.2 / v0.3 |
+| **Jarvis direction** (buddies, routines, connectors, Mac control) | Owner request 2026-11-26. Phased plan and handoff in **`docs/jarvis-roadmap.md`**. Phase 1 (pages, overflow) partly done on `feat/widget-hub` |
 | Brand | Mark system chosen (notch + point). A newer belayer mark is in progress in another agent's working tree (uncommitted `brand/`, `BelayMark.swift`). `BrandSlot` is the one place the notch draws it |
 | Distribution | Not set up: ad-hoc signed only; needs the Apple Developer Program (§7) |
 
@@ -32,12 +33,13 @@
 - **Band beside the camera:**
   - left: brand slot, the future agent status light;
   - right: Expand/Compact, Edit widgets, Settings.
-- **Widgets in the user's order,** packed with no holes (ADR 0019):
+- **Widgets in the user's order and the user's sizes** on a 2-column grid (3 when expanded): small, wide or full per widget, never re-packed (ADR 0023, supersedes ADR 0019's packing). **Only Clock, Now playing, Timer, Stopwatch, Notes, Weather, Calendar and Last screenshot exist in code;** all eight widgets are built (Phase 1b), though by-hand checks remain UNVERIFIED (see open-questions) specified in `docs/widget-hub.md` and not built:
   - **Now playing:** art, title, artist, a seekable progress bar, prev/play/next;
   - **Last screenshot:** copy again, show in Finder;
   - **Timer:** optional, 1–180 min.
 - **A widget with nothing to show takes no space.**
-- **Edit widgets:** drag cards into slots; − hides; + chips restore.
+- **Edit widgets:** drag cards to reorder; tap a card to change its size; − hides; + chips restore. Expand adds a third column (more widgets, same sizes).
+- **UNVERIFIED (needs a real pointer or trackpad):** tap-to-size and drag in edit mode, a real two-finger swipe, and that the notch stays open during real scrolling and typing; checked only with synthetic scroll events and window captures (the screen was locked).
 - **Expanded:** 180 pt wider, full layouts, bigger art.
 
 **Settings,** in five pill tabs:
@@ -79,7 +81,7 @@
   - Memory: 17 MB.
   - Launch: ~60 ms of our own setup.
 - **Tests:**
-  - `scripts/beat-selftest.sh` (analyzer and its cost) and `scripts/widgets-selftest.sh` (packing over every order and size).
+  - `scripts/beat-selftest.sh` (analyzer and its cost) and `scripts/widgets-selftest.sh` (grid over every order, span mix and column count; migration; hover rules).
   - XCTest needs Xcode, which isn't installed (ADR 0013).
 - **Repo checks:** `.claude/skills/belay/scripts/verify-repo.sh` runs before every commit (provenance, ADR index).
 
@@ -111,7 +113,7 @@
   - vendor only MIT/Apache/BSD, through `scripts/vendor.sh` (ADR 0003);
   - dusk bot is PolyForm, so it's a local study clone only, never copied (ADR 0018);
   - Boring Notch is GPL, so we compare products only.
-- **Debug flags** for screenshots and measuring: `--expand`, `--no-player`, `--start-timer`, `--edit-widgets`, `--flash-copied`, `--beat-demo`, `--cycle-open`, `--beat-probe`, `--settings --settings-pane <tab>`.
+- **Debug flags** for screenshots and measuring: `--expand`, `--expanded`, `--span <kind>=<1|2|3>`, `--trace-input`, `--no-player`, `--start-timer`, `--edit-widgets`, `--flash-copied`, `--beat-demo`, `--cycle-open`, `--beat-probe`, `--settings --settings-pane <tab>`.
 
 ## 7. What's next
 
@@ -139,7 +141,7 @@
 - several-activities wings;
 - add every element to `docs/ui-inventory.md` with the purpose test.
 
-### Phase B: Crew (v0.2+, "agents like dusk bot / grok")
+### Phase B: Crew (v0.2+; the owner's Jarvis phases are in `docs/jarvis-roadmap.md`, "agents like dusk bot / grok")
 - Lead, Scout, Tempo and Porter work through the user's own AI CLIs. Hub-and-spoke through `CrewService`, with bounded turns and taint tracking (`docs/crew.md`).
 - It builds on Phase A's protocol, approvals and risk engine, so it starts after A2–A3.
 
