@@ -20,14 +20,12 @@ final class NotchModel: ObservableObject {
     @Published var wingWidth: CGFloat = 40
     /// Wings are shown only for a live activity (music, screenshot copied, low battery, internet).
     @Published var wingsVisible = false
-    /// Height of a sentence row below the notch line during a drop activity (screenshot copied).
-    @Published var dropHeight: CGFloat = 0
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
     /// Exactly the hardware notch unless wings are visible.
     var closedSize: CGSize {
-        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height + dropHeight)
+        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height)
     }
     var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
@@ -60,9 +58,8 @@ final class NotchController {
         let activity = activities.current
         let show = activity != nil
         let width = activity?.wingWidth ?? NotchModel.wing
-        let drop = activity?.dropHeight ?? 0
-        guard show != model.wingsVisible || width != model.wingWidth || drop != model.dropHeight else { return }
-        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width; model.dropHeight = drop }
+        guard show != model.wingsVisible || width != model.wingWidth else { return }
+        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width }
     }
     /// Listen to the player's audio only while the bars are on screen: music playing, the music wing showing (closed
     /// notch), bars on, motion allowed, screens awake. Everything else stops the tap (battery, privacy).

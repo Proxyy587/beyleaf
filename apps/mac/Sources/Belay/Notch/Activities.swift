@@ -16,17 +16,9 @@ enum NotchActivity: Hashable {
     /// Width of each wing beside the camera for this activity.
     var wingWidth: CGFloat {
         switch self {
-        case .nowPlaying: 44
-        case .lowBattery, .timer, .copied: 52
+        case .nowPlaying, .copied: 44
+        case .lowBattery, .timer: 52
         case .wifi, .timerDone: 72
-        }
-    }
-
-    /// Extra height below the notch line for activities that say a sentence (Dynamic Island "expanded" moment).
-    var dropHeight: CGFloat {
-        switch self {
-        case .copied: 30
-        default: 0
         }
     }
 }
@@ -134,7 +126,8 @@ struct ActivityWing: View {
                 if music.isPlaying || beat.state == .listening { BeatBars(beat: beat).frame(width: 16, height: 12) }
                 else { Image(systemName: "pause.fill").font(Tok.icon).foregroundStyle(Tok.ink2) }
             case (.copied, .leading):
-                if let c = shots.lastCopied { Thumbnail(url: c.url) } else { Image(systemName: "camera.viewfinder").font(Tok.icon).foregroundStyle(Tok.ink) }
+                // One side says what happened (copied), the other confirms it (the check draws in). No sentence needed.
+                Image(systemName: "doc.on.doc").font(Tok.icon).foregroundStyle(Tok.ink)
             case (.copied, .trailing):
                 CopiedCheck()
             case (.lowBattery(let p), .leading):
@@ -180,23 +173,6 @@ struct CopiedCheck: View {
         .scaleEffect(drawn || Tok.reduceMotion ? 1 : 0.6)
         .onAppear { withAnimation(Tok.jelly.delay(0.08)) { drawn = true } }
         .accessibilityLabel("Copied")
-    }
-}
-
-/// The sentence under the notch for a drop activity.
-struct ActivityDrop: View {
-    let activity: NotchActivity
-    var body: some View {
-        switch activity {
-        case .copied:
-            HStack(spacing: Tok.s1) {
-                Text("Screenshot copied").font(Tok.font(12, .medium)).foregroundStyle(Tok.ink)
-                Text("· ⌘V to paste").font(Tok.meta).foregroundStyle(Tok.ink3)
-            }
-            .lineLimit(1)
-        default:
-            EmptyView()
-        }
     }
 }
 
