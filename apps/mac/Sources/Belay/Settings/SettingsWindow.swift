@@ -655,33 +655,60 @@ private struct LayoutPane: View {
     }
 }
 
-/// What the open notch shows and in what order (ADR 0019). Drag to reorder; the notch repacks live.
+/// What the open notch shows (ADR 0021): which pages, in what order, and each page's widgets. Changes apply live.
 private struct WidgetsPane: View {
     @ObservedObject var s = AppSettings.shared
     var body: some View {
         Group {
             Section {
                 List {
-                    ForEach(s.widgets) { w in
+                    ForEach(s.pages) { p in
                         HStack(spacing: 10) {
-                            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
-                                .accessibilityHidden(true)
-                            Label(w.kind.name, systemImage: w.kind.symbol)
+                            Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
+                            Label(p.kind.name, systemImage: p.kind.symbol)
                             Spacer()
-                            Toggle(w.kind.name, isOn: Binding(get: { w.enabled }, set: { s.setEnabled(w.kind, $0) }))
-                                .labelsHidden()
+                            Toggle(p.kind.name, isOn: Binding(get: { p.enabled }, set: { s.setPageEnabled(p.kind, $0) })).labelsHidden()
                         }
                         .padding(.vertical, 2)
                     }
-                    .onMove { s.moveWidgets(from: $0, to: $1) }
+                    .onMove { s.movePages(from: $0, to: $1) }
                 }
-                .frame(height: CGFloat(s.widgets.count) * 34 + 8)
+                .frame(height: CGFloat(s.pages.count) * 34 + 8)
                 .scrollDisabled(true)
             } header: {
-                ResetHeader(title: "Widgets", isDefault: s.widgetsAreDefault) { s.resetWidgets() }
+                ResetHeader(title: "Pages", isDefault: s.widgetsAreDefault) { s.resetWidgets() }
             } footer: {
-                Text("Drag to reorder. Small widgets pair up side by side; one with nothing to show takes no space.")
+                Text("Swipe with two fingers in the notch to change page. A page with nothing to show is skipped.")
                     .foregroundStyle(.secondary)
+            }
+            ForEach(s.pages) { page in
+                Section(page.kind.name) {
+                    if page.widgets.isEmpty {
+                        Text("No widgets. Move one here with its Page menu.").foregroundStyle(.secondary)
+                    } else {
+                        List {
+                            ForEach(page.widgets) { w in
+                                HStack(spacing: 10) {
+                                    Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
+                                    Label(w.kind.name, systemImage: w.kind.symbol)
+                                    Spacer()
+                                    Menu {
+                                        ForEach(PageKind.allCases) { other in
+                                            Button(other.name) { s.moveWidget(w.kind, to: other, enabled: w.enabled) }.disabled(other == page.kind)
+                                        }
+                                    } label: { Text(page.kind.name) }
+                                    .menuStyle(.borderlessButton).fixedSize()
+                                    .accessibilityLabel("Page for \(w.kind.name)")
+                                    Toggle(w.kind.name, isOn: Binding(get: { w.enabled }, set: { s.setEnabled(w.kind, $0) })).labelsHidden()
+                                }
+                                .padding(.vertical, 2)
+                            }
+                            .onMove { s.moveWidgets(on: page.kind, from: $0, to: $1) }
+                        }
+                        .frame(height: CGFloat(page.widgets.count) * 34 + 8)
+                        .scrollDisabled(true)
+                    }
+                }
             }
         }
         .toggleStyle(.switch)

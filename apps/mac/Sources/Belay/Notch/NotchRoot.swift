@@ -73,6 +73,10 @@ struct NotchRoot: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onPreferenceChange(PagesShown.self) { v in
+            if v.visible != model.visiblePages { model.visiblePages = v.visible }
+            if v.current != model.currentPage { model.currentPage = v.current }
+        }
         .onPreferenceChange(ContentHeight.self) { h in
             if h > 0, abs(h - model.openContentHeight) > 0.5 { model.openContentHeight = h }
         }

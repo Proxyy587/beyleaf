@@ -21,11 +21,42 @@ final class NotchModel: ObservableObject {
     /// Wings are shown only for a live activity (music, screenshot copied, low battery, internet).
     @Published var wingsVisible = false
 
+    /// Pages shown right now and the one on screen (docs/widget-hub.md §1.2), reported by the open panel.
+    @Published var visiblePages: [PageKind] = []
+    @Published var currentPage: PageKind?
+    /// +1 when the last page change went forward, -1 back: the side the new page slides in from.
+    @Published var pageStep = 1
+    /// The swipe-follow offset, in its own object so only the wrapper re-renders while fingers move.
+    let swipe = SwipeState()
+
     init(metrics: NotchMetrics) { self.metrics = metrics }
+
+    /// Shows `page` and remembers it as the page the notch opens on.
+    func go(to page: PageKind) {
+        guard page != currentPage, visiblePages.contains(page) else { return }
+        let from = currentPage.flatMap { visiblePages.firstIndex(of: $0) } ?? 0
+        pageStep = (visiblePages.firstIndex(of: page) ?? 0) >= from ? 1 : -1
+        withAnimation(Tok.open) { AppSettings.shared.page = page }
+    }
+
+    /// Next (+1) or previous (-1) page. False at either end (no wrap).
+    @discardableResult func go(by step: Int) -> Bool {
+        guard let current = currentPage, let next = Pages.neighbour(of: current, by: step, visible: visiblePages) else { return false }
+        go(to: next)
+        return true
+    }
 
     /// Exactly the hardware notch unless wings are visible.
     var closedSize: CGSize {
         CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height)
+    }
+    /// The panel window's height; the shape animates inside it, so the open panel must fit with room for its shadow.
+    static let canvasHeight: CGFloat = 620
+    /// DEBUG `--page-limit <pt>`: forces a small limit so overflow can be seen with few widgets.
+    nonisolated(unsafe) static var debugLimit: CGFloat?
+    /// The most the open content (below the notch line) may grow to; taller pages scroll (docs/widget-hub.md §7).
+    var maxContentHeight: CGFloat {
+        Self.debugLimit ?? PanelFit.maxContent(canvas: Self.canvasHeight, screen: metrics.screenFrame.height, notch: metrics.notchSize.height)
     }
     var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
@@ -71,6 +102,9 @@ final class NotchController {
     }
     private var model: NotchModel!
     private var panel: NotchPanel!
+    /// Swipe and key monitors exist only while the notch is open (docs/widget-hub.md §7).
+    private var inputMonitors: [Any] = []
+    private var swipe = SwipeTracker()
 
     private var pinned = false          // opened from the menu / --expand
     private var pointerVisited = false
@@ -81,7 +115,7 @@ final class NotchController {
 
     /// The panel is sized for the largest state; the SwiftUI shape animates inside it.
     /// Large enough for the widest, tallest theme plus its shadow; transparent areas pass clicks through.
-    private static let canvas = CGSize(width: 720, height: 620)
+    private static let canvas = CGSize(width: 720, height: NotchModel.canvasHeight)
 
     func start(openOnLaunch: Bool) {
         let screen = Self.screen
@@ -135,7 +169,15 @@ final class NotchController {
         // `--start-timer <minutes>` / `--edit-widgets`: put the notch in those states for screenshots.
         let a = CommandLine.arguments
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
+        if let i = a.firstIndex(of: "--page-limit"), a.indices.contains(i + 1), let v = Double(a[i + 1]) { NotchModel.debugLimit = CGFloat(v) }
         if a.contains("--edit-widgets") { model.editing = true }
+        // `--cycle-pages`: change page every 0.75 s while open, to measure what a page change costs.
+        if a.contains("--cycle-pages") {
+            let t = Timer(timeInterval: 0.75, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { guard let self else { return }; if !self.model.go(by: 1), let first = self.model.visiblePages.first { self.model.go(to: first) } }
+            }
+            RunLoop.main.add(t, forMode: .common)
+        }
         // `--cycle-open`: open and close every 1.5 s forever, to measure what the animation costs.
         if a.contains("--cycle-open") {
             let t = Timer(timeInterval: 0.75, repeats: true) { [weak self] _ in
@@ -214,8 +256,66 @@ final class NotchController {
         if open { music.refreshIfUnknown() }
         music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
+        panel.keyable = open
+        if !open, panel.isKeyWindow { panel.resignKey(); panel.orderOut(nil); panel.orderFrontRegardless() }  // hand key back to the app you were in
         withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open; if !open { model.editing = false } }
+        open ? installInputMonitors() : removeInputMonitors()
         updateBeat()
+    }
+
+    // MARK: - Pages: swipe and keys (docs/widget-hub.md §1.3)
+
+    private func installInputMonitors() {
+        guard inputMonitors.isEmpty else { return }
+        if let m = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel, handler: { [weak self] e in
+            let consumed = MainActor.assumeIsolated { self?.scroll(e) ?? false }
+            return consumed ? nil : e
+        }) { inputMonitors.append(m) }
+        if let m = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] e in
+            let consumed = MainActor.assumeIsolated { self?.key(e) ?? false }
+            return consumed ? nil : e
+        }) { inputMonitors.append(m) }
+    }
+
+    private func removeInputMonitors() {
+        inputMonitors.forEach(NSEvent.removeMonitor)
+        inputMonitors.removeAll()
+        swipe.reset(); model.swipe.offset = 0
+    }
+
+    /// Two-finger horizontal swipe (docs/widget-hub.md §1.3): the page follows the fingers with resistance, then commits
+    /// past 60 pt of travel or springs back. Vertical scrolls and momentum pass through untouched.
+    private func scroll(_ e: NSEvent) -> Bool {
+        guard e.window === panel, e.hasPreciseScrollingDeltas else { return false }
+        if !e.momentumPhase.isEmpty { return swipe.momentum(ended: e.momentumPhase.contains(.ended) || e.momentumPhase.contains(.cancelled)) }
+        guard !e.phase.isEmpty else { return false }
+        let phase: SwipeTracker.Phase = e.phase.contains(.began) || e.phase.contains(.mayBegin) ? .began
+            : e.phase.contains(.ended) || e.phase.contains(.cancelled) ? .ended : .changed
+        // Finger direction, whatever the natural-scrolling setting.
+        let sign: CGFloat = e.isDirectionInvertedFromDevice ? 1 : -1
+        let m = model!
+        let r = swipe.feed(dx: e.scrollingDeltaX * sign, dy: e.scrollingDeltaY, phase: phase, followsFingers: !Tok.reduceMotion) { step in
+            m.currentPage.flatMap { Pages.neighbour(of: $0, by: step, visible: m.visiblePages) } != nil
+        }
+        if let step = r.commit { model.go(by: step) }
+        if r.settle { withAnimation(Tok.open) { model.swipe.offset = 0 } }
+        else if let o = r.offset, o != model.swipe.offset { model.swipe.offset = o }
+        return r.consumed
+    }
+
+    /// While the panel is key: ⌘[ / ⌘] page back and forward, ⌘1–⌘9 jump, Esc closes.
+    private func key(_ e: NSEvent) -> Bool {
+        guard e.window === panel else { return false }
+        let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if e.keyCode == 53 { close(); return true }                           // Esc
+        guard mods == .command, let c = e.charactersIgnoringModifiers else { return false }
+        switch c {
+        case "[": model.go(by: -1); return true
+        case "]": model.go(by: 1); return true
+        default:
+            if let n = Int(c), n >= 1, model.visiblePages.indices.contains(n - 1) { model.go(to: model.visiblePages[n - 1]); return true }
+            return false
+        }
     }
 
     // MARK: - Screens
@@ -235,4 +335,11 @@ final class NotchController {
     static var screen: NSScreen {
         NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0]
     }
+}
+
+/// How far the open page is pulled by a swipe in progress. Separate from NotchModel so a swipe re-renders only the
+/// wrapper that applies the offset, not the panel.
+@MainActor
+final class SwipeState: ObservableObject {
+    @Published var offset: CGFloat = 0
 }

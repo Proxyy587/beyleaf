@@ -18,54 +18,85 @@ struct ExpandedView: View {
     @Namespace private var cards
 
     var body: some View {
-        let rows = WidgetLayout.rows(entries)
+        // Pages with something to show (docs/widget-hub.md §1.2). While editing, every enabled page, so an empty one
+        // can be filled.
+        let visible = model.editing ? settings.pages.filter(\.enabled).map(\.kind) : Pages.visible(settings.pages) { size(of: $0) != nil }
+        let current = Pages.resolve(settings.page, visible: visible)
+        let rows = current.map { WidgetLayout.rows(entries(on: $0)) } ?? []
         VStack(alignment: .leading, spacing: Tok.s2) {
             if showBand {
                 NotchBand(model: model, openSettings: openSettings).blurReveal(shown, delay: 0.03)
             }
             if model.editing {
-                WidgetEditor().transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
-            } else if rows.isEmpty {
+                WidgetEditor(page: current ?? settings.page).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+            } else if let current {
+                // Only the visible page is in the view tree, so hidden pages can't tick, poll or fetch (§7).
+                SwipeFollow(swipe: model.swipe) {
+                    PageScroller(limit: model.maxContentHeight - chrome) {
+                        VStack(alignment: .leading, spacing: Tok.s2) {
+                            ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
+                                HStack(spacing: Tok.s2) {
+                                    ForEach(row, id: \.kind) { placed in
+                                        widget(placed)
+                                            .matchedGeometryEffect(id: placed.kind, in: cards)
+                                            .contextMenu { menu(placed.kind, on: current) }
+                                    }
+                                }
+                                .fixedSize(horizontal: false, vertical: true)
+                                .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+                                .blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
+                            }
+                        }
+                        .animation(Tok.open, value: rows.map { $0.map(\.kind) })
+                    }
+                }
+                // Pages slide inside the card edges, so nothing hangs outside the panel mid-swipe.
+                .clipped()
+                .id(current)
+                .transition(pageTransition)
+            } else {
                 EmptyLine(symbol: "square.grid.2x2", text: "No widgets") {
                     PillButton(title: "Edit widgets") { withAnimation(Tok.open) { model.editing = true } }
                 }
                 .padding(.horizontal, Tok.s3)
                 .blurReveal(shown, delay: 0.05)
-            } else {
-                ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
-                    HStack(spacing: Tok.s2) {
-                        ForEach(row, id: \.kind) { placed in
-                            widget(placed)
-                                .matchedGeometryEffect(id: placed.kind, in: cards)
-                                .contextMenu { menu(placed.kind) }
-                        }
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
-                    .blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
-                }
             }
         }
-        .animation(Tok.open, value: rows.map { $0.map(\.kind) })
+        .animation(Tok.open, value: current)
         .animation(Tok.open, value: model.editing)
         .padding(.horizontal, Tok.s2)
         .padding(.bottom, Tok.s2)
+        .preference(key: PagesShown.self, value: PagesShown.Value(visible: visible, current: current))
     }
 
-    /// The enabled widgets that have something to show right now, in the user's order, with their size.
-    private var entries: [(kind: WidgetKind, size: WidgetSize)] {
-        settings.widgets.filter(\.enabled).compactMap { w in
-            switch w.kind {
-            case .nowPlaying:
-                if music.title != nil { return (w.kind, .wide) }
-                return music.availablePlayer != nil ? (w.kind, .tile) : nil
-            case .timer:
-                return (w.kind, .tile)
-            case .screenshot:
-                guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
-                return (w.kind, .tile)
-            }
+    /// Height the band and the bottom inset take, which the page area can't use.
+    private var chrome: CGFloat { (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 }
+
+    /// The new page slides in from the side you're going to, out of a slight blur; the old one leaves the other way.
+    private var pageTransition: AnyTransition {
+        if Tok.reduceMotion { return .opacity }
+        let d = CGFloat(model.pageStep) * Tok.s6
+        return .asymmetric(insertion: AnyTransition(.blurReplace).combined(with: .offset(x: d)),
+                           removal: AnyTransition(.blurReplace).combined(with: .offset(x: -d)))
+    }
+
+    /// A widget's size in its current state, or nil when it has nothing to show (gone).
+    private func size(of kind: WidgetKind) -> WidgetSize? {
+        switch kind {
+        case .nowPlaying:
+            if music.title != nil { return .wide }
+            return music.availablePlayer != nil ? .tile : nil
+        case .timer:
+            return .tile
+        case .screenshot:
+            guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
+            return .tile
         }
+    }
+
+    /// The page's enabled widgets that have something to show right now, in the user's order, with their size.
+    private func entries(on page: PageKind) -> [(kind: WidgetKind, size: WidgetSize)] {
+        (settings.pageSetting(page)?.widgets ?? []).filter(\.enabled).compactMap { w in size(of: w.kind).map { (w.kind, $0) } }
     }
 
     @ViewBuilder private func widget(_ placed: PlacedWidget) -> some View {
@@ -79,12 +110,116 @@ struct ExpandedView: View {
         }
     }
 
-    @ViewBuilder private func menu(_ kind: WidgetKind) -> some View {
+    @ViewBuilder private func menu(_ kind: WidgetKind, on page: PageKind) -> some View {
         Button("Move up") { settings.moveWidget(kind, by: -1) }.disabled(!settings.canMove(kind, by: -1))
         Button("Move down") { settings.moveWidget(kind, by: 1) }.disabled(!settings.canMove(kind, by: 1))
+        Menu("Move to") {
+            ForEach(PageKind.allCases.filter { $0 != page }) { other in
+                Button(other.name) { withAnimation(Tok.open) { settings.moveWidget(kind, to: other) } }
+            }
+        }
         Button("Hide \(kind.name)") { settings.setEnabled(kind, false) }
         Divider()
         Button("Edit widgets…") { model.editing = true }
+    }
+}
+
+/// The pages the open panel shows and the one on screen, reported up to the model (dots, swipe, keys).
+struct PagesShown: PreferenceKey {
+    struct Value: Equatable { var visible: [PageKind] = []; var current: PageKind? }
+    static let defaultValue = Value()
+    static func reduce(value: inout Value, nextValue: () -> Value) { let n = nextValue(); if !n.visible.isEmpty { value = n } }
+}
+
+/// Applies the swipe-follow offset. Only this wrapper observes the swipe, so moving fingers never re-lays out the panel.
+struct SwipeFollow<Content: View>: View {
+    @ObservedObject var swipe: SwipeState
+    @ViewBuilder var content: Content
+    var body: some View {
+        // Render-only: an offset and a fade, no layout per scroll event (docs/widget-hub.md §7).
+        content.offset(x: swipe.offset).opacity(1 - Double(abs(swipe.offset)) / 120)
+    }
+}
+
+/// A page's rows. Taller than the room, they scroll vertically (no scrollbar, edges fade to hint at more); otherwise
+/// the area is exactly as tall as the rows, so the panel hugs them as before.
+struct PageScroller<Content: View>: View {
+    let limit: CGFloat
+    @ViewBuilder var content: Content
+    @State private var natural: CGFloat = 0
+    @State private var offset: CGFloat = 0
+    @State private var edges = (top: false, bottom: false)
+
+    var body: some View {
+        let fit = PanelFit.fit(natural: natural, limit: limit)
+        ScrollView(.vertical, showsIndicators: false) {
+            content
+                .background(GeometryReader { g in
+                    Color.clear.preference(key: PageMetrics.self, value: PageMetrics.Value(height: g.size.height, offset: -g.frame(in: .named("page")).minY))
+                })
+        }
+        .coordinateSpace(name: "page")
+        .scrollDisabled(!fit.scrolls)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: max(0, limit))
+        .mask(fade(fit.scrolls))
+        .onPreferenceChange(PageMetrics.self) { m in
+            if abs(m.height - natural) > 0.5 { natural = m.height }
+            let e = PanelFit.edges(offset: m.offset, natural: m.height, visible: min(m.height, limit))
+            if e != edges { withAnimation(Tok.reveal) { edges = e } }
+        }
+    }
+
+    /// Opaque, with a short fade on each edge that has more content beyond it.
+    private func fade(_ scrolls: Bool) -> some View {
+        let f = Tok.s5 / max(1, min(natural, limit))
+        return LinearGradient(stops: [
+            .init(color: scrolls && edges.top ? .clear : .black, location: 0),
+            .init(color: .black, location: f),
+            .init(color: .black, location: 1 - f),
+            .init(color: scrolls && edges.bottom ? .clear : .black, location: 1),
+        ], startPoint: .top, endPoint: .bottom)
+    }
+}
+
+struct PageMetrics: PreferenceKey {
+    struct Value: Equatable { var height: CGFloat = 0; var offset: CGFloat = 0 }
+    static let defaultValue = Value()
+    static func reduce(value: inout Value, nextValue: () -> Value) { value = nextValue() }
+}
+
+/// One dot per visible page, beside the brand slot (docs/widget-hub.md §1.4). Hidden with a single page.
+struct PageDots: View {
+    @ObservedObject var model: NotchModel
+    @State private var hover: PageKind?
+    var body: some View {
+        let pages = model.visiblePages
+        if pages.count > 1 {
+            HStack(spacing: 0) {
+                ForEach(pages) { p in
+                    Button { model.go(to: p) } label: {
+                        Circle()
+                            .fill(p == model.currentPage ? Tok.ink : hover == p ? Tok.ink2 : Tok.ink3)
+                            .frame(width: 6, height: 6)
+                            .frame(width: 14, height: Tok.button)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(p.name)
+                    .onHover { h in withAnimation(Tok.hover) { hover = h ? p : (hover == p ? nil : hover) } }
+                }
+            }
+            .animation(Tok.hover, value: model.currentPage)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Page")
+            .accessibilityValue(value(pages))
+            .accessibilityAdjustableAction { d in model.go(by: d == .increment ? 1 : -1) }
+            .transition(.opacity)
+        }
+    }
+    private func value(_ pages: [PageKind]) -> String {
+        guard let c = model.currentPage, let i = pages.firstIndex(of: c) else { return "" }
+        return "\(i + 1) of \(pages.count), \(c.name)"
     }
 }
 
@@ -97,6 +232,7 @@ struct NotchBand: View {
     var body: some View {
         HStack(spacing: 0) {
             BrandSlot().padding(.leading, Tok.s3 - (Tok.button - 16) / 2)
+            PageDots(model: model).padding(.leading, Tok.s1)
             Spacer(minLength: 0)
             if model.editing {
                 PillButton(title: "Done") { withAnimation(Tok.open) { model.editing = false } }
@@ -116,6 +252,7 @@ struct NotchBand: View {
             }
         }
         .animation(Tok.reveal, value: model.editing)
+        .animation(Tok.reveal, value: model.visiblePages.count > 1)
     }
 }
 
@@ -382,6 +519,8 @@ struct ScreenshotCard: View {
 /// panel; grab one and it lifts and follows the pointer while the others make room, then it snaps into the slot you
 /// dropped it on. − hides a widget; hidden ones wait in the tray below, + brings them back.
 struct WidgetEditor: View {
+    /// The page being arranged; the dots still switch pages while editing.
+    let page: PageKind
     @ObservedObject var settings = AppSettings.shared
     /// The order while a drag is in flight (enabled widgets only); committed on release.
     @State private var working: [WidgetKind]?
@@ -390,8 +529,9 @@ struct WidgetEditor: View {
     @State private var grab: CGSize = .zero
     @State private var frames: [WidgetKind: CGRect] = [:]
 
-    private var shown: [WidgetKind] { working ?? settings.widgets.filter(\.enabled).map(\.kind) }
-    private var hidden: [WidgetKind] { settings.widgets.filter { !$0.enabled }.map(\.kind) }
+    private var shown: [WidgetKind] { working ?? (settings.pageSetting(page)?.widgets ?? []).filter(\.enabled).map(\.kind) }
+    /// Hidden widgets from every page: + puts one on this page (how widgets move between pages in the notch).
+    private var hidden: [WidgetKind] { settings.hiddenWidgets }
 
     /// Each widget's natural size in the editor (its live size: Now playing is wide, the rest are tiles).
     private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying ? .wide : .tile }
@@ -410,8 +550,8 @@ struct WidgetEditor: View {
             if !hidden.isEmpty {
                 HStack(spacing: Tok.s1) {
                     ForEach(hidden) { k in
-                        Chip(title: "+ \(k.name)", label: "Show \(k.name)") {
-                            withAnimation(Tok.open) { settings.setEnabled(k, true) }
+                        Chip(title: "+ \(k.name)", label: "Show \(k.name) on \(page.name)") {
+                            withAnimation(Tok.open) { settings.moveWidget(k, to: page) }
                         }
                     }
                     Spacer(minLength: 0)
@@ -419,7 +559,7 @@ struct WidgetEditor: View {
                 .padding(.horizontal, Tok.s1)
                 .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
             }
-            Text(shown.isEmpty ? "Add a widget to show it in the notch." : "Drag to arrange. Small widgets pair up side by side.")
+            Text(shown.isEmpty ? "Add a widget to show it on \(page.name)." : "Drag to arrange. Small widgets pair up side by side.")
                 .font(Tok.meta).foregroundStyle(Tok.ink3)
                 .padding(.horizontal, Tok.s3)
         }
@@ -428,6 +568,7 @@ struct WidgetEditor: View {
         .overlay(alignment: .topLeading) { lifted }
         .animation(Tok.open, value: shown)
         .animation(Tok.open, value: hidden)
+        .id(page)
     }
 
     /// A card in its slot. While it's the one being dragged, the slot shows a quiet placeholder instead.
@@ -474,11 +615,7 @@ struct WidgetEditor: View {
                 reorder(k, to: v.location)
             }
             .onEnded { _ in
-                if let order = working {
-                    let rest = settings.widgets.filter { !order.contains($0.kind) }
-                    let enabled = order.compactMap { kind in settings.widgets.first { $0.kind == kind } }
-                    settings.widgets = enabled + rest
-                }
+                if let order = working { settings.setOrder(order, on: page) }
                 withAnimation(Tok.open) { dragging = nil; working = nil }
             }
     }

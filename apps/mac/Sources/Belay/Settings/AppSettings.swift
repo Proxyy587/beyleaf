@@ -34,8 +34,10 @@ final class AppSettings: ObservableObject {
     /// Seconds after the pointer leaves before the notch closes (0 = instant).
     @Published var closeDelay: Double { didSet { save(closeDelay, "closeDelay") } }
     @Published var screenshotAutoCopy: Bool { didSet { save(screenshotAutoCopy, "screenshotAutoCopy") } }
-    /// What the open notch shows, in the user's order (ADR 0019). Not part of the theme: a theme is only the look.
-    @Published var widgets: [WidgetSetting] { didSet { if widgets != oldValue { saveWidgets() } } }
+    /// What the open notch shows: pages of widgets, in the user's order (ADR 0021). Not part of the theme.
+    @Published var pages: [PageSetting] { didSet { if pages != oldValue { savePages() } } }
+    /// The page the notch opens on: the one the user last chose (docs/widget-hub.md §1.3).
+    @Published var page: PageKind { didSet { if page != oldValue, persistsPages { save(page.rawValue, "notchPage") } } }
     /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
     @Published var timerActivity: Bool { didSet { save(timerActivity, "timerActivity") } }
     /// Hover the notch to open it (default), or click it. Click mode catches clicks only on the notch itself.
@@ -82,41 +84,45 @@ final class AppSettings: ObservableObject {
         return saving ? Performance(maxFPS: 30, blur: false) : Performance(maxFPS: max(60, screenMax), blur: true)
     }
 
-    // MARK: Widgets
-    func resetWidgets() { widgets = WidgetSetting.defaults }
-    var widgetsAreDefault: Bool { widgets == WidgetSetting.defaults }
-    func isEnabled(_ kind: WidgetKind) -> Bool { widgets.first { $0.kind == kind }?.enabled ?? false }
-    func setEnabled(_ kind: WidgetKind, _ on: Bool) {
-        guard let i = widgets.firstIndex(where: { $0.kind == kind }), widgets[i].enabled != on else { return }
-        widgets[i].enabled = on
-    }
-    /// Moves a widget one step. From the notch's context menu it skips hidden widgets, so the move is always visible;
-    /// the editor lists every widget, so there it moves by one place.
+    // MARK: Pages and widgets (ADR 0021)
+    func resetWidgets() { pages = Pages.defaults }
+    var widgetsAreDefault: Bool { pages == Pages.defaults }
+    func pageSetting(_ kind: PageKind) -> PageSetting? { pages.first { $0.kind == kind } }
+    func setEnabled(_ kind: WidgetKind, _ on: Bool) { var p = pages; Pages.setEnabled(kind, on, in: &p); pages = p }
     func moveWidget(_ kind: WidgetKind, by step: Int, skippingDisabled: Bool = true) {
-        guard let i = widgets.firstIndex(where: { $0.kind == kind }) else { return }
-        var j = i + step
-        while skippingDisabled, widgets.indices.contains(j), !widgets[j].enabled { j += step }
-        guard widgets.indices.contains(j) else { return }
-        var w = widgets
-        let item = w.remove(at: i)
-        w.insert(item, at: j)
-        widgets = w
+        var p = pages; Pages.step(kind, by: step, skippingDisabled: skippingDisabled, in: &p); pages = p
     }
-    func moveWidgets(from source: IndexSet, to destination: Int) {
-        var w = widgets
-        let moving = source.map { w[$0] }
-        for i in source.sorted(by: >) { w.remove(at: i) }
-        let target = destination - source.filter { $0 < destination }.count
-        w.insert(contentsOf: moving, at: target)
-        widgets = w
-    }
-    /// Whether ↑/↓ can move this widget (false at the ends), with the same skipping rule as `moveWidget`.
     func canMove(_ kind: WidgetKind, by step: Int, skippingDisabled: Bool = true) -> Bool {
-        guard let i = widgets.firstIndex(where: { $0.kind == kind }) else { return false }
-        var j = i + step
-        while widgets.indices.contains(j) { if !skippingDisabled || widgets[j].enabled { return true }; j += step }
-        return false
+        Pages.canStep(kind, by: step, skippingDisabled: skippingDisabled, in: pages)
     }
+    func moveWidget(_ kind: WidgetKind, to page: PageKind, enabled: Bool = true) {
+        var p = pages; Pages.move(kind, to: page, enabled: enabled, in: &p); pages = p
+    }
+    /// Reorders widgets within one page (Settings' drag list).
+    func moveWidgets(on page: PageKind, from source: IndexSet, to destination: Int) {
+        guard let i = pages.firstIndex(where: { $0.kind == page }) else { return }
+        var p = pages
+        p[i].widgets.move(fromOffsets: source, toOffset: destination)
+        pages = p
+    }
+    /// Replaces one page's widget order (the notch editor commits a drag with this).
+    func setOrder(_ kinds: [WidgetKind], on page: PageKind) {
+        guard let i = pages.firstIndex(where: { $0.kind == page }) else { return }
+        var p = pages
+        let shown = kinds.compactMap { k in p[i].widgets.first { $0.kind == k } }
+        p[i].widgets = shown + p[i].widgets.filter { !kinds.contains($0.kind) }
+        pages = p
+    }
+    func movePages(from source: IndexSet, to destination: Int) { var p = pages; p.move(fromOffsets: source, toOffset: destination); pages = p }
+    func setPageEnabled(_ kind: PageKind, _ on: Bool) {
+        guard let i = pages.firstIndex(where: { $0.kind == kind }), pages[i].enabled != on else { return }
+        pages[i].enabled = on
+    }
+    /// Every hidden widget, on any page (the editor's tray).
+    var hiddenWidgets: [WidgetKind] { pages.flatMap { $0.widgets.filter { !$0.enabled }.map(\.kind) } }
+
+    /// Debug builds: screenshot flags (`--page`, `--demo-pages`) change pages in memory only, never the user's saved ones.
+    private var persistsPages = true
 
     /// The theme a section reset returns to: the saved theme or preset the current one is named after, else Midnight.
     var themeBase: Theme {
@@ -142,7 +148,17 @@ final class AppSettings: ObservableObject {
         openOnClick = d.object(forKey: "openOnClick") as? Bool ?? false
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
-        widgets = d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme)
+        // Pages replace the single widget list (ADR 0021). Migrate once from `widgets` (or, older still, the theme's rows).
+        pages = d.data(forKey: "pages").flatMap(Pages.decode)
+            ?? Pages.migrated(from: d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme))
+        page = PageKind(rawValue: d.string(forKey: "notchPage") ?? "") ?? .now
+        if d.data(forKey: "pages") == nil { savePages() }
+        #if DEBUG
+        let a = CommandLine.arguments
+        if a.contains("--demo-pages") || a.contains("--page") { persistsPages = false }
+        if a.contains("--demo-pages") { var p = pages; Pages.move(.timer, to: .day, in: &p); pages = p }
+        if let i = a.firstIndex(of: "--page"), a.indices.contains(i + 1), let k = PageKind(rawValue: a[i + 1]) { page = k }
+        #endif
     }
 
     /// One-time move of the old theme rows (order and visibility) into widgets; new kinds are appended.
@@ -156,8 +172,7 @@ final class AppSettings: ObservableObject {
     }
 
     private static func migratedWidgets(from theme: Theme) -> [WidgetSetting] {
-        let old = theme.rows.compactMap { r in WidgetKind(rawValue: r.kind.rawValue).map { WidgetSetting(kind: $0, enabled: r.visible) } }
-        return WidgetSetting.normalized(old)
+        theme.rows.compactMap { r in WidgetKind(rawValue: r.kind.rawValue).map { WidgetSetting(kind: $0, enabled: r.visible) } }
     }
 
     // MARK: Themes
@@ -207,5 +222,8 @@ final class AppSettings: ObservableObject {
     private func saveTheme() { if let data = try? JSONEncoder().encode(theme) { d.set(data, forKey: "theme") } }
     private func persistSaved() { if let data = try? JSONEncoder().encode(savedThemes) { d.set(data, forKey: "savedThemes") } }
     private func save(_ value: Any, _ key: String) { d.set(value, forKey: key) }
-    private func saveWidgets() { if let data = try? JSONEncoder().encode(widgets) { d.set(data, forKey: "widgets") } }
+    private func savePages() {
+        guard persistsPages, let data = try? JSONEncoder().encode(pages) else { return }
+        d.set(data, forKey: "pages")
+    }
 }
