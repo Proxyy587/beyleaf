@@ -5,13 +5,38 @@ description: Belay's design system and anti-slop review. Use whenever creating o
 
 # Belay design
 
-The rules are in `docs/design.md`. **Read it before touching UI.** Tokens are in `apps/mac/Sources/Belay/Design/Tokens.swift`; never hard-code a colour, size, radius, font or animation in a view.
+The rules are in `docs/design.md`. **Read it before touching UI.** What exists and why is in `docs/ui-inventory.md`: every new element needs a row there and must pass its purpose test ("what user job does this do that the notch is uniquely good for?"). Tokens are in `apps/mac/Sources/Belay/Design/Tokens.swift`; never hard-code a colour, size, radius, font or animation in a view.
 
 ## The feel we're after
 - **Aria-like notch:** pure black. Rows are [app icon] title, with a quiet uppercase **mono status line** under it and a mono value on the right. One green, only for "live". Lots of air.
 - **dusk-like brand:** a clean sans for UI, a pixel face only for brand moments (the climber), warm off-white ink.
 - **Calm:** still at rest. Motion explains a change in ≤ 300 ms.
 - Inspiration only: never copy their code, assets or text (ADR 0008).
+
+## What the references share (studied 2026-11-25, in our words)
+unfair.so, dusk.bot and joinariapp.com, captured with `agent-browser` at 1440×900. dusk bot's app was read from the local study clone in `refs/duskbot`.
+- **One clean sans plus one pixel moment.**
+  - unfair.so: Inter body, with a bitmap serif only for the giant headline.
+  - dusk bot: General Sans and Geist, with a pixel mascot as the only colour.
+  - Aria: Geist, with a dithered pixel-cloud hero.
+  - For Belay: SF for UI, and the pixel climber plus the mark are the one brand moment.
+- **Display type is tight.** Headlines run -4 to -5.5% tracking at 100–220 px. UI text is never tracked.
+- **Pills and tones, not boxes.**
+  - Primary action: a solid ink (or one saturated accent) capsule. Secondary: a faint tonal capsule.
+  - Segmented navigation is a pill track with one white selected pill.
+- **Borderless tonal contrast** (dusk's own audit rule):
+  - surfaces differ by tone, not lines or shadows;
+  - a banner or notice gets a 6% ink tint so it never floats as bare words;
+  - shadows only on things that truly float.
+- **One motion per kind.** dusk keeps exactly one dialog motion (a 6 px rise from 98.5% over 240 ms) and one popover motion (120 ms grow from the trigger). Its duration steps are 100/150/200/300 ms on a quick ease-out, and a press springs back with a hair of overshoot.
+  - For Belay: one open, one close, one swap, one press. Never a per-view curve.
+- **Restraint.** Lowercase or sentence case, very few words, one accent, and plenty of empty space.
+
+## Tools
+- **`agent-browser`**: look at a reference or our website (screenshots, computed fonts and colours). Setup is in its `SOURCE.md`.
+- **Hallmark** (plugin, `/hallmark:hallmark`): only for new web pages (`apps/web`, the landing page, share cards) or when asked for a Hallmark `audit`.
+  - It doesn't know SwiftUI.
+  - Where it conflicts with `docs/design.md` (mono uppercase status lines, `A · B` meta), `docs/design.md` wins and the waiver goes in the stamp.
 
 ## Anti-slop gate (fail the change if any is true)
 1. A decorative gradient anywhere

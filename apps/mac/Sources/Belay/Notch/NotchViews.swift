@@ -3,52 +3,6 @@ import SwiftUI
 
 // Layout and type follow docs/design.md: rows of [icon] title / status line … value. Tokens only.
 
-// MARK: - Compact wings (beside the hardware notch)
-
-struct WingView: View {
-    let wing: AppSettings.Wing
-    let side: HorizontalEdge
-    @ObservedObject var music: NowPlaying
-    @ObservedObject var status: SystemStatus
-    @ObservedObject var shots: Screenshots
-    @ObservedObject var settings = AppSettings.shared
-
-    var body: some View {
-        Group {
-            if side == .trailing, shots.justCopied {
-                Image(systemName: "checkmark").font(Tok.icon).foregroundStyle(Tok.live)
-                    .accessibilityLabel("Screenshot copied")
-            } else if side == .trailing, settings.equalizerWhilePlaying, music.isPlaying {
-                Equalizer().frame(width: 14, height: 11)
-            } else {
-                content
-            }
-        }
-        .transition(.opacity)
-        .animation(Tok.reveal, value: shots.justCopied)
-    }
-
-    @ViewBuilder private var content: some View {
-        switch wing {
-        case .climber:
-            Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink2)
-        case .battery:
-            if let b = status.battery {
-                Text("\(b.percent)%").font(Tok.digits).foregroundStyle(batteryInk(b))
-            }
-        case .time:
-            Text(status.now, format: .dateTime.hour().minute()).font(Tok.digits).foregroundStyle(Tok.ink2)
-        case .none:
-            EmptyView()
-        }
-    }
-}
-
-@MainActor func batteryInk(_ b: SystemStatus.Battery) -> Color {
-    if b.onAC { return Tok.ink2 }
-    return b.percent < 10 ? Tok.danger : b.percent <= 20 ? Tok.warning : Tok.ink2
-}
-
 // MARK: - Open panel
 
 struct ExpandedView: View {
@@ -56,37 +10,39 @@ struct ExpandedView: View {
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
     var shown: Bool
+    var showHeader: Bool
     var openSettings: () -> Void
 
     var body: some View {
+        let rows = AppSettings.shared.theme.rows.filter(\.visible).map(\.kind)
         VStack(alignment: .leading, spacing: Tok.s1) {
-            header
-                .padding(.bottom, Tok.s2)
-            NowPlayingRow(music: music)
-            WifiRow(status: status)
-            BatteryRow(status: status)
-            VolumeRow(status: status)
-            if let c = shots.lastCopied { ScreenshotRow(copied: c, shots: shots) }
+            if showHeader {
+                header
+                    .padding(.bottom, Tok.s2)
+                    .blurReveal(shown, delay: 0.03)
+            }
+            ForEach(Array(rows.enumerated()), id: \.element) { index, kind in
+                row(kind).blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
+            }
+            if rows.isEmpty {
+                EmptyLine(symbol: "rectangle.grid.1x2", text: "Nothing shown. Choose rows in Settings.")
+                    .blurReveal(shown, delay: 0.05)
+            }
         }
         .padding(.horizontal, Tok.s4)
         .padding(.top, Tok.s2)
         .padding(.bottom, Tok.s4)
-        .opacity(shown ? 1 : 0)
-        .scaleEffect(shown ? 1 : 0.96, anchor: .top)
-        .animation(shown ? Tok.reveal.delay(0.04) : Tok.reveal, value: shown)
     }
 
-    private var header: some View {
-        HStack(spacing: Tok.s2) {
-            Image(systemName: "figure.climbing").font(Tok.icon).foregroundStyle(Tok.ink)
-                .frame(width: Tok.gutter)
-            Text("Belay").font(Tok.title).foregroundStyle(Tok.ink)
-            Spacer()
-            Text(status.now, format: .dateTime.weekday(.abbreviated).hour().minute())
-                .font(Tok.digits).foregroundStyle(Tok.ink2)
-            IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
+    @ViewBuilder private func row(_ kind: Theme.RowKind) -> some View {
+        switch kind {
+        case .nowPlaying: if music.title != nil { NowPlayingHero(music: music) } else { NowPlayingEmpty(music: music) }
+        case .screenshot: if let c = shots.lastCopied { ScreenshotRow(copied: c, shots: shots) }
         }
     }
+
+    /// No-notch displays: the same header as the band, below the notch line.
+    private var header: some View { NotchHeader(openSettings: openSettings) }
 }
 
 /// A notch row: [icon] title over status line … trailing.
@@ -102,6 +58,7 @@ struct Row<Leading: View, Trailing: View>: View {
             leading.frame(width: Tok.gutter, height: Tok.gutter)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
+                    .blurSwap(on: title)
                 StatusLine(text: status, live: live)
             }
             Spacer(minLength: Tok.s2)
@@ -111,70 +68,107 @@ struct Row<Leading: View, Trailing: View>: View {
     }
 }
 
-struct NowPlayingRow: View {
+/// Nothing playing: one quiet line, plus Play when a player is open (docs/design.md §10).
+struct NowPlayingEmpty: View {
     @ObservedObject var music: NowPlaying
     var body: some View {
-        Row(title: music.title ?? "Not playing",
-            status: music.title == nil
-                ? (music.player == nil ? "Idle" : "Paused · \(music.player!.rawValue)")
-                : [music.isPlaying ? "Playing" : "Paused", music.artist, music.player?.rawValue].compactMap { $0 }.joined(separator: " · "),
-            live: music.isPlaying) {
-            AppIcon(bundleID: music.player.map { $0 == .spotify ? "com.spotify.client" : "com.apple.Music" }, fallback: "music.note")
-        } trailing: {
-            HStack(spacing: 0) {
+        EmptyLine(symbol: "music.note", text: music.player.map { "\($0.rawValue) is paused" } ?? "Not playing") {
+            if music.player != nil { IconButton(symbol: "play.fill", label: "Play") { music.playPause() } }
+        }
+    }
+}
+
+/// A one-line empty state in the row grid: [bare symbol in the gutter] 12 [text in ink2] … [optional action].
+struct EmptyLine<Action: View>: View {
+    let symbol: String
+    let text: String
+    @ViewBuilder var action: Action
+    var body: some View {
+        HStack(spacing: Tok.s3) {
+            Image(systemName: symbol).font(Tok.icon).foregroundStyle(Tok.ink3).frame(width: Tok.gutter)
+            Text(text).font(Tok.body).foregroundStyle(Tok.ink2).lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: Tok.s2)
+            action
+        }
+        .frame(height: Tok.rowHeight)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+extension EmptyLine where Action == EmptyView {
+    init(symbol: String, text: String) { self.init(symbol: symbol, text: text) { EmptyView() } }
+}
+
+/// The open panel's header: just the Settings gear, right of the camera. No brand text and no clock: the menu bar
+/// clock stays visible beside the open panel (docs/ui-inventory.md §5). The left side is kept for agent status (A1).
+struct NotchHeader: View {
+    var openSettings: () -> Void
+    var body: some View {
+        HStack(spacing: Tok.s2) {
+            Spacer()
+            IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
+                .padding(.trailing, -Tok.buttonInset)
+        }
+    }
+}
+
+/// Now playing as the panel's hero: artwork, title/status, a seekable progress bar, centred controls.
+struct NowPlayingHero: View {
+    @ObservedObject var music: NowPlaying
+    var body: some View {
+        VStack(spacing: Tok.s2) {
+            HStack(spacing: Tok.s3) {
+                Artwork(image: music.artwork, size: 48)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(music.title ?? "").font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
+                        .blurSwap(on: music.title)
+                    StatusLine(text: [music.isPlaying ? "Playing" : "Paused", music.artist, music.player?.rawValue].compactMap { $0 }.joined(separator: " · "),
+                               live: music.isPlaying)
+                }
+                Spacer(minLength: 0)
+            }
+            if music.duration > 0 { ProgressBar(music: music) }
+            HStack(spacing: Tok.s4) {
                 IconButton(symbol: "backward.fill", label: "Previous track") { music.previous() }
                 IconButton(symbol: music.isPlaying ? "pause.fill" : "play.fill", label: music.isPlaying ? "Pause" : "Play") { music.playPause() }
                 IconButton(symbol: "forward.fill", label: "Next track") { music.next() }
             }
-            .disabled(music.player == nil)
-            .opacity(music.player == nil ? 0.4 : 1)
         }
+        .padding(.top, Tok.s1)
     }
 }
 
-struct WifiRow: View {
-    @ObservedObject var status: SystemStatus
+/// Thin progress line; click or drag to seek. Times in mono digits.
+struct ProgressBar: View {
+    @ObservedObject var music: NowPlaying
+    @State private var dragging: Double?
+    @State private var hover = false
     var body: some View {
-        let strength = ["", "Weak", "Fair", "Strong"][max(0, min(3, status.wifiBars))]
-        Row(title: status.wifiOn ? (status.wifiName ?? "Wi-Fi") : "Wi-Fi off",
-            status: !status.wifiOn ? "Off" : status.online ? "Connected · \(strength)" : "No internet",
-            live: status.wifiOn && status.online) {
-            Image(systemName: status.wifiOn ? "wifi" : "wifi.slash", variableValue: Double(status.wifiBars) / 3)
-                .font(Tok.icon).foregroundStyle(status.wifiOn && !status.online ? Tok.warning : Tok.ink)
-        } trailing: { EmptyView() }
-    }
-}
-
-struct BatteryRow: View {
-    @ObservedObject var status: SystemStatus
-    var body: some View {
-        if let b = status.battery {
-            Row(title: "Battery", status: b.charging ? "Charging" : b.onAC ? "Plugged in" : status.timeLeft.map { "On battery · \($0) left" } ?? "On battery") {
-                Image(systemName: b.charging ? "battery.100percent.bolt" : b.percent > 60 ? "battery.75percent" : b.percent > 25 ? "battery.50percent" : "battery.25percent")
-                    .font(Tok.icon).foregroundStyle(batteryInk(b) == Tok.ink2 ? Tok.ink : batteryInk(b))
-            } trailing: {
-                Text("\(b.percent)%").font(Tok.digits).foregroundStyle(Tok.ink2)
-            }
-        }
-    }
-}
-
-struct VolumeRow: View {
-    @ObservedObject var status: SystemStatus
-    @ObservedObject var settings = AppSettings.shared
-    var body: some View {
+        let f = dragging ?? (music.duration > 0 ? music.position / music.duration : 0)
+        // Labels are as wide as the artwork, so the bar starts on the title's column (artwork 48 + 12).
         HStack(spacing: Tok.s3) {
-            Image(systemName: "speaker.wave.3.fill", variableValue: status.volume)
-                .font(Tok.icon).foregroundStyle(Tok.ink).frame(width: Tok.gutter)
-            Slider(value: Binding(get: { status.volume }, set: { status.setVolume($0) }), in: 0...1)
-                .controlSize(.small)
-                .tint(settings.accent.color)
-                .accessibilityLabel("Volume")
-            Text("\(Int((status.volume * 100).rounded()))").font(Tok.digits).foregroundStyle(Tok.ink2)
-                .frame(width: 28, alignment: .trailing)
+            Text(clock(f * music.duration)).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 48, alignment: .leading)
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Tok.ink.opacity(0.14))
+                    Capsule().fill(Tok.ink).frame(width: max(0, min(1, f)) * g.size.width)
+                }
+                .frame(height: hover || dragging != nil ? 5 : 3)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { v in dragging = max(0, min(1, v.location.x / g.size.width)) }
+                    .onEnded { _ in if let d = dragging { music.seek(toFraction: d) }; dragging = nil })
+                .onHover { h in withAnimation(Tok.hover) { hover = h } }
+            }
+            .frame(height: 14)
+            Text("-" + clock(max(0, (1 - f) * music.duration))).font(Tok.digits).foregroundStyle(Tok.ink3).frame(width: 48, alignment: .trailing)
         }
-        .frame(height: Tok.rowHeight)
+        .accessibilityElement()
+        .accessibilityLabel("Playback position")
+        .accessibilityValue(clock(f * music.duration))
     }
+    private func clock(_ s: Double) -> String { let s = Int(s.rounded()); return String(format: "%d:%02d", s / 60, s % 60) }
 }
 
 struct ScreenshotRow: View {
@@ -257,22 +251,26 @@ struct Thumbnail: View {
     }
 }
 
-/// Live only while audio plays (the one allowed loop, docs/design.md §7). Static under reduced motion.
-struct Equalizer: View {
+/// Music bars driven by the player's real audio (MusicBeat, ADR 0017): one bar per band, a small lift on each beat.
+/// Ink, not live green: the bars are content, and green is kept for status text and dots (docs/design.md §3).
+/// Static glyph under reduced motion, when the user turned the bars off, or when capture isn't available.
+struct BeatBars: View {
+    @ObservedObject var beat: MusicBeat
     var body: some View {
-        if Tok.reduceMotion {
-            Image(systemName: "waveform").font(Tok.icon).foregroundStyle(Tok.live)
-        } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { ctx in
-                let t = ctx.date.timeIntervalSinceReferenceDate
-                HStack(alignment: .bottom, spacing: 2) {
-                    ForEach(0..<4, id: \.self) { i in
-                        Capsule().fill(Tok.live)
-                            .frame(maxHeight: .infinity)
-                            .scaleEffect(x: 1, y: 0.3 + 0.7 * abs(sin(t * (2.0 + Double(i) * 0.6) + Double(i))), anchor: .bottom)
-                    }
+        if beat.state == .listening, !Tok.reduceMotion, AppSettings.shared.equalizerWhilePlaying {
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(0..<beat.levels.count, id: \.self) { i in
+                    Capsule().fill(Tok.ink)
+                        .frame(maxHeight: .infinity)
+                        .scaleEffect(x: 1, y: CGFloat(0.2 + 0.8 * beat.levels[i]), anchor: .bottom)
                 }
             }
+            .scaleEffect(1 + 0.12 * CGFloat(beat.pulse), anchor: .bottom)
+            .animation(.linear(duration: 1.0 / 30.0), value: beat.levels)
+            .accessibilityLabel("Playing")
+        } else {
+            Image(systemName: "waveform").font(Tok.icon).foregroundStyle(Tok.ink2)
+                .accessibilityLabel("Playing")
         }
     }
 }

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- App icon: black squircle (macOS grid: 824 px body, 100 px margin), live mark optically centred. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="#000000"/>
+  <g transform="translate(152 168) scale(11.25)">
+    <path d="M8 20 Q13 20 13 24.5 V25 A5 5 0 0 0 18 30 H46 A5 5 0 0 0 51 25 V24.5 Q51 20 56 20 Z" fill="#F5F5F3"/>
+    <circle cx="32" cy="41" r="4.5" fill="#5BD08A"/>
+  </g>
+</svg>

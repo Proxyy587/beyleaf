@@ -20,6 +20,9 @@ final class BelayApp: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let controller = NotchController()
         controller.onOpenSettings = { [weak self] in self?.settingsWindow.show() }
+        // Live preview: keep the notch open while Settings is open.
+        settingsWindow.onShow = { [weak controller] in if AppSettings.shared.previewWhileEditing { controller?.open() } }
+        settingsWindow.onClose = { [weak controller] in if AppSettings.shared.previewWhileEditing { controller?.close() } }
         notch = controller
         controller.start(openOnLaunch: CommandLine.arguments.contains("--expand"))
         installStatusItem()
@@ -29,7 +32,7 @@ final class BelayApp: NSObject, NSApplicationDelegate {
     /// A small menu bar item so a dock-less app can be opened, configured and quit.
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "figure.climbing", accessibilityDescription: "Belay")
+        item.button?.image = BelayMark.templateImage()
         let menu = NSMenu()
         menu.addItem(withTitle: "Open notch", action: #selector(openNotch), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self

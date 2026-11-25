@@ -10,14 +10,21 @@ final class NotchModel: ObservableObject {
     @Published var metrics: NotchMetrics
     /// Height of the open content, measured by SwiftUI.
     @Published var openContentHeight: CGFloat = 230
-    @Published var openWidth: CGFloat = AppSettings.shared.width.points
+    @Published var openWidth: CGFloat = Tok.openWidth
 
-    /// Room for the compact "wings" either side of the hardware notch.
+    /// Room for the compact "wings" either side of the hardware notch, when shown.
     static let wing: CGFloat = 40
+    /// Current wing width, per activity.
+    @Published var wingWidth: CGFloat = 40
+    /// Wings are shown only for a live activity (music, screenshot copied, low battery, internet).
+    @Published var wingsVisible = false
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
-    var closedSize: CGSize { CGSize(width: metrics.notchSize.width + 2 * Self.wing, height: metrics.notchSize.height) }
+    /// Exactly the hardware notch unless wings are visible.
+    var closedSize: CGSize {
+        CGSize(width: metrics.notchSize.width + (wingsVisible ? 2 * wingWidth : 0), height: metrics.notchSize.height)
+    }
     var openSize: CGSize { CGSize(width: openWidth, height: metrics.notchSize.height + openContentHeight) }
 }
 
@@ -30,10 +37,35 @@ final class NotchController {
     private let music = NowPlaying()
     private let status = SystemStatus()
     private let shots = Screenshots()
+    private let beat = MusicBeat()
+    private var beatSubs: [Any] = []
+    private var screensAsleep = false
+    private var probing = false
     private let settings = AppSettings.shared
     private var settingsSub: Any?
     var onOpenSettings: () -> Void = {}
     private var hoverSince: Date?
+    private lazy var activities = ActivityCenter(music: music, status: status, shots: shots)
+    private var activitySub: Any?
+    private var pulseSub: Any?
+
+    /// Wings show for a live activity. New activities and tracks get a
+    /// jelly spring (more bounce than the open/close spring); reduced motion keeps it a fade.
+    private func updateWings() {
+        let activity = activities.current
+        let show = activity != nil
+        let width = activity?.wingWidth ?? NotchModel.wing
+        guard show != model.wingsVisible || width != model.wingWidth else { return }
+        withAnimation(Tok.jelly) { model.wingsVisible = show; model.wingWidth = width }
+    }
+    /// Listen to the player's audio only while the bars are on screen: music playing, the music wing showing (closed
+    /// notch), bars on, motion allowed, screens awake. Everything else stops the tap (battery, privacy).
+    private func updateBeat() {
+        guard !probing else { return }
+        let visible = music.isPlaying && !model.isOpen && activities.current == .nowPlaying && !screensAsleep
+        let wanted = visible && settings.equalizerWhilePlaying && !Tok.reduceMotion
+        beat.listen(to: wanted ? music.player?.bundleID : nil)
+    }
     private var model: NotchModel!
     private var panel: NotchPanel!
 
@@ -45,13 +77,14 @@ final class NotchController {
     private var screenObserver: NSObjectProtocol?
 
     /// The panel is sized for the largest state; the SwiftUI shape animates inside it.
-    private static let canvas = CGSize(width: 560, height: 360)
+    /// Large enough for the widest, tallest theme plus its shadow; transparent areas pass clicks through.
+    private static let canvas = CGSize(width: 720, height: 620)
 
     func start(openOnLaunch: Bool) {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status, shots: shots,
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() })
         let host = FirstClickHostingView(rootView: root)
         host.frame = NSRect(origin: .zero, size: Self.canvas)
@@ -64,13 +97,36 @@ final class NotchController {
         settingsSub = settings.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self else { return }
-                withAnimation(Tok.open) { self.model.openWidth = self.settings.width.points }
+                withAnimation(Tok.open) { self.model.openWidth = Tok.openWidth }
                 self.shots.apply()
+                self.updateWings()
             }
         }
+        activitySub = activities.$current.sink { [weak self] _ in DispatchQueue.main.async { self?.updateWings(); self?.updateBeat() } }
+        beatSubs = [
+            music.$isPlaying.sink { [weak self] _ in DispatchQueue.main.async { self?.updateBeat() } },
+            music.$trackChange.sink { [weak self] _ in DispatchQueue.main.async { self?.beat.retry(); self?.updateBeat() } },
+            settings.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.updateBeat() } },
+        ]
+        let ws = NSWorkspace.shared.notificationCenter
+        for (name, asleep) in [(NSWorkspace.screensDidSleepNotification, true), (NSWorkspace.screensDidWakeNotification, false)] {
+            beatSubs.append(ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.screensAsleep = asleep; self?.updateBeat() }
+            })
+        }
+        updateWings()
         music.refreshIfUnknown()
-        status.setActive(false)
         startPolling()
+        #if DEBUG
+        // `--beat-probe <bundle id>`: start the tap on that (running, not necessarily playing) player for 5 s, then
+        // stop, to check the start/stop path and logs without playing anything. Nothing is played or recorded.
+        if let i = CommandLine.arguments.firstIndex(of: "--beat-probe"), CommandLine.arguments.indices.contains(i + 1) {
+            let id = CommandLine.arguments[i + 1]
+            probing = true
+            beat.listen(to: id)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.beat.listen(to: nil); self.probing = false; self.updateBeat() }
+        }
+        #endif
         if openOnLaunch { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.open() } }
     }
 
@@ -98,7 +154,7 @@ final class NotchController {
             // Hover delay (Settings → General) avoids opening when the pointer just passes the menu bar.
             if rectOnScreen(model.closedSize, grow: 10).contains(p) {
                 if hoverSince == nil { hoverSince = Date() }
-                if let s = hoverSince, Date().timeIntervalSince(s) >= settings.hoverDelay.rawValue { hoverSince = nil; pinned = false; setOpen(true) }
+                if let s = hoverSince, Date().timeIntervalSince(s) >= settings.openDelay { hoverSince = nil; pinned = false; setOpen(true) }
             } else { hoverSince = nil }
             return
         }
@@ -106,7 +162,7 @@ final class NotchController {
             pointerVisited = true; leftAt = nil
         } else if !pinned || pointerVisited {
             if leftAt == nil { leftAt = Date() }
-            if let t = leftAt, Date().timeIntervalSince(t) > 0.35 { pinned = false; setOpen(false) }
+            if let t = leftAt, Date().timeIntervalSince(t) >= settings.closeDelay { pinned = false; setOpen(false) }
         }
     }
 
@@ -121,9 +177,10 @@ final class NotchController {
         guard model.isOpen != open else { return }
         leftAt = nil
         if open { Tok.haptic(.alignment); music.refreshIfUnknown() }
-        status.setActive(open)
+        music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
         withAnimation(open ? Tok.open : Tok.close) { model.isOpen = open }
+        updateBeat()
     }
 
     // MARK: - Screens

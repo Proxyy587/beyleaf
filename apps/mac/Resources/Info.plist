@@ -6,6 +6,8 @@
 	<string>Belay</string>
 	<key>CFBundleExecutable</key>
 	<string>Belay</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>app.belay.mac</string>
 	<key>CFBundleName</key>
@@ -22,6 +24,8 @@
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Belay shows what's playing in Music or Spotify and lets you play, pause and skip from the notch.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Belay listens to your music app, only while it plays, so the bars in the notch move with the beat. Nothing is recorded or sent anywhere.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

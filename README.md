@@ -13,6 +13,8 @@ Free, open source (MIT), local-only. **Status: pre-v0.1.** Docs, decisions and v
 
 ## Docs
 
+**What you (the human) need to do:** [docs/prerequisites.md](docs/prerequisites.md)
+
 | Doc | What's in it |
 |---|---|
 | [docs/features-final.md](docs/features-final.md) | **Locked build list (v0.1 / v0.2 / v0.3+)** with acceptance tests |
@@ -20,6 +22,7 @@ Free, open source (MIT), local-only. **Status: pre-v0.1.** Docs, decisions and v
 | [docs/tech-stack.md](docs/tech-stack.md) | Stack decisions (including the Rust question) |
 | [docs/build-plan.md](docs/build-plan.md) | 2-week build plan |
 | [docs/design.md](docs/design.md) | **Design rules:** tokens, type, motion, anti-slop list |
+| [docs/ui-inventory.md](docs/ui-inventory.md) | **UI inventory:** every element's purpose, states and status; the purpose test; what was cut and why |
 | [docs/conversions.md](docs/conversions.md) | **Convert:** drop-on-notch file conversion across images, docs, PDF, audio, video |
 | [docs/crew.md](docs/crew.md) | **Crew:** sub-agent engineering spec (Lead, Porter, Tempo, Scout, Sketch) |
 | [docs/features.md](docs/features.md) | Full ecosystem feature spec and design principles |

@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+  <!-- A · Gate: the notch drawn as a carabiner; the gap at lower right is the gate. -->
+  <path d="M43 47 H23 A13 13 0 0 1 10 34 V15 H54 V31" fill="none" stroke="#F5F5F3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

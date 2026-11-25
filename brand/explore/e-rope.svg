@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+  <!-- E · Rope: the notch holds the rope; the ring is the climber's tie-in. -->
+  <path d="M6 12 Q12 12 12 18 V22 A6 6 0 0 0 18 28 H46 A6 6 0 0 0 52 22 V18 Q52 12 58 12 Z" fill="#F5F5F3"/>
+  <line x1="32" y1="28" x2="32" y2="39" stroke="#F5F5F3" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="45.5" r="5.5" fill="none" stroke="#F5F5F3" stroke-width="3"/>
+</svg>

@@ -19,8 +19,11 @@ dangerous Belay "catches the fall". You answer by voice or keyboard.
 | Borrowed code and its rules | `docs/oss-reuse.md`, `THIRD_PARTY_NOTICES.md`, `third_party/*/SOURCE.md` |
 | Sub-agents (Crew) design | `docs/crew.md` |
 | Design rules (UI, anti-slop) | `docs/design.md` |
+| Every UI element, its purpose and status; what was cut and why | `docs/ui-inventory.md` |
+| What only the human can do (accounts, legal, hardware) | `docs/prerequisites.md` |
 | What changed recently | `CHANGELOG.md` |
 | Claude Code playbooks (commit, vendor, ADR, feature, crew) + repo checks | `.claude/skills/belay/` (project skill, loads automatically in Claude Code) |
+| Which Claude Code skills we use, and why | `docs/claude-skills.md` |
 
 ## Repo map
 
@@ -47,7 +50,7 @@ scripts/         fetch-refs.sh, vendor.sh.
 7. **No vendor names or logos in Belay's branding.** Plain-text "works with Claude Code and Codex" is fine.
 7b. **The notch window is ours** (ADR 0014). Don't add DynamicNotchKit back without a new ADR.
 8. **Untrusted content can't grant permission.** Tainted chains always drop the rope for outward, write-outside or shortcut actions. Only the user approves. (ADR 0011)
-9. **Source-available code is off-limits** (PolyForm, BSL, "personal use", e.g. dusk bot): product inspiration from public pages only. (ADR 0008)
+9. **Source-available code is off-limits** (PolyForm, BSL, "personal use", e.g. dusk bot): never copied or adapted. dusk bot alone may be cloned to `refs/duskbot` for design study, with learnings written in our own words. (ADR 0008, 0018)
 
 ## Working agreement
 

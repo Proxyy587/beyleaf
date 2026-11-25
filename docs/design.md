@@ -6,9 +6,15 @@
 >   - **Aria** (joinariapp.com): a pure-black notch list; app icon, title and a quiet mono status line per row; right-aligned mono durations; one green for "running"; generous air; a dithered pixel backdrop and frosted pill navigation on the site.
 >   - **dusk bot** (dusk.bot): a clean sans paired with a pixel display face for brand moments; warm near-black and off-white neutrals; pill and 14–16 px radii.
 
+**What exists and why** (every element, its user job, states and status, plus the purpose test and the cut list) is in `docs/ui-inventory.md`. Nothing ships on the notch without a row there.
+
 These are rules, not suggestions. Every Belay surface follows them: the notch, cards, the Settings window and the website. If a rule stops you doing the right thing, change it in the same commit and say why.
 
 **Tokens live in one file:** `apps/mac/Sources/Belay/Design/Tokens.swift`. No view hard-codes a colour, size, radius, font or animation.
+
+**Everything is customizable (ADR 0015).** Tokens resolve from the user's theme: fonts, colours, surface (solid or glass), roundness, width, density, row order, and motion (speed, blur, bounce). The values below are the **Midnight** defaults. Every built-in preset must pass §2. What a user does with their own theme is up to them.
+
+**Blur is part of the motion language:** content reveals with a subtle blur-in, and changing text (track names, wing contents) blur-swaps. Blur is 6–10 pt by default, ≤ 300 ms, and off under reduced motion.
 
 ## 1. Principles
 
@@ -49,7 +55,7 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 | Hairline | `Tok.hairline` | ink at 10% |
 | Primary text | `Tok.ink` | `#F5F5F3` (warm off-white) |
 | Secondary text | `Tok.ink2` | ink at 62% |
-| Tertiary text | `Tok.ink3` | ink at 40% |
+| Tertiary text | `Tok.ink3` | ink at 48% (4.6:1 on black; 40% was 3.4:1) |
 | Accent | `Tok.accent` | user-selectable, default `#2F7BF2` |
 | Live / running | `Tok.live` | soft green `#5BD08A`, **only** for "running / playing / connected" status text and dots |
 | Warning / danger | `Tok.warning` / `Tok.danger` | amber / red, only for real warnings and errors |
@@ -115,9 +121,9 @@ These are rules, not suggestions. Every Belay surface follows them: the notch, c
 | `Tok.hover` | hover / pressed fills | ease-out 120 ms, colour and opacity only |
 
 - **300 ms ceiling.** Nothing scales from zero; content grows from 96% and fades.
-- **No idle loops.** Only really-live status animates: the equalizer while audio plays, a climber while an agent works.
+- **No idle loops.** Only really-live status animates: the music bars while audio plays (driven by the real audio, ADR 0017; ink, with a small lift on each beat), a climber while an agent works.
 - **The climber holds still at rest.**
-- **Reduced motion:** springs become 150 ms fades, and the equalizer becomes a static glyph.
+- **Reduced motion:** springs become 150 ms fades, and the music bars become a static glyph (no audio capture).
 
 ## 8. Feel (haptics and sound)
 

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+  <!-- D1 · Point: true notch proportions (wide, shallow, small ears) and the one point that needs you. -->
+  <path d="M8 20 Q13 20 13 24.5 V25 A5 5 0 0 0 18 30 H46 A5 5 0 0 0 51 25 V24.5 Q51 20 56 20 Z" fill="#F5F5F3"/>
+  <circle cx="32" cy="41" r="4.5" fill="#F5F5F3"/>
+</svg>

@@ -11,10 +11,10 @@ CONFIG=release apps/mac/scripts/run.sh --build-only
 
 **Status: v0.0 prototype**, designed to `docs/design.md` (tokens in `Sources/Belay/Design/Tokens.swift`).
 - Our own notch window (ADR 0014) springs open on hover, with a configurable hover delay.
-- **Compact wings** are configurable (climber / battery / time / nothing). The equalizer shows while music plays, and a green check appears for 2 s after a screenshot is copied.
-- **Open panel:** Aria-style rows (icon, then title over a mono status line, then a value) for now playing (Music/Spotify, with controls), Wi-Fi, battery (with time left), volume and the last copied screenshot. A gear opens Settings.
+- **Closed notch** fits the hardware exactly. Wings appear only for live activities: music (artwork and real-audio beat bars), screenshot copied, low battery, internet lost or back.
+- **Open panel:** the Settings gear, the now-playing hero (Music/Spotify, with controls) or one "Not playing" line, and the last copied screenshot. What's shown and why: `docs/ui-inventory.md`.
 - **Screenshot auto-copy** (N1): a Spotlight query on `kMDItemIsScreenCapture` copies every new screenshot (PNG + TIFF + file URL), wherever it's saved.
-- **Settings** (O1): General (hover delay, haptics), Appearance (open width, wings, equalizer, accent), Screenshots (auto-copy), AI accounts (detects the `claude`/`codex` CLIs and versions; never credentials), About.
+- **Settings** (O1): General, Layout, Screenshots, AI accounts (detects the `claude`/`codex` CLIs and versions; never credentials), About; Theme, Typography, Colours, Surface and Motion behind "Show advanced settings".
 - Idle CPU measured at 0.0–0.2% (budget < 1%).
 - No agent features yet.
 

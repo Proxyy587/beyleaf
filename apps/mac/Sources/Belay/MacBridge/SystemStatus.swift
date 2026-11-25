@@ -1,28 +1,16 @@
 import AppKit
-import CoreWLAN
 import Foundation
 import IOKit.ps
 import Network
 
-/// Wi-Fi, battery, volume and clock for the notch's status row.
+/// Battery level and internet reachability, for the low-battery and internet live activities.
+/// (The Wi-Fi, battery and volume rows were cut in the purpose audit, docs/ui-inventory.md §5.)
 @MainActor
 final class SystemStatus: ObservableObject {
     struct Battery: Equatable { var percent: Int; var charging: Bool; var onAC: Bool; var minutesToEmpty: Int? }
 
     @Published private(set) var battery: Battery?
-    @Published private(set) var wifiOn = false
-    /// 0...3 bars from RSSI. The network name needs Location permission on macOS 14+, so it is shown only if available.
-    @Published private(set) var wifiBars = 0
-    @Published private(set) var wifiName: String?
     @Published private(set) var online = true
-    @Published var volume: Double = 0.5
-    @Published private(set) var now = Date()
-
-    /// "3h 12m" while on battery, when macOS has an estimate.
-    var timeLeft: String? {
-        guard let m = battery?.minutesToEmpty, m > 0, battery?.onAC == false else { return nil }
-        return m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m"
-    }
 
     private let path = NWPathMonitor()
     private var timer: Timer?
@@ -30,53 +18,20 @@ final class SystemStatus: ObservableObject {
     init() {
         path.pathUpdateHandler = { [weak self] p in
             let ok = p.status == .satisfied
-            Task { @MainActor in self?.online = ok }
+            Task { @MainActor in if self?.online != ok { self?.online = ok } }
         }
         path.start(queue: .global(qos: .utility))
         refresh()
-        readVolume()
-    }
-
-    /// Refresh quickly while the notch is open, slowly while it's closed (battery budget, docs/tech-stack.md §4).
-    func setActive(_ active: Bool) {
-        timer?.invalidate()
-        let t = Timer(timeInterval: active ? 1 : 30, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh() }
-        }
+        // Battery changes slowly; one read every 30 s is plenty for the 20% and 10% alerts.
+        let t = Timer(timeInterval: 30, repeats: true) { [weak self] _ in MainActor.assumeIsolated { self?.refresh() } }
         RunLoop.main.add(t, forMode: .common)
         timer = t
-        if active { refresh(); readVolume() }
     }
 
+    /// Publishes only when the value changed: an unchanged @Published assignment still redraws the notch.
     func refresh() {
-        now = Date()
-        battery = Self.readBattery()
-        if let wifi = CWWiFiClient.shared().interface() {
-            wifiOn = wifi.powerOn()
-            let rssi = wifi.rssiValue()
-            wifiBars = !wifiOn || rssi == 0 ? 0 : rssi > -55 ? 3 : rssi > -70 ? 2 : 1
-            wifiName = wifi.ssid()
-        } else {
-            wifiOn = false; wifiBars = 0; wifiName = nil
-        }
-    }
-
-    func setVolume(_ value: Double) {
-        volume = value
-        let level = Int((value * 100).rounded())
-        Task.detached {
-            var error: NSDictionary?
-            NSAppleScript(source: "set volume output volume \(level)")?.executeAndReturnError(&error)
-        }
-    }
-
-    private func readVolume() {
-        Task.detached {
-            var error: NSDictionary?
-            let out = NSAppleScript(source: "output volume of (get volume settings)")?.executeAndReturnError(&error)
-            let value = out.map { Double($0.int32Value) / 100 }
-            await MainActor.run { if let value { self.volume = value } }
-        }
+        let b = Self.readBattery()
+        if b != battery { battery = b }
     }
 
     private static func readBattery() -> Battery? {

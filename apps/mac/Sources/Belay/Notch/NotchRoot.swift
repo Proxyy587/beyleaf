@@ -7,8 +7,15 @@ struct NotchRoot: View {
     @ObservedObject var music: NowPlaying
     @ObservedObject var status: SystemStatus
     @ObservedObject var shots: Screenshots
+    @ObservedObject var activities: ActivityCenter
+    var beat: MusicBeat
     @ObservedObject var settings = AppSettings.shared
     var openSettings: () -> Void
+
+    /// Room either side of the camera in the open panel, for the header (inside the ears and the content inset).
+    private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s4 }
+    /// Put the header beside the camera when there's room (the gear needs 28 pt); otherwise it sits below the notch line.
+    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 32 }
 
     var body: some View {
         let open = model.isOpen
@@ -20,27 +27,36 @@ struct NotchRoot: View {
                 background(open: open).frame(width: size.width, height: size.height)
 
                 HStack(spacing: 0) {
-                    WingView(wing: settings.leftWing, side: .leading, music: music, status: status, shots: shots)
-                        .frame(width: NotchModel.wing)
+                    wing(.leading).frame(width: model.wingWidth)
                     Spacer(minLength: 0)
-                    WingView(wing: settings.rightWing, side: .trailing, music: music, status: status, shots: shots)
-                        .frame(width: NotchModel.wing)
+                    wing(.trailing).frame(width: model.wingWidth)
                 }
-                .frame(width: model.closedSize.width, height: notchH)
-                .opacity(open ? 0 : 1)
+                .frame(width: model.metrics.notchSize.width + 2 * model.wingWidth, height: notchH)
+                .id(settings.themeRevision)
+                .opacity(open || !model.wingsVisible ? 0 : 1)
+                .blur(radius: open || !model.wingsVisible ? Tok.blur : 0)
                 .animation(Tok.reveal, value: open)
 
-                ExpandedView(music: music, status: status, shots: shots, shown: open, openSettings: openSettings)
+                if headerInBand {
+                    NotchHeader(openSettings: openSettings)
+                        .frame(width: model.openWidth - 2 * (Tok.rOpenEar + Tok.s4), height: notchH)
+                        .blurReveal(open, delay: 0.03)
+                        .allowsHitTesting(open)
+                        .id(settings.themeRevision)
+                }
+
+                ExpandedView(music: music, status: status, shots: shots, shown: open, showHeader: !headerInBand, openSettings: openSettings)
                     .padding(.horizontal, Tok.rOpenEar)
                     .padding(.top, notchH)
                     .fixedSize(horizontal: false, vertical: true)
                     .background(GeometryReader { g in Color.clear.preference(key: ContentHeight.self, value: g.size.height - notchH) })
                     .frame(width: model.openWidth)
                     .allowsHitTesting(open)
+                    .id(settings.themeRevision)
             }
             .frame(width: size.width, height: size.height, alignment: .top)
             .clipped()
-            .shadow(color: .black.opacity(open ? 0.5 : 0), radius: open ? 20 : 0, y: open ? 10 : 0)
+            .shadow(color: .black.opacity(open ? Tok.shadow : 0), radius: open ? 20 : 0, y: open ? 10 : 0)
             .padding(.top, model.metrics.hasNotch ? 0 : Tok.s2)
             Spacer(minLength: 0)
         }
@@ -50,12 +66,45 @@ struct NotchRoot: View {
         }
     }
 
+    @ViewBuilder private func wing(_ side: HorizontalEdge) -> some View {
+        // Wings exist only for live activities: at rest the closed notch fits the hardware exactly (ui-inventory §1.1).
+        if let a = activities.current {
+            ActivityWing(activity: a, side: side, music: music, shots: shots, beat: beat)
+                .blurSwap(on: a)
+        }
+    }
+
     @ViewBuilder private func background(open: Bool) -> some View {
         if model.metrics.hasNotch {
-            NotchShape(earRadius: open ? Tok.rOpenEar : 6, bottomRadius: open ? Tok.rOpenBottom : 10).fill(Tok.notch)
+            // Closed: no outward flare, so the shape sits exactly on the hardware notch; bottom corners match it.
+            surface(open: open, shape: NotchShape(earRadius: open ? Tok.rOpenEar : 0, bottomRadius: open ? Tok.rOpenBottom : 9))
         } else {
-            RoundedRectangle(cornerRadius: open ? Tok.rOpenBottom : 13, style: .continuous).fill(Tok.notch)
+            surface(open: open, shape: RoundedRectangle(cornerRadius: open ? Tok.rOpenBottom : 13, style: .continuous))
         }
+    }
+
+    /// Solid: the theme colour. Glass: behind-window blur with a tint. Closed is always solid, so the notch
+    /// still merges with the hardware camera housing.
+    /// Where the solid band ends, as a fraction of the open height (the notch line).
+    private var bandStop: CGFloat { model.metrics.notchSize.height / max(1, model.openSize.height) }
+
+    @ViewBuilder private func surface<S: Shape>(open: Bool, shape: S) -> some View {
+        ZStack {
+            if Tok.isGlass {
+                GlassBackground().clipShape(shape).opacity(open ? 1 : 0)
+                shape.fill(Tok.notch.opacity(open ? Tok.glassTint : 1))
+                // Solid band behind the camera housing, fading out below the notch line, so glass still merges with the
+                // hardware notch (functional, not decorative).
+                shape.fill(LinearGradient(stops: [.init(color: Tok.notch, location: 0),
+                                                  .init(color: Tok.notch, location: bandStop),
+                                                  .init(color: Tok.notch.opacity(0), location: min(1, bandStop * 1.8))],
+                                          startPoint: .top, endPoint: .bottom))
+                    .opacity(open ? 1 : 0)
+            } else {
+                shape.fill(Tok.notch)
+            }
+        }
+        .animation(Tok.reveal, value: open)
     }
 }
 

@@ -13,6 +13,7 @@ APP=build/Belay.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp ../../brand/export/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"   # brand/README.md
 # SwiftPM records the deployment target as the SDK version; record the real SDK so macOS 26 gives Belay the current look.
 vtool -set-build-version macos "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' Resources/Info.plist)" "$(xcrun --show-sdk-version)" \
   -replace -output "$APP/Contents/MacOS/Belay" ".build/$CONFIG/Belay"
@@ -23,7 +24,7 @@ codesign --force --sign - "$APP" >/dev/null
 pkill -x Belay 2>/dev/null || true
 for _ in $(seq 50); do pgrep -x Belay >/dev/null || break; sleep 0.1; done
 sleep 0.5   # LaunchServices still holds the old process briefly; opening too soon fails with error -600
-ARGS=(); [ -n "${1:-}" ] && ARGS=(--args "$1")
+ARGS=(); [ $# -gt 0 ] && ARGS=(--args "$@")
 for attempt in 1 2 3; do open "$APP" ${ARGS[@]+"${ARGS[@]}"} 2>/dev/null && break; sleep 1; done
 pgrep -x Belay >/dev/null || { echo "Belay did not start" >&2; exit 1; }
 echo "Launched $(pwd)/$APP"
