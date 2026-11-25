@@ -56,7 +56,7 @@ Every asset is rendered at the reference cell's size and compared with the refer
 | gloop | 0.997 | 1.3 | 0.975 | 0.985 | 5.0 | 15×19 | 7.76 × 7.85 |
 | barnaby | 0.995 | 1.7 | 0.988 | 0.992 | 6.5 | 21×20 | 7.55 × 7.87 |
 | fig | 0.995 | 1.3 | 0.965 | 0.979 | 4.5 | 17×23 | 7.3 × 7.42 |
-| poko | 0.996 | 1.1 | 0.972 | 0.980 | 5.0 | 20×20 | 7.13 × 7.29 |
+| poko | 0.996 | 1.1 | 0.966 | 0.976 | 4.8 | 20×20 | 7.13 × 7.29 |
 | crush | 0.996 | 1.7 | 0.970 | 0.981 | 3.9 | 18×17 | 7.72 × 7.68 |
 | fizz | 0.994 | 1.2 | 0.957 | 0.966 | 5.1 | 22×20 | 7.6 × 7.76 |
 | otto | 0.996 | 1.9 | 0.953 | 0.964 | 9.9 | 20×18 | 8.14 × 8.04 |
@@ -69,7 +69,7 @@ Every asset is rendered at the reference cell's size and compared with the refer
 - **Smooth:** all 15 clear the 0.97 target.
 - **Pixel:** only toby clears 0.99 on a uniform grid.
   - The rest lose 1–5% to the reference's own drift. Its cell edges are up to 2 px off any single grid, which a real pixel sprite can't follow.
-  - On the sheet's recovered grid, 6 of 15 reach 0.99.
+  - On the sheet's recovered grid, 4 of 15 reach 0.99 (beepo, sprout, barnaby, toby).
   - Pixel ΔE is higher than smooth ΔE because the reference's soft eyes, blush and edges become solid cells.
 - See `comparison.png` and judge by eye too.
 

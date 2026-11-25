@@ -11,7 +11,8 @@ for(const nm of L.NAMES){const r=raw[nm];let grid=r.grid.map(row=>row.slice());l
    const BG=[243,240,233];const H0=grid.length,W0=grid[0].length;const isBorder=(y,x)=>[[1,0],[-1,0],[0,1],[0,-1]].some(([dy,dx])=>{const Y=y+dy,X=x+dx;return Y<0||X<0||Y>=H0||X>=W0||grid[Y][X]<0;});
    const out=grid.map(r=>r.slice());for(let y=0;y<H0;y++)for(let x=0;x<W0;x++){const v=grid[y][x];if(v<0||!isBorder(y,x))continue;const c=h2(pal[v]);let best=null;
      pal.forEach((P,j)=>{if(j===v||!cnt[j])return;const Q=h2(P);const d=[Q[0]-BG[0],Q[1]-BG[1],Q[2]-BG[2]];const dd=d[0]**2+d[1]**2+d[2]**2;const t=((c[0]-BG[0])*d[0]+(c[1]-BG[1])*d[1]+(c[2]-BG[2])*d[2])/dd;if(t<0.15||t>0.85)return;const e=L.dist(c,[BG[0]+t*d[0],BG[1]+t*d[1],BG[2]+t*d[2]]);if(e<12&&(!best||e<best.e))best={e,t,j};});
-     if(best&&!process.env.NOCLEAN)out[y][x]=best.t>=0.5?map[best.j]:-1;}
+     if(best&&!process.env.NOCLEAN)out[y][x]=best.t>=0.5?map[best.j]:-1;
+     else if(L.dist(c,BG)<45)out[y][x]=-1;} // a near-background speck on the edge
    grid=out;}
   const f=fix.get(nm)||{};if(f.apply){({grid,pal}=f.apply(grid,pal));if(f.report)console.log(nm,JSON.stringify(f.report));}
   if(fix.post&&fix.post[nm])({grid,pal}=fix.post[nm](grid,pal));
