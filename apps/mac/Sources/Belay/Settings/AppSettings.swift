@@ -38,6 +38,8 @@ final class AppSettings: ObservableObject {
     @Published var widgets: [WidgetSetting] { didSet { if widgets != oldValue { saveWidgets() } } }
     /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
     @Published var timerActivity: Bool { didSet { save(timerActivity, "timerActivity") } }
+    /// Compact (the theme's width) or expanded (wider, every widget in its full layout). Toggled from the band.
+    @Published var expanded: Bool { didSet { save(expanded, "notchExpanded") } }
     /// How hard Belay may work to look smooth (Settings → General → Performance).
     @Published var performanceMode: PerformanceMode { didSet { save(performanceMode.rawValue, "performanceMode") } }
     /// Bumped when macOS Low Power Mode changes, so `performance` re-resolves for Auto.
@@ -134,6 +136,7 @@ final class AppSettings: ObservableObject {
         openDelay = d.object(forKey: "openDelay") as? Double ?? d.object(forKey: "hoverDelay") as? Double ?? 0
         closeDelay = d.object(forKey: "closeDelay") as? Double ?? 0
         screenshotAutoCopy = d.object(forKey: "screenshotAutoCopy") as? Bool ?? true
+        expanded = d.object(forKey: "notchExpanded") as? Bool ?? false
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
         widgets = d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme)

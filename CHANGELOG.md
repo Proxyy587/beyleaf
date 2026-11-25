@@ -65,6 +65,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Fixed:** opening the notch could launch Spotify (or Music). `tell application` starts an app that isn't running, and the position, artwork, seek and controls calls used the last-known player without checking. All player AppleScript now goes through one guard (checked in Swift and inside the script), and a player is forgotten the moment it quits.
 
 ### Changed
+- **Expand / compact:** a band button widens the open notch by 180 pt (up to 640), gives every widget its full layout and grows the album art; remembered between launches. Room for agents and Crew later.
 - **Battery** is read when macOS reports a power change, not every 30 s; Macs without a battery never wake for it. Removed dead code (`NotchSwitch`, the old advanced-settings flag).
 - **`docs/performance.md`:** budgets for every state, the measured numbers, the debug flags and the eight rules that keep Belay fast. Launch time is logged (`app.belay.mac:perf`): ~60 ms of our own setup.
 - **Open/close:** the hosting view no longer recomputes its size every frame, and the panel moves as one unit while the shape springs. About 3 ms of CPU per frame during a transition (120 Hz budget: 8.3 ms), 0.0% at rest. Debug `--cycle-open` measures it.

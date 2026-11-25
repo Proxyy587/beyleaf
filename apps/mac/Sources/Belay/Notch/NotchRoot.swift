@@ -15,9 +15,9 @@ struct NotchRoot: View {
 
     /// Room either side of the camera in the open panel, for the band (inside the ears and the card inset).
     private var bandSide: CGFloat { (model.openWidth - model.metrics.notchSize.width) / 2 - Tok.rOpenEar - Tok.s2 }
-    /// Put the band beside the camera when there's room (edit + Settings need 2 × 28 pt); otherwise it's the
-    /// panel's first line, below the notch line.
-    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 2 * Tok.button + Tok.s2 }
+    /// Put the band beside the camera when there's room (expand, edit and Settings need 3 × 28 pt); otherwise it's
+    /// the panel's first line, below the notch line.
+    private var headerInBand: Bool { model.metrics.hasNotch && bandSide >= 3 * Tok.button + Tok.s2 }
 
     var body: some View {
         let open = model.isOpen

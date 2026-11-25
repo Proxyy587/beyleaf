@@ -68,7 +68,9 @@ struct ExpandedView: View {
         }
     }
 
-    @ViewBuilder private func widget(_ p: PlacedWidget) -> some View {
+    @ViewBuilder private func widget(_ placed: PlacedWidget) -> some View {
+        // Expanded: a pair of tiles has room for each one's full row layout, side by side.
+        let p = settings.expanded ? PlacedWidget(kind: placed.kind, size: .wide) : placed
         switch p.kind {
         case .nowPlaying:
             if music.title != nil { NowPlayingCard(music: music) } else { PlayerReadyCard(music: music, size: p.size) }
@@ -90,6 +92,7 @@ struct ExpandedView: View {
 /// cards' content edges (cards sit Tok.s2 in, content another Tok.s3).
 struct NotchBand: View {
     @ObservedObject var model: NotchModel
+    @ObservedObject var settings = AppSettings.shared
     var openSettings: () -> Void
     var body: some View {
         HStack(spacing: 0) {
@@ -101,6 +104,10 @@ struct NotchBand: View {
                     .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
             } else {
                 HStack(spacing: 0) {
+                    IconButton(symbol: settings.expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                               label: settings.expanded ? "Compact" : "Expand") {
+                        withAnimation(Tok.open) { settings.expanded.toggle() }
+                    }
                     IconButton(symbol: "square.grid.2x2", label: "Edit widgets") { withAnimation(Tok.open) { model.editing = true } }
                     IconButton(symbol: "gearshape", label: "Open Settings", action: openSettings)
                 }
@@ -170,7 +177,7 @@ struct NowPlayingCard: View {
     @ObservedObject var music: NowPlaying
     var body: some View {
         HStack(spacing: Tok.s3) {
-            Artwork(image: music.artwork, size: 56)
+            Artwork(image: music.artwork, size: Tok.heroArt)
                 .opacity(music.isPlaying ? 1 : 0.55)
                 .animation(Tok.reveal, value: music.isPlaying)
             VStack(alignment: .leading, spacing: 0) {
@@ -193,7 +200,7 @@ struct NowPlayingCard: View {
                 Spacer(minLength: Tok.s1)
                 if music.duration > 0 { ProgressBar(music: music) }
             }
-            .frame(height: 56)
+            .frame(height: Tok.heroArt)
         }
         .card()
     }

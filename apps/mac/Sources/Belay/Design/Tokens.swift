@@ -62,7 +62,10 @@ enum Tok {
     /// Space between an icon button's edge and its glyph. Buttons at a row's edge pull out by this much, so the glyph
     /// (not the invisible hit area) lines up with text and values above and below.
     static var buttonInset: CGFloat { (button - 15 * t.textScale) / 2 }
-    static var openWidth: CGFloat { CGFloat(t.width) }
+    /// The open panel's width: the theme's, or 180 pt wider when expanded (capped so the shadow fits the canvas).
+    static var openWidth: CGFloat { AppSettings.shared.expanded ? min(CGFloat(t.width) + 180, 640) : CGFloat(t.width) }
+    /// Album art in the Now playing card.
+    static var heroArt: CGFloat { AppSettings.shared.expanded ? 72 : 56 }
 
     // MARK: Motion (300 ms ceiling at speed 1; blur is subtle and off for reduced motion)
     static var reduceMotion: Bool {

@@ -37,7 +37,7 @@ Last audit: 2026-11-25 (widgets, ADR 0019).
 
 | Element | Purpose (user job) | Appears | Default | Interactions | States | A11y label | Status |
 |---|---|---|---|---|---|---|---|
-| Band beside the camera: brand slot (left), Edit widgets + Settings (right) | Reach editing and Settings where you are; the slot becomes the agents' status light (A1) | Always when open | On | Click; tooltips | No notch: the band is the first line | "Belay", "Edit widgets", "Open Settings" | built |
+| Band beside the camera: brand slot (left); Expand/Compact, Edit widgets, Settings (right) | Reach sizing, editing and Settings where you are; the slot becomes the agents' status light (A1) | Always when open | Compact | Click; tooltips | No room beside the camera: the band is the first line | "Belay", "Expand"/"Compact", "Edit widgets", "Open Settings" | built |
 | Clock in the header | (none: the menu bar clock stays visible beside the open panel) | Never | — | — | — | — | **cut** |
 | Now playing hero: artwork, title, status line | Control the music without switching apps | A track is known | Row on | — | Long title: tail-truncated, one line; paused: ink3 status | title text | built |
 | Progress bar + times | See and set where you are in the track | Track has a duration | With the hero | Hover thickens; click or drag to seek | Unknown duration: hidden | "Playback position" | built |
