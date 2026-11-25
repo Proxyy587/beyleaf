@@ -1,7 +1,7 @@
 import Foundation
 
-// The widget and page model, and the packing rule (ADR 0019, ADR 0021, docs/widget-hub.md). Foundation only, so the
-// self-test can compile it alone with swiftc (scripts/widgets-selftest.sh).
+// The widget and page model and the span grid (ADR 0023, which supersedes ADR 0019's packing rule; ADR 0021 pages;
+// docs/widget-hub.md). Foundation only, so the self-test can compile it alone with swiftc (scripts/widgets-selftest.sh).
 
 /// The pages of the open notch (ADR 0021). Order of cases is the default order. `agents` joins at A1.
 enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -61,13 +61,61 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     }
     /// Side options start off (owner, 2026-11-25: the timer is a convenience, not the product; the stopwatch follows it).
     var onByDefault: Bool { self != .timer && self != .stopwatch }
+
+    // MARK: Sizes (ADR 0023). A new kind declares its sizes here and nowhere else in this file.
+    /// The span a widget gets when it is first placed (and on Reset). Exhaustive on purpose: a new kind must choose.
+    var defaultSpan: WidgetSpan {
+        switch self {
+        case .nowPlaying, .notes, .calendar: .wide
+        case .clock, .timer, .stopwatch, .screenshot, .weather: .small
+        }
+    }
+    /// The narrowest span the widget's design supports. Every kind designs a `.tile` form (span 1) and a `.wide` form
+    /// (span 2 and 3), so today every kind goes down to `.small`; raise this only for a widget that truly can't.
+    var minSpan: WidgetSpan { .small }
+    /// The spans the user may pick for this widget, narrowest first.
+    var spans: [WidgetSpan] { WidgetSpan.allCases.filter { $0.rawValue >= minSpan.rawValue } }
 }
 
-/// The user's choice for one widget: shown or not. The array's order is the user's order.
+/// How many columns of the panel's grid a widget takes. The grid has 2 columns, or 3 when the panel is expanded
+/// (a span wider than the grid is clamped to a full row). A span of 1 draws the widget's tile form, 2 and 3 its wide form.
+enum WidgetSpan: Int, Codable, CaseIterable, Identifiable, Sendable {
+    case small = 1, wide = 2, full = 3
+    var id: Int { rawValue }
+    var name: String { switch self { case .small: "Small"; case .wide: "Wide"; case .full: "Full" } }
+    /// The form the widget draws at this span.
+    var form: WidgetSize { self == .small ? .tile : .wide }
+
+    /// The span after this one among `allowed`, as it shows in a grid of `columns`: spans the grid can't tell apart
+    /// (wide and full in 2 columns) count once, and the sequence wraps. A stored span wider than the grid counts as
+    /// the grid's full row.
+    static func next(after current: WidgetSpan, allowed: [WidgetSpan], columns: Int) -> WidgetSpan {
+        var options: [WidgetSpan] = []
+        for s in allowed where s.rawValue <= columns { options.append(s) }
+        if allowed.contains(where: { $0.rawValue >= columns }), !options.contains(where: { $0.rawValue == columns }),
+           let top = WidgetSpan(rawValue: columns) { options.append(top) }
+        guard !options.isEmpty else { return current }
+        let shown = min(current.rawValue, columns)
+        let i = options.firstIndex { $0.rawValue >= shown } ?? 0
+        return options[(options[i].rawValue == shown ? i + 1 : i) % options.count]
+    }
+}
+
+/// The user's choice for one widget: shown or not, and how wide. The array's order is the user's order.
 struct WidgetSetting: Codable, Equatable, Identifiable, Sendable {
     var kind: WidgetKind
     var enabled: Bool
+    var span: WidgetSpan
     var id: WidgetKind { kind }
+
+    init(kind: WidgetKind, enabled: Bool, span: WidgetSpan? = nil) {
+        self.kind = kind; self.enabled = enabled; self.span = Self.clamp(span ?? kind.defaultSpan, for: kind)
+    }
+
+    /// A span the widget's design supports: never narrower than its `minSpan`.
+    static func clamp(_ span: WidgetSpan, for kind: WidgetKind) -> WidgetSpan {
+        span.rawValue < kind.minSpan.rawValue ? kind.minSpan : span
+    }
 
     /// The pre-pages default list (ADR 0019), kept for decoding the old `widgets` key.
     static let defaults: [WidgetSetting] = WidgetKind.allCases.map { WidgetSetting(kind: $0, enabled: $0.onByDefault) }
@@ -82,7 +130,8 @@ struct WidgetSetting: Codable, Equatable, Identifiable, Sendable {
         var out: [WidgetSetting] = []
         for item in items {
             guard let k = (item["kind"] as? String).flatMap(WidgetKind.init(rawValue:)), !out.contains(where: { $0.kind == k }) else { continue }
-            out.append(WidgetSetting(kind: k, enabled: item["enabled"] as? Bool ?? true))
+            out.append(WidgetSetting(kind: k, enabled: item["enabled"] as? Bool ?? true,
+                                     span: (item["span"] as? Int).flatMap(WidgetSpan.init(rawValue:))))
         }
         return out
     }
@@ -98,15 +147,41 @@ struct PageSetting: Codable, Equatable, Identifiable, Sendable {
 
 /// Pure operations on the pages list. Invariant after `normalized`: every page kind once, every widget kind exactly once.
 enum Pages {
+    /// The defaults: each widget on its home page, shown or not by `onByDefault`, in `autoSpans` so the first look is
+    /// what ADR 0019 packed (no half-row holes). After that the user's choices are never re-packed.
     static let defaults: [PageSetting] = PageKind.allCases.map { page in
-        PageSetting(kind: page, enabled: true,
-                    widgets: WidgetKind.allCases.filter { $0.home == page }.map { WidgetSetting(kind: $0, enabled: $0.onByDefault) })
+        var widgets = WidgetKind.allCases.filter { $0.home == page }.map { WidgetSetting(kind: $0, enabled: $0.onByDefault) }
+        autoSpans(&widgets, clockHasZones: false)
+        return PageSetting(kind: page, enabled: true, widgets: widgets)
+    }
+
+    /// Gives a page's shown widgets the spans ADR 0019's rule would have drawn: a widget that is wide by nature stays
+    /// wide, small ones pair up, and a small one left alone becomes wide. Used for the defaults and to migrate pages
+    /// saved before spans existed. Hidden widgets keep their own default span.
+    static func autoSpans(_ widgets: inout [WidgetSetting], clockHasZones: Bool, columns: Int = 2) {
+        var waiting: Int?
+        for i in widgets.indices {
+            guard widgets[i].enabled else { continue }
+            let k = widgets[i].kind
+            let wide = k.defaultSpan.rawValue >= 2 || (k == .clock && clockHasZones)
+            if wide {
+                if let w = waiting { widgets[w].span = .wide; waiting = nil }
+                widgets[i].span = WidgetSetting.clamp(k.defaultSpan.rawValue >= 2 ? k.defaultSpan : .wide, for: k)
+            } else if let w = waiting {
+                widgets[w].span = .small; widgets[i].span = .small; waiting = nil
+            } else {
+                waiting = i
+            }
+        }
+        if let w = waiting { widgets[w].span = .wide }
     }
 
     /// Tolerant decode: unknown page or widget kinds are dropped, a widget listed twice keeps its first place, and
     /// anything missing is added back at its default place (ADR 0021).
-    static func decode(_ data: Data) -> [PageSetting]? {
+    static func decode(_ data: Data, clockHasZones: Bool = false) -> [PageSetting]? {
         guard let items = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return nil }
+        // Saved before spans existed (no widget carries one): lay the old packing out as spans, once (ADR 0023).
+        let legacy = !items.contains { ($0["widgets"] as? [[String: Any]] ?? []).contains { $0["span"] != nil } }
         var out: [PageSetting] = []
         var seen = Set<WidgetKind>()
         for item in items {
@@ -114,6 +189,7 @@ enum Pages {
             let widgets = WidgetSetting.parse(item["widgets"] as? [[String: Any]] ?? []).filter { seen.insert($0.kind).inserted }
             out.append(PageSetting(kind: k, enabled: item["enabled"] as? Bool ?? true, widgets: widgets))
         }
+        if legacy { for i in out.indices { autoSpans(&out[i].widgets, clockHasZones: clockHasZones) } }
         return normalized(out)
     }
 
@@ -134,10 +210,11 @@ enum Pages {
     }
 
     /// One-time migration from the single list of ADR 0019: it becomes the Now page; everything else is default.
-    static func migrated(from widgets: [WidgetSetting]) -> [PageSetting] {
+    static func migrated(from widgets: [WidgetSetting], clockHasZones: Bool = false) -> [PageSetting] {
         var pages = defaults.map { PageSetting(kind: $0.kind, enabled: $0.enabled, widgets: []) }
         if let now = pages.firstIndex(where: { $0.kind == .now }) {
             pages[now].widgets = widgets.filter { $0.kind.home == .now }
+            autoSpans(&pages[now].widgets, clockHasZones: clockHasZones)
         }
         return normalized(pages)
     }
@@ -150,11 +227,26 @@ enum Pages {
         for p in pages.indices { if let i = pages[p].widgets.firstIndex(where: { $0.kind == kind }) { pages[p].widgets[i].enabled = on } }
     }
 
-    /// Moves a widget to the end of another page (shown), keeping everything else.
+    /// Moves a widget to the end of another page (shown), keeping its size and everything else.
     static func move(_ kind: WidgetKind, to page: PageKind, enabled: Bool = true, in pages: inout [PageSetting]) {
         guard let target = pages.firstIndex(where: { $0.kind == page }) else { return }
+        let span = span(of: kind, in: pages)
         for p in pages.indices { pages[p].widgets.removeAll { $0.kind == kind } }
-        pages[target].widgets.append(WidgetSetting(kind: kind, enabled: enabled))
+        pages[target].widgets.append(WidgetSetting(kind: kind, enabled: enabled, span: span))
+    }
+
+    static func span(of kind: WidgetKind, in pages: [PageSetting]) -> WidgetSpan {
+        pages.lazy.flatMap(\.widgets).first { $0.kind == kind }?.span ?? kind.defaultSpan
+    }
+
+    /// Sets a widget's size (clamped to what it supports).
+    static func setSpan(_ kind: WidgetKind, _ span: WidgetSpan, in pages: inout [PageSetting]) {
+        for p in pages.indices { if let i = pages[p].widgets.firstIndex(where: { $0.kind == kind }) { pages[p].widgets[i].span = WidgetSetting.clamp(span, for: kind) } }
+    }
+
+    /// The next size for a widget in a grid of `columns` (tap in the editor).
+    static func cycleSpan(_ kind: WidgetKind, columns: Int, in pages: inout [PageSetting]) {
+        setSpan(kind, WidgetSpan.next(after: span(of: kind, in: pages), allowed: kind.spans, columns: columns), in: &pages)
     }
 
     /// Moves a widget one step within its page. `skippingDisabled` steps over hidden widgets, so a move from the
@@ -200,38 +292,53 @@ enum Pages {
 /// What a widget has to show right now. `gone` takes no space at all.
 enum WidgetPresence: Sendable { case live, ready, gone }
 
-/// How much of a row a widget wants in its current state.
+/// The form a widget draws: its compact tile (one column) or its wide layout (two or more).
 enum WidgetSize: Sendable { case wide, tile }
 
-/// One placed widget: its kind and the size it is drawn at (a lone tile is promoted to `wide`).
+/// One placed widget: its kind, the columns it takes in this grid, and the form it draws.
 struct PlacedWidget: Equatable, Sendable {
     let kind: WidgetKind
-    let size: WidgetSize
+    /// Columns taken, 1 ... the grid's columns (a wider stored span is clamped).
+    let columns: Int
+    var size: WidgetSize { columns == 1 ? .tile : .wide }
 }
 
 enum WidgetLayout {
-    /// Packs widgets into rows in the given order. Tiles pair with the next tile; a tile left alone (because a wide
-    /// widget or the end follows it) is promoted to wide. Never reorders, never leaves a half-row hole.
-    static func rows(_ items: [(kind: WidgetKind, size: WidgetSize)]) -> [[PlacedWidget]] {
+    /// The panel grid: 2 columns, 3 when expanded. Each column is the same width in both, so widgets keep their size
+    /// and expanded simply holds more of them (ADR 0023).
+    static func columns(expanded: Bool) -> Int { expanded ? 3 : 2 }
+
+    /// Flows widgets into rows in the given order, each taking its span (clamped to the grid). A widget that doesn't
+    /// fit the rest of the row starts the next one. Never reorders, never resizes: whatever the user arranged stays,
+    /// including a row that isn't full.
+    static func rows(_ items: [(kind: WidgetKind, span: WidgetSpan)], columns: Int) -> [[PlacedWidget]] {
+        let cols = max(1, columns)
         var rows: [[PlacedWidget]] = []
-        var waiting: WidgetKind?
-        func flush() { if let w = waiting { rows.append([PlacedWidget(kind: w, size: .wide)]); waiting = nil } }
+        var used = 0
         for item in items {
-            switch item.size {
-            case .wide:
-                flush()
-                rows.append([PlacedWidget(kind: item.kind, size: .wide)])
-            case .tile:
-                if let w = waiting {
-                    rows.append([PlacedWidget(kind: w, size: .tile), PlacedWidget(kind: item.kind, size: .tile)])
-                    waiting = nil
-                } else {
-                    waiting = item.kind
-                }
-            }
+            let n = min(max(1, item.span.rawValue), cols)
+            if rows.isEmpty || used + n > cols { rows.append([]); used = 0 }
+            rows[rows.count - 1].append(PlacedWidget(kind: item.kind, columns: n))
+            used += n
         }
-        flush()
         return rows
+    }
+
+    /// The open panel's width when expanded: the theme's width plus one more column (and its gap), capped so the
+    /// panel's shadow fits the canvas. `inner` is the width the grid gets at `base`.
+    static func expandedWidth(base: CGFloat, inner: CGFloat, gap: CGFloat, cap: CGFloat) -> CGFloat {
+        let column = (inner - gap) / 2
+        return min(base + column + gap, max(base, cap))
+    }
+
+    /// Width of one column when `inner` is split into `columns` with `gap` between.
+    static func columnWidth(inner: CGFloat, columns: Int, gap: CGFloat) -> CGFloat {
+        (inner - gap * CGFloat(max(0, columns - 1))) / CGFloat(max(1, columns))
+    }
+
+    /// Smallest height a widget cell may have, so a card with little or nothing in it never collapses to a sliver.
+    static func minHeight(_ size: WidgetSize, button: CGFloat, inset: CGFloat) -> CGFloat {
+        size == .tile ? 2 * button + 4 + 2 * inset : button + 2 * inset + 8
     }
 }
 

@@ -680,7 +680,7 @@ private struct WidgetsPane: View {
             } header: {
                 ResetHeader(title: "Pages", isDefault: s.widgetsAreDefault) { s.resetWidgets() }
             } footer: {
-                Text("Swipe with two fingers in the notch to change page. A page with nothing to show is skipped.")
+                Text("Swipe with two fingers in the notch to change page. A page with nothing to show is skipped. Each widget has a size: small is one column, wide is two, full is a whole row. The notch has two columns, or three when expanded. Widgets stay as you arrange them.")
                     .foregroundStyle(.secondary)
             }
             ClockZonesSection()
@@ -702,6 +702,13 @@ private struct WidgetsPane: View {
                                     Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true)
                                     Label(w.kind.name, systemImage: w.kind.symbol)
                                     Spacer()
+                                    Menu {
+                                        ForEach(w.kind.spans) { span in
+                                            Button(span.name) { s.setSpan(w.kind, span) }.disabled(span == w.span)
+                                        }
+                                    } label: { Text(w.span.name) }
+                                    .menuStyle(.borderlessButton).fixedSize()
+                                    .accessibilityLabel("Size of \(w.kind.name)")
                                     Menu {
                                         ForEach(PageKind.allCases) { other in
                                             Button(other.name) { s.moveWidget(w.kind, to: other, enabled: w.enabled) }.disabled(other == page.kind)

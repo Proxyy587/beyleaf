@@ -1,48 +1,71 @@
-// Self-test for the widget packing rule and settings decode (ADR 0019).
+// Self-test for the widget span grid, pages and settings decode (ADR 0023, 0021).
 // Run: apps/mac/scripts/widgets-selftest.sh
 import Foundation
 
 var failures = 0
 @MainActor func check(_ ok: Bool, _ what: String) { print(ok ? "ok    \(what)" : "FAIL  \(what)"); if !ok { failures += 1 } }
 func shape(_ rows: [[PlacedWidget]]) -> String {
-    rows.map { $0.map { "\($0.kind.rawValue):\($0.size == .wide ? "W" : "t")" }.joined(separator: "+") }.joined(separator: " | ")
+    rows.map { $0.map { "\($0.kind.rawValue):\($0.columns)" }.joined(separator: "+") }.joined(separator: " | ")
 }
-let np = WidgetKind.nowPlaying, tm = WidgetKind.timer, ss = WidgetKind.screenshot
+let np = WidgetKind.nowPlaying, tm = WidgetKind.timer, ss = WidgetKind.screenshot, cl = WidgetKind.clock, nt = WidgetKind.notes
 
-// 1. Nothing shown: no rows.
-check(WidgetLayout.rows([]).isEmpty, "empty input gives no rows")
+// Span grid (ADR 0023): spans flow in order; nothing is promoted, reordered or dropped.
+check(WidgetLayout.rows([], columns: 2).isEmpty, "grid: empty input gives no rows")
+check(shape(WidgetLayout.rows([(tm, .small), (ss, .small)], columns: 2)) == "timer:1+screenshot:1", "grid: two smalls share a row")
+check(shape(WidgetLayout.rows([(tm, .small)], columns: 2)) == "timer:1", "grid: a lone small stays small (no promotion)")
+check(shape(WidgetLayout.rows([(tm, .small), (np, .wide), (ss, .small)], columns: 2)) == "timer:1 | nowPlaying:2 | screenshot:1", "grid: a wide between smalls leaves them as arranged")
+check(shape(WidgetLayout.rows([(np, .wide), (tm, .small), (ss, .small)], columns: 2)) == "nowPlaying:2 | timer:1+screenshot:1", "grid: wide then a pair")
+check(shape(WidgetLayout.rows([(np, .full), (tm, .wide)], columns: 2)) == "nowPlaying:2 | timer:2", "grid: full and wide are the same in 2 columns")
+check(shape(WidgetLayout.rows([(np, .wide), (tm, .small), (ss, .full), (cl, .small), (nt, .wide)], columns: 3)) == "nowPlaying:2+timer:1 | screenshot:3 | clock:1+notes:2", "grid: 3 columns hold a wide and a small, and a full takes a row")
+check(shape(WidgetLayout.rows([(np, .wide), (tm, .wide)], columns: 3)) == "nowPlaying:2 | timer:2", "grid: a span that doesn't fit the rest of the row starts the next one")
+check(shape(WidgetLayout.rows([(np, .wide)], columns: 1)) == "nowPlaying:1", "grid: a one-column grid clamps every span")
 
-// 2. Two tiles share a row.
-check(shape(WidgetLayout.rows([(tm, .tile), (ss, .tile)])) == "timer:t+screenshot:t", "two tiles pair")
-
-// 3. A lone tile is promoted to wide.
-check(shape(WidgetLayout.rows([(tm, .tile)])) == "timer:W", "lone tile promoted")
-
-// 4. A wide widget splits tiles and each lone tile is promoted; order is kept.
-let mixed = WidgetLayout.rows([(tm, .tile), (np, .wide), (ss, .tile)])
-check(shape(mixed) == "timer:W | nowPlaying:W | screenshot:W", "wide between tiles: order kept, both promoted")
-
-// 5. Wide first, then a pair.
-check(shape(WidgetLayout.rows([(np, .wide), (tm, .tile), (ss, .tile)])) == "nowPlaying:W | timer:t+screenshot:t", "wide then pair")
-
-// 6. No row ever holds a single tile (the no-hole guarantee), over every order and size mix.
+// Every order, span mix and column count: order kept, nothing dropped, no row overfull, each widget as wide as its span
+// (or the grid), and the rows are as tight as the user's order allows (a widget starts a new row only if it didn't fit).
 var allOk = true
-let kinds = Array(WidgetKind.allCases.prefix(5))   // 5! orders × 4^5 masks; more kinds add nothing new to the rule
+let kinds = Array(WidgetKind.allCases.prefix(5))
 func perms<T>(_ a: [T]) -> [[T]] { a.count <= 1 ? [a] : a.indices.flatMap { i -> [[T]] in var r = a; let x = r.remove(at: i); return perms(r).map { [x] + $0 } } }
-for order in perms(kinds) {
-    for mask in 0..<(1 << (kinds.count * 2)) {
-        var items: [(kind: WidgetKind, size: WidgetSize)] = []
-        for (i, k) in order.enumerated() {
-            switch (mask >> (2 * i)) & 3 { case 0: continue; case 1: items.append((k, .wide)); default: items.append((k, .tile)) }
+for columns in 1...4 {
+    for order in perms(kinds) {
+        for mask in 0..<(1 << (kinds.count * 2)) {
+            var items: [(kind: WidgetKind, span: WidgetSpan)] = []
+            for (i, k) in order.enumerated() {
+                switch (mask >> (2 * i)) & 3 { case 0: continue; case 1: items.append((k, .small)); case 2: items.append((k, .wide)); default: items.append((k, .full)) }
+            }
+            let rows = WidgetLayout.rows(items, columns: columns)
+            let flat = rows.flatMap { $0 }
+            if flat.map(\.kind) != items.map(\.kind) { allOk = false }
+            if rows.contains(where: { $0.map(\.columns).reduce(0, +) > columns }) { allOk = false }
+            if zip(flat, items).contains(where: { $0.columns != min($1.span.rawValue, columns) }) { allOk = false }
+            for (r, next) in zip(rows, rows.dropFirst()) where r.map(\.columns).reduce(0, +) + next[0].columns <= columns { allOk = false }
         }
-        let rows = WidgetLayout.rows(items)
-        let flat = rows.flatMap { $0 }.map(\.kind)
-        if flat != items.map(\.kind) { allOk = false }                       // order preserved, nothing dropped
-        if rows.contains(where: { $0.count == 1 && $0[0].size == .tile }) { allOk = false }  // no half-row hole
-        if rows.contains(where: { $0.count == 2 && $0.contains { $0.size == .wide } }) { allOk = false }
     }
 }
-check(allOk, "every order and size mix: order kept, no half-row hole, pairs are tiles")
+check(allOk, "grid: every order, span mix and 1-4 columns: order kept, no overfull row, spans honoured, rows tight")
+
+// Sizes a widget may take, and cycling through them.
+check(WidgetKind.allCases.allSatisfy { $0.spans.contains($0.defaultSpan) && !$0.spans.isEmpty }, "spans: every kind's default is one it allows")
+check(WidgetSpan.small.form == .tile && WidgetSpan.wide.form == .wide && WidgetSpan.full.form == .wide, "spans: small draws the tile, wider ones the wide layout")
+let all3: [WidgetSpan] = [.small, .wide, .full]
+check(WidgetSpan.next(after: .small, allowed: all3, columns: 3) == .wide && WidgetSpan.next(after: .wide, allowed: all3, columns: 3) == .full && WidgetSpan.next(after: .full, allowed: all3, columns: 3) == .small, "cycle: 3 columns goes small, wide, full, and wraps")
+check(WidgetSpan.next(after: .small, allowed: all3, columns: 2) == .wide && WidgetSpan.next(after: .wide, allowed: all3, columns: 2) == .small, "cycle: 2 columns goes small, wide (full looks the same)")
+check(WidgetSpan.next(after: .full, allowed: all3, columns: 2) == .small, "cycle: a stored full shows as wide in 2 columns, so the next is small")
+check(WidgetSpan.next(after: .wide, allowed: [.wide, .full], columns: 2) == .wide, "cycle: a widget with one visible size stays put")
+check(WidgetSpan.next(after: .wide, allowed: [.wide, .full], columns: 3) == .full, "cycle: a minimum span is respected")
+var cyc = Pages.defaults
+Pages.cycleSpan(.timer, columns: 2, in: &cyc)
+check(Pages.span(of: .timer, in: cyc) == .wide, "cycle: Pages.cycleSpan stores the next span")
+Pages.setSpan(.clock, .full, in: &cyc)
+check(Pages.span(of: .clock, in: cyc) == .full, "setSpan stores a span")
+
+// Expanded: one more column of the same width (widgets keep their size; the extra room holds more of them).
+check(WidgetLayout.columns(expanded: false) == 2 && WidgetLayout.columns(expanded: true) == 3, "expanded: 2 columns become 3")
+check(WidgetLayout.expandedWidth(base: 440, inner: 400, gap: 8, cap: 680) == 644, "expanded: width grows by exactly one column and a gap")
+check(WidgetLayout.expandedWidth(base: 560, inner: 520, gap: 8, cap: 680) == 680, "expanded: capped so the shadow fits")
+check(WidgetLayout.columnWidth(inner: 400, columns: 2, gap: 8) == WidgetLayout.columnWidth(inner: 644 - 40, columns: 3, gap: 8), "expanded: a column is the same width in both modes")
+let hasRoom = WidgetLayout.rows([(cl, .small), (ss, .small), (tm, .small), (np, .wide)], columns: 3).count
+check(hasRoom == 2 && WidgetLayout.rows([(cl, .small), (ss, .small), (tm, .small), (np, .wide)], columns: 2).count == 3, "expanded: three smalls fit one row instead of two")
+check(WidgetLayout.minHeight(.tile, button: 28, inset: 12) == 84 && WidgetLayout.minHeight(.wide, button: 28, inset: 12) == 60, "min height: tile and wide floors")
 
 // 7. Old `widgets` decode: unknown kinds dropped, duplicates collapsed, user order kept.
 let json = #"[{"kind":"screenshot","enabled":false},{"kind":"volume","enabled":true},{"kind":"screenshot","enabled":true},{"kind":"nowPlaying","enabled":true}]"#
@@ -74,6 +97,29 @@ check(pages.first?.kind == .day && pages.first?.enabled == false, "pages decode 
 check(Pages.page(of: .timer, in: pages) == .day, "a widget listed twice keeps its first page")
 check(Pages.decode(Data("nonsense".utf8)) == nil, "garbage is rejected")
 
+// 10b. Spans in saved pages (ADR 0023). Pages saved before spans existed are laid out once as the old rule packed them.
+func spanMap(_ pages: [PageSetting], _ page: PageKind) -> String { pages.first { $0.kind == page }!.widgets.map { "\($0.kind.rawValue):\($0.span.rawValue)" }.joined(separator: " ") }
+let legacy = #"[{"kind":"now","enabled":true,"widgets":[{"kind":"clock","enabled":true},{"kind":"nowPlaying","enabled":true},{"kind":"timer","enabled":true},{"kind":"stopwatch","enabled":false},{"kind":"screenshot","enabled":true}]},{"kind":"notes","enabled":true,"widgets":[{"kind":"notes","enabled":true}]},{"kind":"day","enabled":true,"widgets":[{"kind":"calendar","enabled":true},{"kind":"weather","enabled":true}]}]"#
+let lp = Pages.decode(Data(legacy.utf8)) ?? []
+check(spanMap(lp, .now) == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:1", "migration: old Now (clock alone, music, then a pair) keeps its old look as spans")
+check(spanMap(lp, .day) == "calendar:2 weather:2", "migration: a lone tile after a wide widget was promoted, so it becomes wide")
+check(Pages.decode(Data(legacy.utf8), clockHasZones: true).map { spanMap($0, .now) } == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:1", "migration: clock with zones is wide")
+check(spanMap(Pages.defaults, .now) == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:2", "defaults: Now looks as ADR 0019 packed it")
+check(spanMap(Pages.defaults, .day) == "weather:2 calendar:2" && spanMap(Pages.defaults, .notes) == "notes:2", "defaults: Day and Notes are wide")
+let withSpans = #"[{"kind":"now","enabled":true,"widgets":[{"kind":"clock","enabled":true,"span":1},{"kind":"nowPlaying","enabled":true,"span":3},{"kind":"timer","enabled":true,"span":9},{"kind":"screenshot","enabled":true,"span":"wide"}]}]"#
+let sp = Pages.decode(Data(withSpans.utf8)) ?? []
+check(invariant(sp), "spans decode holds the invariant")
+check(spanMap(sp, .now) == "clock:1 nowPlaying:3 timer:1 stopwatch:1 screenshot:1", "spans decode: kept as saved, a bad value falls back to the kind's default, no auto packing")
+check(spanMap(sp, .notes) == "notes:2" && spanMap(sp, .day) == "weather:2 calendar:2", "spans decode: pages missing from the data come back with their defaults")
+let roundTrip = (try? JSONEncoder().encode(sp)).flatMap { Pages.decode($0) }
+check(roundTrip == sp, "spans survive encode then decode unchanged")
+var keep = sp
+Pages.move(.nowPlaying, to: .day, in: &keep)
+check(Pages.span(of: .nowPlaying, in: keep) == .full, "move to another page keeps the widget's size")
+var cleared = sp
+Pages.setEnabled(.clock, false, in: &cleared)
+check(Pages.span(of: .clock, in: cleared) == .small, "hiding a widget keeps its size")
+
 // 11. Moves and visibility.
 var moved = Pages.defaults
 Pages.move(.timer, to: .day, in: &moved)
@@ -102,7 +148,7 @@ check(PanelFit.edges(offset: 0, natural: 400, visible: 300) == (false, true), "e
 check(PanelFit.edges(offset: 50, natural: 400, visible: 300) == (true, true), "edges: middle fades both")
 check(PanelFit.edges(offset: 100, natural: 400, visible: 300) == (true, false), "edges: at end, more above only")
 // Every enabled widget of the busiest page, drawn as tiles or wide: the rows account for each one once.
-let busy = WidgetLayout.rows(WidgetKind.allCases.map { ($0, WidgetSize.tile) })
+let busy = WidgetLayout.rows(WidgetKind.allCases.map { ($0, WidgetSpan.small) }, columns: 2)
 check(busy.flatMap { $0 }.map(\.kind) == WidgetKind.allCases, "overflow: nothing is dropped when rows exceed the room")
 
 // 13. Page swipe (docs/widget-hub.md §1.3). Deltas are finger-direction: negative = fingers left = next page.

@@ -24,29 +24,31 @@ struct ExpandedView: View {
     var body: some View {
         // Pages with something to show (docs/widget-hub.md §1.2). While editing, every enabled page, so an empty one
         // can be filled.
-        let visible = model.editing ? settings.pages.filter(\.enabled).map(\.kind) : Pages.visible(settings.pages) { size(of: $0) != nil }
+        let visible = model.editing ? settings.pages.filter(\.enabled).map(\.kind) : Pages.visible(settings.pages) { isPresent($0) }
         let current = Pages.resolve(settings.page, visible: visible)
-        let rows = current.map { WidgetLayout.rows(entries(on: $0)) } ?? []
+        let columns = WidgetLayout.columns(expanded: settings.expanded)
+        let rows = current.map { WidgetLayout.rows(entries(on: $0), columns: columns) } ?? []
         VStack(alignment: .leading, spacing: Tok.s2) {
             if showBand {
                 NotchBand(model: model, openSettings: openSettings).blurReveal(shown, delay: 0.03)
             }
             if model.editing {
-                WidgetEditor(page: current ?? settings.page).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+                WidgetEditor(page: current ?? settings.page, columns: columns).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
             } else if let current {
                 // Only the visible page is in the view tree, so hidden pages can't tick, poll or fetch (§7).
                 SwipeFollow(swipe: model.swipe) {
                     PageScroller(limit: model.maxContentHeight - chrome) {
                         VStack(alignment: .leading, spacing: Tok.s2) {
                             ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
-                                HStack(spacing: Tok.s2) {
+                                SpanRow(columns: columns, spacing: Tok.s2) {
                                     ForEach(row, id: \.kind) { placed in
                                         widget(placed)
+                                            .frame(minHeight: WidgetLayout.minHeight(placed.size, button: Tok.button, inset: Tok.s3), maxHeight: .infinity)
+                                            .layoutValue(key: SpanColumns.self, value: placed.columns)
                                             .matchedGeometryEffect(id: placed.kind, in: cards)
-                                            .contextMenu { menu(placed.kind, on: current) }
+                                            .contextMenu { menu(placed.kind, on: current, columns: columns) }
                                     }
                                 }
-                                .fixedSize(horizontal: false, vertical: true)
                                 .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
                                 .blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
                             }
@@ -84,56 +86,53 @@ struct ExpandedView: View {
                            removal: AnyTransition(.blurReplace).combined(with: .offset(x: -d)))
     }
 
-    /// A widget's size in its current state, or nil when it has nothing to show (gone).
-    private func size(of kind: WidgetKind) -> WidgetSize? {
+    /// Whether a widget has something to show right now (live or ready); `false` means gone, taking no space. Its size
+    /// is the user's choice (its span), never decided here (ADR 0023).
+    private func isPresent(_ kind: WidgetKind) -> Bool {
         switch kind {
-        case .clock:
-            return settings.clockZones.isEmpty ? .tile : .wide
-        case .nowPlaying:
-            if music.title != nil { return .wide }
-            return music.availablePlayer != nil ? .tile : nil
-        case .timer:
-            return .tile
-        case .stopwatch:
-            return stopwatch.state.laps.isEmpty ? .tile : .wide
-        case .notes:
-            return .wide
+        case .clock, .timer, .stopwatch, .notes: return true
+        case .nowPlaying: return music.title != nil || music.availablePlayer != nil
         case .calendar:
             // A free day isn't news: with access and nothing in the next 24 h, the widget is gone.
-            if calendar.access == .full { return CalendarLogic.upcoming(calendar.events, now: Date()).isEmpty ? nil : .wide }
-            return .tile
+            if calendar.access == .full { return !CalendarLogic.upcoming(calendar.events, now: Date()).isEmpty }
+            return true
         case .weather:
             // Gone, not stale: offline with a forecast older than 3 hours takes no space (docs/widget-hub.md §3.7).
-            if settings.weatherCity != nil, weather.failed, let f = weather.forecast, WeatherLogic.isTooStale(f, now: Date()) { return nil }
-            return .tile
+            if settings.weatherCity != nil, weather.failed, let f = weather.forecast, WeatherLogic.isTooStale(f, now: Date()) { return false }
+            return true
         case .screenshot:
-            guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
-            return .tile
+            guard let c = shots.lastCopied else { return false }
+            return Date().timeIntervalSince(c.at) < 30 * 60
         }
     }
 
-    /// The page's enabled widgets that have something to show right now, in the user's order, with their size.
-    private func entries(on page: PageKind) -> [(kind: WidgetKind, size: WidgetSize)] {
-        (settings.pageSetting(page)?.widgets ?? []).filter(\.enabled).compactMap { w in size(of: w.kind).map { (w.kind, $0) } }
+    /// The page's enabled widgets that have something to show right now, in the user's order, with the user's size.
+    private func entries(on page: PageKind) -> [(kind: WidgetKind, span: WidgetSpan)] {
+        (settings.pageSetting(page)?.widgets ?? []).filter { $0.enabled && isPresent($0.kind) }.map { ($0.kind, $0.span) }
     }
 
     @ViewBuilder private func widget(_ placed: PlacedWidget) -> some View {
-        // Expanded: a pair of tiles has room for each one's full row layout, side by side.
-        let p = settings.expanded ? PlacedWidget(kind: placed.kind, size: .wide) : placed
+        let p = placed
         switch p.kind {
         case .clock: ClockCard(zones: settings.clockZones, size: p.size, ticking: shown)
         case .nowPlaying:
-            if music.title != nil { NowPlayingCard(music: music) } else { PlayerReadyCard(music: music, size: p.size) }
+            if music.title != nil { NowPlayingCard(music: music, size: p.size) } else { PlayerReadyCard(music: music, size: p.size) }
         case .timer: TimerCard(timer: timer, size: p.size, ticking: shown)
         case .stopwatch: StopwatchCard(stopwatch: stopwatch, size: p.size, ticking: shown)
-        case .notes: NotesCard(notes: notes, expanded: settings.expanded)
+        case .notes: NotesCard(notes: notes, columns: p.columns)
         case .calendar: CalendarCard(calendar: calendar, size: p.size, ticking: shown)
         case .weather: WeatherCard(weather: weather, city: settings.weatherCity, fahrenheit: settings.weatherUnits.isFahrenheit(), size: p.size, openSettings: openSettings)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
 
-    @ViewBuilder private func menu(_ kind: WidgetKind, on page: PageKind) -> some View {
+    @ViewBuilder private func menu(_ kind: WidgetKind, on page: PageKind, columns: Int) -> some View {
+        Menu("Size") {
+            ForEach(kind.spans.filter { $0.rawValue <= columns }) { span in
+                Button(span.name) { withAnimation(Tok.open) { settings.setSpan(kind, span) } }
+                    .disabled(min(settings.span(of: kind).rawValue, columns) == span.rawValue)
+            }
+        }
         Button("Move up") { settings.moveWidget(kind, by: -1) }.disabled(!settings.canMove(kind, by: -1))
         Button("Move down") { settings.moveWidget(kind, by: 1) }.disabled(!settings.canMove(kind, by: 1))
         Menu("Move to") {
@@ -332,10 +331,35 @@ struct WidgetCard<Lead: View, Title: View, Actions: View>: View {
 
 // MARK: - Now playing
 
-/// A track is known: artwork, title, artist and progress, with the controls on the title's line.
+/// A track is known. Wide: artwork, title, artist and progress, with the controls on the title's line. Tile: artwork,
+/// title and artist (truncated), and play/pause.
 struct NowPlayingCard: View {
     @ObservedObject var music: NowPlaying
+    var size: WidgetSize = .wide
     var body: some View {
+        if size == .tile { tile } else { wide }
+    }
+
+    private var tile: some View {
+        HStack(spacing: Tok.s2) {
+            Artwork(image: music.artwork, size: 44)
+                .opacity(music.isPlaying ? 1 : 0.55)
+                .animation(Tok.reveal, value: music.isPlaying)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(music.title ?? "").font(Tok.rowTitle).foregroundStyle(Tok.ink)
+                    .lineLimit(1).truncationMode(.tail).blurSwap(on: music.title)
+                Text(music.artist ?? "").font(Tok.meta).foregroundStyle(Tok.ink2)
+                    .lineLimit(1).truncationMode(.tail).blurSwap(on: music.artist)
+            }
+            Spacer(minLength: 0)
+            IconButton(symbol: music.isPlaying ? "pause.fill" : "play.fill", label: music.isPlaying ? "Pause" : "Play") { music.playPause() }
+                .padding(.trailing, -Tok.buttonInset)
+        }
+        .card()
+        .frame(maxHeight: .infinity)
+    }
+
+    private var wide: some View {
         HStack(spacing: Tok.s3) {
             Artwork(image: music.artwork, size: Tok.heroArt)
                 .opacity(music.isPlaying ? 1 : 0.55)
@@ -363,6 +387,7 @@ struct NowPlayingCard: View {
             .frame(height: Tok.heroArt)
         }
         .card()
+        .frame(maxHeight: .infinity)
     }
 }
 
@@ -498,9 +523,10 @@ struct CalendarCard: View {
 
     private func live(_ now: Date) -> some View {
         let is24 = ClockLogic.system24Hour
-        let list = CalendarLogic.upcoming(calendar.events, now: now)
+        let list = CalendarLogic.upcoming(calendar.events, now: now, limit: size == .tile ? 1 : 3)
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(list.enumerated()), id: \.element.id) { index, e in
+                if size == .tile { tileEvent(e, now: now, is24: is24) } else {
                 let link = CalendarLogic.joinLink(url: e.url, location: e.location, notes: e.notes)
                 HStack(spacing: Tok.s2) {
                     Circle().fill(Color(hex: e.colorHex)).frame(width: 8, height: 8).frame(width: Tok.gutter)
@@ -516,10 +542,36 @@ struct CalendarCard: View {
                 .padding(.trailing, link == nil ? 0 : -Tok.buttonInset)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(CalendarLogic.spoken(e, now: now, is24: is24))
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .card()
+    }
+
+    /// The tile shows only the next event: its title and join on one line, its countdown and time on the next.
+    private func tileEvent(_ e: CalEvent, now: Date, is24: Bool) -> some View {
+        let link = CalendarLogic.joinLink(url: e.url, location: e.location, notes: e.notes)
+        return VStack(alignment: .leading, spacing: Tok.s1) {
+            HStack(spacing: Tok.s2) {
+                Circle().fill(Color(hex: e.colorHex)).frame(width: 8, height: 8).frame(width: Tok.gutter)
+                Text(e.title).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 0)
+            }
+            .frame(height: Tok.button)
+            HStack(spacing: Tok.s2) {
+                if let c = CalendarLogic.countdown(e, now: now) {
+                    Text(c).font(Tok.status).foregroundStyle(CalendarLogic.isImminent(e, now: now) ? Tok.live : Tok.ink2).lineLimit(1)
+                }
+                Text(CalendarLogic.timeRange(e, is24: is24)).font(Tok.status).foregroundStyle(Tok.ink3).lineLimit(1)
+                Spacer(minLength: 0)
+                if let link { IconButton(symbol: "video", label: "Join call") { NSWorkspace.shared.open(link) } }
+            }
+            .frame(height: Tok.button)
+            .padding(.trailing, link == nil ? 0 : -Tok.buttonInset)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(CalendarLogic.spoken(e, now: now, is24: is24))
     }
 
     private static func openPrivacy() {
@@ -594,11 +646,12 @@ struct WeatherCard: View {
 /// One field captures and searches: typing filters the list, Return saves. Always ready, wide only.
 struct NotesCard: View {
     @ObservedObject var notes: NotesStore
-    let expanded: Bool
+    /// Columns the card spans: more columns, more notes (2, 3, 5).
+    let columns: Int
     @FocusState private var focused: Bool
 
     var body: some View {
-        let shown = Array(notes.matches.prefix(expanded ? 5 : 3))
+        let shown = Array(notes.matches.prefix(columns >= 3 ? 5 : columns == 2 ? 3 : 2))
         VStack(alignment: .leading, spacing: Tok.s2) {
             HStack(spacing: Tok.s2) {
                 Image(systemName: "square.and.pencil").font(Tok.icon).foregroundStyle(Tok.ink2)
@@ -614,7 +667,7 @@ struct NotesCard: View {
                 } else if let undo = notes.undoable {
                     PillButton(title: "Undo") { withAnimation(Tok.open) { notes.undoDelete() } }
                         .help("Restore \"\(undo.text.prefix(40))\"")
-                } else {
+                } else if columns > 1 {
                     StatusLine(text: NotesLogic.count(total: notes.notes.count, matches: notes.isSearching ? notes.matches.count : nil), live: false)
                 }
             }
@@ -851,12 +904,14 @@ struct ScreenshotCard: View {
 
 // MARK: - Edit mode
 
-/// Arrange widgets by dragging (docs/notch-widgets.md §6). The cards are laid out with the same packing rule as the
-/// panel; grab one and it lifts and follows the pointer while the others make room, then it snaps into the slot you
-/// dropped it on. − hides a widget; hidden ones wait in the tray below, + brings them back.
+/// Arrange widgets (docs/notch-widgets.md §6, ADR 0023). The cards sit in the same span grid as the panel; grab one and
+/// it lifts and follows the pointer while the others make room, then it snaps into the slot you dropped it on. Tap a
+/// card to change its size. − hides a widget; hidden ones wait in the tray below, + brings them back.
 struct WidgetEditor: View {
     /// The page being arranged; the dots still switch pages while editing.
     let page: PageKind
+    /// The grid's columns (2, or 3 when expanded).
+    let columns: Int
     @ObservedObject var settings = AppSettings.shared
     /// The order while a drag is in flight (enabled widgets only); committed on release.
     @State private var working: [WidgetKind]?
@@ -869,19 +924,15 @@ struct WidgetEditor: View {
     /// Hidden widgets from every page: + puts one on this page (how widgets move between pages in the notch).
     private var hidden: [WidgetKind] { settings.hiddenWidgets }
 
-    /// Each widget's natural size in the editor (its live size: Now playing is wide, the rest are tiles).
-    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying || k == .notes || (k == .clock && !AppSettings.shared.clockZones.isEmpty) ? .wide : .tile }
-
     var body: some View {
-        let rows = WidgetLayout.rows(shown.map { ($0, Self.size($0)) })
+        let rows = WidgetLayout.rows(shown.map { ($0, settings.span(of: $0)) }, columns: columns)
         VStack(alignment: .leading, spacing: Tok.s2) {
             ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { _, row in
-                HStack(spacing: Tok.s2) {
+                SpanRow(columns: columns, spacing: Tok.s2) {
                     ForEach(row, id: \.kind) { placed in
-                        slot(placed)
+                        slot(placed).layoutValue(key: SpanColumns.self, value: placed.columns)
                     }
                 }
-                .fixedSize(horizontal: false, vertical: true)
             }
             if !hidden.isEmpty {
                 HStack(spacing: Tok.s1) {
@@ -895,7 +946,7 @@ struct WidgetEditor: View {
                 .padding(.horizontal, Tok.s1)
                 .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
             }
-            Text(shown.isEmpty ? "Add a widget to show it on \(page.name)." : "Drag to arrange. Small widgets pair up side by side.")
+            Text(shown.isEmpty ? "Add a widget to show it on \(page.name)." : "Drag to arrange. Tap a widget to change its size.")
                 .font(Tok.meta).foregroundStyle(Tok.ink3)
                 .padding(.horizontal, Tok.s3)
         }
@@ -904,15 +955,16 @@ struct WidgetEditor: View {
         .overlay(alignment: .topLeading) { lifted }
         .animation(Tok.open, value: shown)
         .animation(Tok.open, value: hidden)
+        .animation(Tok.open, value: shown.map { settings.span(of: $0) })
         .id(page)
     }
 
     /// A card in its slot. While it's the one being dragged, the slot shows a quiet placeholder instead.
     @ViewBuilder private func slot(_ p: PlacedWidget) -> some View {
         let isDragged = dragging == p.kind
-        EditCard(kind: p.kind, size: p.size) {
-            withAnimation(Tok.open) { settings.setEnabled(p.kind, false) }
-        }
+        EditCard(kind: p.kind, span: settings.span(of: p.kind), columns: columns,
+                 onCycle: { withAnimation(Tok.open) { settings.cycleSpan(p.kind, columns: columns) } },
+                 onHide: { withAnimation(Tok.open) { settings.setEnabled(p.kind, false) } })
         .opacity(isDragged ? 0 : 1)
         .background(
             RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous)
@@ -929,7 +981,7 @@ struct WidgetEditor: View {
     /// The card under the pointer while dragging: lifted, slightly larger, with the only shadow on the notch.
     @ViewBuilder private var lifted: some View {
         if let k = dragging, let f = frames[k] {
-            EditCard(kind: k, size: f.width > 260 ? .wide : .tile, onHide: nil)
+            EditCard(kind: k, span: settings.span(of: k), columns: columns, onCycle: nil, onHide: nil)
                 .frame(width: f.width, height: f.height)
                 .scaleEffect(Tok.reduceMotion ? 1 : 1.04)
                 .shadow(color: .black.opacity(0.5), radius: 14, y: 6)
@@ -977,31 +1029,54 @@ private struct SlotFrames: PreferenceKey {
     }
 }
 
-/// A widget as it appears while arranging: its symbol and name on its card, a grab affordance, and − to hide.
+/// A widget as it appears while arranging: its symbol and name on its card, its size, and − to hide. Tap to change size.
 struct EditCard: View {
     let kind: WidgetKind
-    let size: WidgetSize
+    let span: WidgetSpan
+    let columns: Int
+    var onCycle: (() -> Void)?
     var onHide: (() -> Void)?
     @State private var hover = false
     var body: some View {
         HStack(spacing: Tok.s2) {
             Image(systemName: kind.symbol).font(Tok.icon).foregroundStyle(Tok.ink).frame(width: Tok.gutter)
-            Text(kind.name).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1)
+            Text(kind.name).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 0)
+            SpanGlyph(span: span, columns: columns)
             if let onHide {
                 IconButton(symbol: "minus", label: "Hide \(kind.name)", action: onHide)
                     .padding(.trailing, -Tok.buttonInset)
             }
         }
-        .frame(height: size == .wide ? 56 : Tok.button * 2)
+        .frame(height: 56)
         .card()
         .background(
             RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous).fill(hover ? Tok.ink.opacity(0.03) : .clear)
         )
         .contentShape(RoundedRectangle(cornerRadius: Tok.rCard, style: .continuous))
         .onHover { h in withAnimation(Tok.hover) { hover = h } }
+        .onTapGesture { onCycle?() }
+        .help("Tap to change size (now \(span.name.lowercased()))")
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(kind.name)
+        .accessibilityLabel("\(kind.name), \(span.name.lowercased())")
+        .accessibilityAction(named: "Change size") { onCycle?() }
+    }
+}
+
+/// The widget's size at a glance: one cell per grid column, filled for the columns it takes.
+struct SpanGlyph: View {
+    let span: WidgetSpan
+    let columns: Int
+    var body: some View {
+        let taken = min(span.rawValue, columns)
+        HStack(spacing: 2) {
+            ForEach(0..<columns, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(Tok.ink.opacity(i < taken ? 0.7 : 0.2))
+                    .frame(width: 6, height: 10)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -1097,6 +1172,40 @@ struct BeatBars: View {
         } else {
             Image(systemName: "waveform").font(Tok.icon).foregroundStyle(Tok.ink2)
                 .accessibilityLabel("Playing")
+        }
+    }
+}
+
+// MARK: - Span grid
+
+/// How many grid columns a cell takes (set with `.layoutValue`).
+struct SpanColumns: LayoutValueKey { static let defaultValue = 1 }
+
+/// One row of the panel's grid: every column the same width, each child as wide as its span, all as tall as the tallest.
+/// Columns the row doesn't use stay empty (ADR 0023: the user's arrangement is never re-packed).
+struct SpanRow: Layout {
+    var columns: Int
+    var spacing: CGFloat
+
+    private func cell(_ subview: LayoutSubview, _ column: CGFloat) -> CGFloat {
+        let n = CGFloat(min(max(1, subview[SpanColumns.self]), columns))
+        return column * n + spacing * (n - 1)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? CGFloat(columns) * 200
+        let column = WidgetLayout.columnWidth(inner: width, columns: columns, gap: spacing)
+        let height = subviews.map { $0.sizeThatFits(ProposedViewSize(width: cell($0, column), height: nil)).height }.max() ?? 0
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let column = WidgetLayout.columnWidth(inner: bounds.width, columns: columns, gap: spacing)
+        var x = bounds.minX
+        for subview in subviews {
+            let w = cell(subview, column)
+            subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: ProposedViewSize(width: w, height: bounds.height))
+            x += w + spacing
         }
     }
 }

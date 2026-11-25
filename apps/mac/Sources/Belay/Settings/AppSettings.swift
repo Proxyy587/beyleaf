@@ -41,7 +41,11 @@ final class AppSettings: ObservableObject {
     /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
     @Published var timerActivity: Bool { didSet { save(timerActivity, "timerActivity") } }
     /// Other time zones the Clock shows, by identifier, at most three (docs/widget-hub.md §3.1).
-    @Published var clockZones: [String] { didSet { let c = ClockLogic.clean(clockZones); if c != clockZones { clockZones = c } else if persistsPages { save(c, "clockZones") } } }
+    @Published var clockZones: [String] { didSet { let c = ClockLogic.clean(clockZones); if c != clockZones { clockZones = c } else {
+        if persistsPages { save(c, "clockZones") }
+        // Zones show only in the clock's wide layout: adding the first one widens a small clock (the user's own edit).
+        if oldValue.isEmpty, !c.isEmpty, span(of: .clock) == .small { setSpan(.clock, .wide) }
+    } } }
     /// Show a running stopwatch in the closed notch (when neither music nor a timer is live).
     @Published var stopwatchActivity: Bool { didSet { save(stopwatchActivity, "stopwatchActivity") } }
     /// The city the Weather widget shows (typed in Settings; never Location). Nil until chosen.
@@ -62,8 +66,8 @@ final class AppSettings: ObservableObject {
     @Published var notesShortcutTaken = false
     /// Hover the notch to open it (default), or click it. Click mode catches clicks only on the notch itself.
     @Published var openOnClick: Bool { didSet { save(openOnClick, "openOnClick") } }
-    /// Compact (the theme's width) or expanded (wider, every widget in its full layout). Toggled from the band.
-    @Published var expanded: Bool { didSet { save(expanded, "notchExpanded") } }
+    /// Compact (2 grid columns) or expanded (3: wider, with room for more widgets; they keep their size). Toggled from the band.
+    @Published var expanded: Bool { didSet { if persistsPages { save(expanded, "notchExpanded") } } }
     /// How hard Belay may work to look smooth (Settings → General → Performance).
     @Published var performanceMode: PerformanceMode { didSet { save(performanceMode.rawValue, "performanceMode") } }
     /// Bumped when macOS Low Power Mode changes, so `performance` re-resolves for Auto.
@@ -108,6 +112,10 @@ final class AppSettings: ObservableObject {
     func resetWidgets() { pages = Pages.defaults }
     var widgetsAreDefault: Bool { pages == Pages.defaults }
     func pageSetting(_ kind: PageKind) -> PageSetting? { pages.first { $0.kind == kind } }
+    func span(of kind: WidgetKind) -> WidgetSpan { Pages.span(of: kind, in: pages) }
+    func setSpan(_ kind: WidgetKind, _ span: WidgetSpan) { var p = pages; Pages.setSpan(kind, span, in: &p); pages = p }
+    /// Tap in the editor: the next size, as the current grid shows it.
+    func cycleSpan(_ kind: WidgetKind, columns: Int) { var p = pages; Pages.cycleSpan(kind, columns: columns, in: &p); pages = p }
     func setEnabled(_ kind: WidgetKind, _ on: Bool) { var p = pages; Pages.setEnabled(kind, on, in: &p); pages = p }
     func moveWidget(_ kind: WidgetKind, by step: Int, skippingDisabled: Bool = true) {
         var p = pages; Pages.step(kind, by: step, skippingDisabled: skippingDisabled, in: &p); pages = p
@@ -173,10 +181,12 @@ final class AppSettings: ObservableObject {
         weatherCity = d.data(forKey: "weatherCity").flatMap { try? JSONDecoder().decode(WeatherCity.self, from: $0) }
         weatherUnits = WeatherUnits(rawValue: d.string(forKey: "weatherUnits") ?? "") ?? .auto
         notesShortcut = d.object(forKey: "notesShortcut") as? Bool ?? true
-        clockZones = ClockLogic.clean(d.stringArray(forKey: "clockZones") ?? [])
+        let savedZones = ClockLogic.clean(d.stringArray(forKey: "clockZones") ?? [])
+        clockZones = savedZones
         // Pages replace the single widget list (ADR 0021). Migrate once from `widgets` (or, older still, the theme's rows).
-        pages = d.data(forKey: "pages").flatMap(Pages.decode)
-            ?? Pages.migrated(from: d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme))
+        let zonesShown = !savedZones.isEmpty
+        pages = d.data(forKey: "pages").flatMap { Pages.decode($0, clockHasZones: zonesShown) }
+            ?? Pages.migrated(from: d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme), clockHasZones: zonesShown)
         page = PageKind(rawValue: d.string(forKey: "notchPage") ?? "") ?? .now
         if d.data(forKey: "pages") == nil { savePages() }
         #if DEBUG
@@ -188,6 +198,14 @@ final class AppSettings: ObservableObject {
         // `--enable-widget stopwatch`: turn a widget on for this run only (pages are not saved while it's given).
         if let i = a.firstIndex(of: "--enable-widget"), a.indices.contains(i + 1), let k = WidgetKind(rawValue: a[i + 1]) {
             persistsPages = false; var p = pages; Pages.setEnabled(k, true, in: &p); pages = p
+        }
+        // `--expanded`: the 3-column panel for this run only. `--span clock=1 --span notes=3`: sizes for this run only.
+        if a.contains("--expanded") { persistsPages = false; expanded = true }
+        for (i, arg) in a.enumerated() where arg == "--span" && a.indices.contains(i + 1) {
+            let kv = a[i + 1].split(separator: "=").map(String.init)
+            if kv.count == 2, let k = WidgetKind(rawValue: kv[0]), let n = Int(kv[1]), let sp = WidgetSpan(rawValue: n) {
+                persistsPages = false; var p = pages; Pages.setSpan(k, sp, in: &p); pages = p
+            }
         }
         if a.contains("--demo-pages") { var p = pages; Pages.move(.timer, to: .day, in: &p); pages = p }
         if let i = a.firstIndex(of: "--page"), a.indices.contains(i + 1), let k = PageKind(rawValue: a[i + 1]) { page = k }
