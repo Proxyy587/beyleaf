@@ -181,6 +181,43 @@ check(mt.momentum(ended: false) && mt.momentum(ended: true) && !mt.momentum(ende
 var v2 = SwipeTracker(); _ = v2.feed(dx: 0, dy: 20, phase: .began, followsFingers: true) { _ in true }; _ = v2.feed(dx: 0, dy: 0, phase: .ended, followsFingers: true) { _ in true }
 check(!v2.momentum(ended: false), "swipe: momentum after a vertical scroll is left to the scroll view")
 
+// Hover and grace (docs/widget-hub.md §1.7): the open notch must not close under the user's hands.
+do {
+    let panel = CGRect(x: 760, y: 900, width: 440, height: 300)   // y up: spans 900 ... 1200
+    let hit = HoverPolicy.hitRect(panel)
+    check(hit.contains(CGPoint(x: 740, y: 1000)) && hit.contains(CGPoint(x: 980, y: 880)), "hover: 20 pt at the sides and 28 pt below still count as on the panel")
+    check(!hit.contains(CGPoint(x: 700, y: 1000)) && !hit.contains(CGPoint(x: 980, y: 860)), "hover: further out does not")
+    let t0 = Date(timeIntervalSince1970: 1_000_000)
+    func at(_ s: Double) -> Date { t0.addingTimeInterval(s) }
+    var g = HoverGuard()
+    g.reset(visited: true)
+    check(!g.shouldClose(now: at(0), inside: true, pinned: false, busy: false, closeDelay: 0), "hover: inside never closes")
+    check(!g.shouldClose(now: at(1), inside: false, pinned: false, busy: false, closeDelay: 0), "hover: the instant the pointer leaves does not close (even with a 0 close delay)")
+    check(!g.shouldClose(now: at(1.2), inside: false, pinned: false, busy: false, closeDelay: 0), "hover: still inside the minimum 0.3 s delay")
+    check(g.shouldClose(now: at(1.31), inside: false, pinned: false, busy: false, closeDelay: 0), "hover: a genuine leave closes after the minimum delay")
+    var g2 = HoverGuard(); g2.reset(visited: true)
+    _ = g2.shouldClose(now: at(0), inside: false, pinned: false, busy: false, closeDelay: 1)
+    check(!g2.shouldClose(now: at(0.9), inside: false, pinned: false, busy: false, closeDelay: 1) && g2.shouldClose(now: at(1.0), inside: false, pinned: false, busy: false, closeDelay: 1), "hover: a longer close delay in Settings is honoured")
+    var g3 = HoverGuard(); g3.reset(visited: true)
+    _ = g3.shouldClose(now: at(0), inside: false, pinned: false, busy: false, closeDelay: 0)
+    g3.interact(at: at(0.25))   // a swipe starts while the pointer is just outside
+    check(!g3.shouldClose(now: at(1.0), inside: false, pinned: false, busy: false, closeDelay: 0), "hover: scrolling keeps the notch open while the pointer is outside")
+    check(!g3.shouldClose(now: at(1.7), inside: false, pinned: false, busy: false, closeDelay: 0), "hover: the hold lasts 1.5 s past the last scroll or key")
+    check(!g3.shouldClose(now: at(1.8), inside: false, pinned: false, busy: false, closeDelay: 0), "hover: the leave timer restarts after the hold, it does not carry over")
+    check(g3.shouldClose(now: at(2.2), inside: false, pinned: false, busy: false, closeDelay: 0), "hover: ...and a genuine leave afterwards closes")
+    var g4 = HoverGuard(); g4.reset(visited: true)
+    check(!g4.shouldClose(now: at(0), inside: false, pinned: false, busy: true, closeDelay: 0) && !g4.shouldClose(now: at(5), inside: false, pinned: false, busy: true, closeDelay: 0), "hover: a button held down, a drag or typing never closes")
+    var g5 = HoverGuard(); g5.reset(visited: false)
+    check(!g5.shouldClose(now: at(0), inside: false, pinned: true, busy: false, closeDelay: 0) && !g5.shouldClose(now: at(9), inside: false, pinned: true, busy: false, closeDelay: 0), "hover: a notch opened from the menu stays until the pointer has been on it")
+    _ = g5.shouldClose(now: at(10), inside: true, pinned: true, busy: false, closeDelay: 0)
+    _ = g5.shouldClose(now: at(11), inside: false, pinned: true, busy: false, closeDelay: 0)
+    check(g5.shouldClose(now: at(11.5), inside: false, pinned: true, busy: false, closeDelay: 0), "hover: after the pointer visited, a pinned notch closes on leave")
+    var h = HeightHold()
+    check(h.update(300, now: at(0)) == 300 && h.update(200, now: at(0.5)) == 300, "height: a shorter page keeps the taller hit area for a moment")
+    check(h.update(200, now: at(2)) == 200, "height: ...then lets go")
+    check(h.update(400, now: at(2.1)) == 400, "height: a taller page counts at once")
+}
+
 // Clock (docs/widget-hub.md §3.1)
 do {
     let utc = TimeZone(identifier: "UTC")!, lon = TimeZone(identifier: "Europe/London")!, tok = TimeZone(identifier: "Asia/Tokyo")!

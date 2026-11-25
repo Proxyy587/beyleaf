@@ -19,7 +19,6 @@ struct ExpandedView: View {
     /// No notch (external display): the band is the panel's first line instead of sitting beside the camera.
     var showBand: Bool
     var openSettings: () -> Void
-    @Namespace private var cards
 
     var body: some View {
         // Pages with something to show (docs/widget-hub.md §1.2). While editing, every enabled page, so an empty one
@@ -45,7 +44,6 @@ struct ExpandedView: View {
                                         widget(placed)
                                             .frame(minHeight: WidgetLayout.minHeight(placed.size, button: Tok.button, inset: Tok.s3), maxHeight: .infinity)
                                             .layoutValue(key: SpanColumns.self, value: placed.columns)
-                                            .matchedGeometryEffect(id: placed.kind, in: cards)
                                             .contextMenu { menu(placed.kind, on: current, columns: columns) }
                                     }
                                 }
@@ -82,8 +80,10 @@ struct ExpandedView: View {
     private var pageTransition: AnyTransition {
         if Tok.reduceMotion { return .opacity }
         let d = CGFloat(model.pageStep) * Tok.s6
-        return .asymmetric(insertion: AnyTransition(.blurReplace).combined(with: .offset(x: d)),
-                           removal: AnyTransition(.blurReplace).combined(with: .offset(x: -d)))
+        // Opacity and offset only: a blur pass over a whole scrolling page, on both the leaving and the arriving view, was
+        // the heaviest thing in the transition and the one most likely to be interrupted mid-flight.
+        return .asymmetric(insertion: AnyTransition.opacity.combined(with: .offset(x: d)),
+                           removal: AnyTransition.opacity.combined(with: .offset(x: -d)))
     }
 
     /// Whether a widget has something to show right now (live or ready); `false` means gone, taking no space. Its size

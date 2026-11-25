@@ -109,10 +109,16 @@ final class NotchController {
     /// Swipe and key monitors exist only while the notch is open (docs/widget-hub.md §7).
     private var inputMonitors: [Any] = []
     private var swipe = SwipeTracker()
+    private var swipeWatchdog: DispatchWorkItem?
 
+    #if DEBUG
+    /// `--trace-input`: log scroll events and hover decisions to stderr.
+    static let traceInput = CommandLine.arguments.contains("--trace-input")
+    #endif
     private var pinned = false          // opened from the menu / --expand
-    private var pointerVisited = false
-    private var leftAt: Date?
+    /// When the pointer leaving may close the notch (HoverLogic.swift): grace area, close delay, and "in use" holds.
+    private var hover = HoverGuard()
+    private var heightHold = HeightHold()
     private var timer: Timer?
     private var fastPolling = true
     private var screenObserver: NSObjectProtocol?
@@ -239,9 +245,9 @@ final class NotchController {
     }
     private var notesKeyRegistered = false
 
-    func open() { pinned = true; pointerVisited = false; setOpen(true) }
+    func open() { pinned = true; setOpen(true) }
     /// Click mode: opened under the pointer, so it closes when the pointer leaves (like hover).
-    func openFromClick() { pinned = false; pointerVisited = true; setOpen(true) }
+    func openFromClick() { pinned = false; setOpen(true) }
     func close() { pinned = false; setOpen(false) }
 
     // MARK: - Hover
@@ -281,12 +287,18 @@ final class NotchController {
             } else { hoverSince = nil }
             return
         }
-        if rectOnScreen(model.openSize, grow: 6).contains(p) {
-            pointerVisited = true; leftAt = nil
-        } else if !pinned || pointerVisited {
-            if leftAt == nil { leftAt = Date() }
-            if let t = leftAt, Date().timeIntervalSince(t) >= settings.closeDelay { pinned = false; setOpen(false) }
-        }
+        // Open: stay open while the pointer is on the panel or its grace area, and while the user is working with it
+        // (scrolling, typing, dragging); close only after a genuine leave (HoverLogic.swift).
+        let now = Date()
+        var size = model.openSize
+        size.height = heightHold.update(size.height, now: now)
+        let hit = HoverPolicy.hitRect(rectOnScreen(size, grow: 0))
+        let busy = NSEvent.pressedMouseButtons != 0 || (panel.isKeyWindow && !notes.draft.isEmpty)
+        let close = hover.shouldClose(now: now, inside: hit.contains(p), pinned: pinned, busy: busy, closeDelay: settings.closeDelay)
+        #if DEBUG
+        if Self.traceInput, close { FileHandle.standardError.write(Data("hover: closing, pointer \(p), hit \(hit)\n".utf8)) }
+        #endif
+        if close { pinned = false; setOpen(false) }
     }
 
     /// The notch shape's rect in screen coordinates (top-centred).
@@ -298,7 +310,8 @@ final class NotchController {
 
     private func setOpen(_ open: Bool) {
         guard model.isOpen != open else { return }
-        leftAt = nil
+        hover.reset(visited: !pinned)
+        heightHold.reset()
         if open { music.refreshIfUnknown() }
         music.setProgressActive(open)
         panel.ignoresMouseEvents = !open
@@ -326,13 +339,27 @@ final class NotchController {
     private func removeInputMonitors() {
         inputMonitors.forEach(NSEvent.removeMonitor)
         inputMonitors.removeAll()
-        swipe.reset(); model.swipe.offset = 0
+        swipeWatchdog?.cancel(); swipe.reset(); model.swipe.offset = 0
+    }
+
+    /// Whether an input event is for the open panel. DEBUG `--trace-input` also takes events with no window: the ones
+    /// `scripts/synth-swipe.swift` posts to this process, which carry no window.
+    private func isOurs(_ e: NSEvent) -> Bool {
+        #if DEBUG
+        if Self.traceInput, e.window == nil { return true }
+        #endif
+        return e.window === panel
     }
 
     /// Two-finger horizontal swipe (docs/widget-hub.md §1.3): the page follows the fingers with resistance, then commits
     /// past 60 pt of travel or springs back. Vertical scrolls and momentum pass through untouched.
     private func scroll(_ e: NSEvent) -> Bool {
-        guard e.window === panel, e.hasPreciseScrollingDeltas else { return false }
+        #if DEBUG
+        if Self.traceInput { FileHandle.standardError.write(Data("scroll win=\(e.window === panel) precise=\(e.hasPreciseScrollingDeltas) phase=\(e.phase.rawValue) mom=\(e.momentumPhase.rawValue) dx=\(e.scrollingDeltaX) dy=\(e.scrollingDeltaY) offset=\(model.swipe.offset)\n".utf8)) }
+        #endif
+        guard isOurs(e) else { return false }
+        hover.interact(at: Date())   // any scroll on the panel, vertical or horizontal, momentum included
+        guard e.hasPreciseScrollingDeltas else { return false }
         if !e.momentumPhase.isEmpty { return swipe.momentum(ended: e.momentumPhase.contains(.ended) || e.momentumPhase.contains(.cancelled)) }
         guard !e.phase.isEmpty else { return false }
         let phase: SwipeTracker.Phase = e.phase.contains(.began) || e.phase.contains(.mayBegin) ? .began
@@ -346,12 +373,27 @@ final class NotchController {
         if let step = r.commit { model.go(by: step) }
         if r.settle { withAnimation(Tok.open) { model.swipe.offset = 0 } }
         else if let o = r.offset, o != model.swipe.offset { model.swipe.offset = o }
+        // The end of a gesture can go to another window if the pointer drifted off the panel, and then we never see it.
+        // Without it the page would stay displaced and faded: settle after a short silence.
+        swipeWatchdog?.cancel()
+        if model.swipe.offset != 0 {
+            let w = DispatchWorkItem { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.model.swipe.offset != 0 else { return }
+                    self.swipe.reset()
+                    withAnimation(Tok.open) { self.model.swipe.offset = 0 }
+                }
+            }
+            swipeWatchdog = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: w)
+        }
         return r.consumed
     }
 
     /// While the panel is key: ⌘[ / ⌘] page back and forward, ⌘1–⌘9 jump, Esc closes.
     private func key(_ e: NSEvent) -> Bool {
-        guard e.window === panel else { return false }
+        guard isOurs(e) else { return false }
+        hover.interact(at: Date())
         let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if e.keyCode == 53 {                                                  // Esc: clears the Notes field first, then closes
             if model.currentPage == .notes, notes.isSearching { notes.draft = ""; return true }

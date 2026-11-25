@@ -77,10 +77,18 @@ struct NotchRoot: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onPreferenceChange(PagesShown.self) { v in
             if v.visible != model.visiblePages { model.visiblePages = v.visible }
-            if v.current != model.currentPage { model.currentPage = v.current }
+            if v.current != model.currentPage {
+                #if DEBUG
+                if NotchController.traceInput { FileHandle.standardError.write(Data("page -> \(String(describing: v.current)) at \(Date().timeIntervalSince1970)\n".utf8)) }
+                #endif
+                model.currentPage = v.current
+            }
         }
         .onPreferenceChange(ContentHeight.self) { h in
-            if h > 0, abs(h - model.openContentHeight) > 0.5 { model.openContentHeight = h }
+            if h > 0, abs(h - model.openContentHeight) > 0.5 {
+                // The panel follows the page's height with the page's own spring, in one transaction.
+                withAnimation(model.isOpen ? Tok.open : nil) { model.openContentHeight = h }
+            }
         }
     }
 

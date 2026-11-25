@@ -310,7 +310,7 @@ private struct GeneralPane: View {
             } header: {
                 ResetHeader(title: "Notch", isDefault: s.hoverIsDefault && s.haptics) { s.resetHover(); s.haptics = true }
             } footer: {
-                Text("The tick is felt on Force Touch trackpads when the notch opens under your finger. Clicks never buzz.")
+                Text("The tick is felt on Force Touch trackpads when the notch opens under your finger. Clicks never buzz. After you leave, the notch waits at least 0.3 s, and it stays open while you scroll, type or drag.")
                     .foregroundStyle(.secondary)
             }
             Section {
