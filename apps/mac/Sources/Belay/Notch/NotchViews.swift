@@ -11,6 +11,7 @@ struct ExpandedView: View {
     @ObservedObject var shots: Screenshots
     @ObservedObject var timer: NotchTimer
     @ObservedObject var stopwatch: NotchStopwatch
+    @ObservedObject var notes: NotesStore
     @ObservedObject var settings = AppSettings.shared
     var shown: Bool
     /// No notch (external display): the band is the panel's first line instead of sitting beside the camera.
@@ -93,6 +94,8 @@ struct ExpandedView: View {
             return .tile
         case .stopwatch:
             return stopwatch.state.laps.isEmpty ? .tile : .wide
+        case .notes:
+            return .wide
         case .screenshot:
             guard let c = shots.lastCopied, Date().timeIntervalSince(c.at) < 30 * 60 else { return nil }
             return .tile
@@ -113,6 +116,7 @@ struct ExpandedView: View {
             if music.title != nil { NowPlayingCard(music: music) } else { PlayerReadyCard(music: music, size: p.size) }
         case .timer: TimerCard(timer: timer, size: p.size, ticking: shown)
         case .stopwatch: StopwatchCard(stopwatch: stopwatch, size: p.size, ticking: shown)
+        case .notes: NotesCard(notes: notes, expanded: settings.expanded)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
@@ -445,6 +449,90 @@ struct ClockCard: View {
     }
 }
 
+// MARK: - Notes
+
+/// One field captures and searches: typing filters the list, Return saves. Always ready, wide only.
+struct NotesCard: View {
+    @ObservedObject var notes: NotesStore
+    let expanded: Bool
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        let shown = Array(notes.matches.prefix(expanded ? 5 : 3))
+        VStack(alignment: .leading, spacing: Tok.s2) {
+            HStack(spacing: Tok.s2) {
+                Image(systemName: "square.and.pencil").font(Tok.icon).foregroundStyle(Tok.ink2)
+                    .frame(width: Tok.gutter, height: Tok.gutter)
+                TextField("Capture a note", text: $notes.draft)
+                    .textFieldStyle(.plain).font(Tok.body).foregroundStyle(Tok.ink)
+                    .focused($focused)
+                    .onSubmit { notes.saveDraft() }
+                    .accessibilityLabel("Capture a note")
+                Spacer(minLength: Tok.s1)
+                if notes.saveFailed {
+                    StatusLine(text: "Not saved", live: false).foregroundStyle(Tok.warning)
+                } else if let undo = notes.undoable {
+                    PillButton(title: "Undo") { withAnimation(Tok.open) { notes.undoDelete() } }
+                        .help("Restore \"\(undo.text.prefix(40))\"")
+                } else {
+                    StatusLine(text: NotesLogic.count(total: notes.notes.count, matches: notes.isSearching ? notes.matches.count : nil), live: false)
+                }
+            }
+            .frame(minHeight: Tok.button)
+            if !shown.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(shown) { note in
+                        NoteRow(note: note, delete: { withAnimation(Tok.open) { notes.delete(note) } })
+                            .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+                    }
+                }
+                .animation(Tok.open, value: shown.map(\.id))
+            }
+        }
+        .card()
+        .onAppear {
+            notes.loadIfNeeded()   // read the first time the page shows, never at launch
+            if notes.closeAfterSave { focused = true }
+        }
+        .onChange(of: notes.focusRequest) { focused = true }
+    }
+}
+
+private struct NoteRow: View {
+    let note: Note
+    let delete: () -> Void
+    @State private var hover = false
+    @State private var copied = false
+
+    var body: some View {
+        HStack(spacing: Tok.s2) {
+            Text(note.text).font(Tok.body).foregroundStyle(Tok.ink).lineLimit(1).truncationMode(.tail)
+                .help(note.text)
+            Spacer(minLength: Tok.s2)
+            if hover {
+                IconButton(symbol: copied ? "checkmark" : "doc.on.doc", label: "Copy") {
+                    // A user action, so it may write the clipboard.
+                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(note.text, forType: .string)
+                    copied = true
+                }
+                IconButton(symbol: "trash", label: "Delete", action: delete)
+            } else {
+                TimelineView(.everyMinute) { ctx in
+                    Text(NotesLogic.age(note.created, now: ctx.date)).font(Tok.status).foregroundStyle(Tok.ink3)
+                }
+            }
+        }
+        .frame(height: Tok.button)
+        .padding(.trailing, hover ? -Tok.buttonInset : 0)
+        .contentShape(Rectangle())
+        .onHover { h in withAnimation(Tok.hover) { hover = h; if !h { copied = false } } }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(note.text)
+        .accessibilityAction(named: "Copy") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(note.text, forType: .string) }
+        .accessibilityAction(named: "Delete", delete)
+    }
+}
+
 // MARK: - Stopwatch
 
 /// Ready: one action. Running or paused: elapsed time, lap and pause (or reset and resume). Wide adds the last three laps.
@@ -642,7 +730,7 @@ struct WidgetEditor: View {
     private var hidden: [WidgetKind] { settings.hiddenWidgets }
 
     /// Each widget's natural size in the editor (its live size: Now playing is wide, the rest are tiles).
-    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying || (k == .clock && !AppSettings.shared.clockZones.isEmpty) ? .wide : .tile }
+    private static func size(_ k: WidgetKind) -> WidgetSize { k == .nowPlaying || k == .notes || (k == .clock && !AppSettings.shared.clockZones.isEmpty) ? .wide : .tile }
 
     var body: some View {
         let rows = WidgetLayout.rows(shown.map { ($0, Self.size($0)) })

@@ -683,6 +683,12 @@ private struct WidgetsPane: View {
                     .foregroundStyle(.secondary)
             }
             ClockZonesSection()
+            Section {
+                Toggle("Capture shortcut ⌃⌥N", isOn: $s.notesShortcut)
+                if s.notesShortcut && s.notesShortcutTaken { Text("⌃⌥N is taken by another app.").foregroundStyle(Tok.warning) }
+            } header: { Text("Notes") } footer: {
+                Text("Opens the notch on Notes with the field ready. Needs no extra permission. Notes stay on this Mac.").foregroundStyle(.secondary)
+            }
             ForEach(s.pages) { page in
                 Section(page.kind.name) {
                     if page.widgets.isEmpty {

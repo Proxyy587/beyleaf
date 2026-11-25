@@ -3,5 +3,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 out="$(mktemp -d)/widgets-selftest"
-swiftc -O -swift-version 6 Sources/Belay/Notch/WidgetLayout.swift Sources/Belay/Notch/ClockLogic.swift Sources/Belay/Notch/StopwatchLogic.swift Tests/WidgetsSelfTest/main.swift -o "$out"
+swiftc -O -swift-version 6 Sources/Belay/Notch/WidgetLayout.swift Sources/Belay/Notch/ClockLogic.swift Sources/Belay/Notch/StopwatchLogic.swift Sources/Belay/Notch/NotesLogic.swift Tests/WidgetsSelfTest/main.swift -o "$out"
 "$out"

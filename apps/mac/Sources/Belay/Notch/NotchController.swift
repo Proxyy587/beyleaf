@@ -80,8 +80,11 @@ final class NotchController {
     var onOpenSettings: () -> Void = {}
     private var hoverSince: Date?
     private let stopwatch = NotchStopwatch()
+    private let notes = NotesStore()
+    private let notesKey = GlobalHotKey()
     private lazy var activities = ActivityCenter(music: music, status: status, shots: shots, timer: countdown, stopwatch: stopwatch)
     private var activitySub: Any?
+    private var settingsSub2: Any?
     private var pulseSub: Any?
 
     /// Wings show for a live activity. New activities and tracks get a
@@ -122,7 +125,7 @@ final class NotchController {
         let screen = Self.screen
         model = NotchModel(metrics: .of(screen))
         panel = NotchPanel(rect: frame(on: screen))
-        let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, stopwatch: stopwatch, activities: activities, beat: beat,
+        let root = NotchRoot(model: model, music: music, status: status, shots: shots, timer: countdown, stopwatch: stopwatch, notes: notes, activities: activities, beat: beat,
                              openSettings: { [weak self] in self?.close(); self?.onOpenSettings() },
                              openFromClick: { [weak self] in self?.openFromClick() })
         let host = FirstClickHostingView(rootView: root)
@@ -131,6 +134,10 @@ final class NotchController {
         host.frame = NSRect(origin: .zero, size: Self.canvas)
         panel.contentView = host
         panel.orderFrontRegardless()
+
+        notes.onCaptured = { [weak self] in self?.close() }
+        syncNotesShortcut()
+        settingsSub2 = settings.objectWillChange.sink { [weak self] _ in DispatchQueue.main.async { self?.syncNotesShortcut() } }
 
         screenObserver = NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.relayout() }
@@ -169,6 +176,8 @@ final class NotchController {
         }
         // `--start-timer <minutes>` / `--edit-widgets`: put the notch in those states for screenshots.
         let a = CommandLine.arguments
+        // `--notes-capture "text"`: run the real save path once (with --notes-file, never the user's notes).
+        if let i = a.firstIndex(of: "--notes-capture"), a.indices.contains(i + 1) { notes.loadIfNeeded(); notes.draft = a[i + 1]; notes.saveDraft() }
         if a.contains("--start-stopwatch") { stopwatch.start() }
         if a.contains("--demo-stopwatch") { stopwatch.demo() }
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }
@@ -195,6 +204,33 @@ final class NotchController {
         #endif
         if openOnLaunch { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { self.open() } }
     }
+
+    /// ⌃⌥N (docs/widget-hub.md §3.4): open on Notes with the field focused. The panel becomes key without activating Belay.
+    func captureNote() {
+        settings.page = .notes
+        notes.closeAfterSave = true
+        let wasOpen = model.isOpen
+        open()
+        DispatchQueue.main.asyncAfter(deadline: .now() + (wasOpen ? 0 : 0.15)) {
+            self.panel.makeKey()
+            self.notes.requestFocus()
+        }
+    }
+
+    /// Registers ⌃⌥N while the shortcut is on and the Notes widget is enabled; says so in Settings when another app owns it.
+    private func syncNotesShortcut() {
+        let widgetOn = settings.pages.flatMap(\.widgets).contains { $0.kind == .notes && $0.enabled }
+        let want = settings.notesShortcut && widgetOn
+        if !want { notesKey.unregister(); notesKeyRegistered = false; if settings.notesShortcutTaken { settings.notesShortcutTaken = false }; return }
+        if notesKeyRegistered { return }
+        let ok = notesKey.register { [weak self] in self?.captureNote() }
+        notesKeyRegistered = ok
+        #if DEBUG
+        FileHandle.standardError.write(Data("notes shortcut \(ok ? "registered" : "REFUSED")\n".utf8))
+        #endif
+        if settings.notesShortcutTaken == ok { settings.notesShortcutTaken = !ok }
+    }
+    private var notesKeyRegistered = false
 
     func open() { pinned = true; pointerVisited = false; setOpen(true) }
     /// Click mode: opened under the pointer, so it closes when the pointer leaves (like hover).
@@ -310,7 +346,10 @@ final class NotchController {
     private func key(_ e: NSEvent) -> Bool {
         guard e.window === panel else { return false }
         let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if e.keyCode == 53 { close(); return true }                           // Esc
+        if e.keyCode == 53 {                                                  // Esc: clears the Notes field first, then closes
+            if model.currentPage == .notes, notes.isSearching { notes.draft = ""; return true }
+            close(); return true
+        }
         guard mods == .command, let c = e.charactersIgnoringModifiers else { return false }
         switch c {
         case "[": model.go(by: -1); return true

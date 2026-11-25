@@ -44,6 +44,10 @@ final class AppSettings: ObservableObject {
     @Published var clockZones: [String] { didSet { let c = ClockLogic.clean(clockZones); if c != clockZones { clockZones = c } else if persistsPages { save(c, "clockZones") } } }
     /// Show a running stopwatch in the closed notch (when neither music nor a timer is live).
     @Published var stopwatchActivity: Bool { didSet { save(stopwatchActivity, "stopwatchActivity") } }
+    /// ⌃⌥N opens the notch on Notes with the field focused (docs/widget-hub.md §3.4).
+    @Published var notesShortcut: Bool { didSet { save(notesShortcut, "notesShortcut") } }
+    /// Another app owns ⌃⌥N (set by the controller; not saved).
+    @Published var notesShortcutTaken = false
     /// Hover the notch to open it (default), or click it. Click mode catches clicks only on the notch itself.
     @Published var openOnClick: Bool { didSet { save(openOnClick, "openOnClick") } }
     /// Compact (the theme's width) or expanded (wider, every widget in its full layout). Toggled from the band.
@@ -153,6 +157,7 @@ final class AppSettings: ObservableObject {
         performanceMode = PerformanceMode(rawValue: d.string(forKey: "performanceMode") ?? "") ?? .auto
         timerActivity = d.object(forKey: "timerActivity") as? Bool ?? true
         stopwatchActivity = d.object(forKey: "stopwatchActivity") as? Bool ?? true
+        notesShortcut = d.object(forKey: "notesShortcut") as? Bool ?? true
         clockZones = ClockLogic.clean(d.stringArray(forKey: "clockZones") ?? [])
         // Pages replace the single widget list (ADR 0021). Migrate once from `widgets` (or, older still, the theme's rows).
         pages = d.data(forKey: "pages").flatMap(Pages.decode)

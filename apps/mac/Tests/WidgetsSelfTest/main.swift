@@ -78,10 +78,11 @@ check(Pages.decode(Data("nonsense".utf8)) == nil, "garbage is rejected")
 var moved = Pages.defaults
 Pages.move(.timer, to: .day, in: &moved)
 check(invariant(moved) && Pages.page(of: .timer, in: moved) == .day, "move between pages keeps the invariant")
-check(Pages.visible(moved, present: { _ in true }) == [.now, .day], "visible: pages with a shown widget, in order")
+check(Pages.visible(moved, present: { _ in true }) == [.now, .notes, .day], "visible: pages with a shown widget, in order (Notes holds the Notes widget)")
+check(Pages.visible(Pages.defaults, present: { $0 == .notes }) == [.notes], "visible: the Notes page shows whenever its field is present")
 check(Pages.visible(moved, present: { $0 == .nowPlaying }) == [.now], "visible: a page with nothing present is skipped")
 var off = moved; off[0].enabled = false
-check(Pages.visible(off, present: { _ in true }) == [.day], "visible: a page switched off is skipped")
+check(Pages.visible(off, present: { _ in true }) == [.notes, .day], "visible: a page switched off is skipped")
 check(Pages.resolve(.notes, visible: [.now, .day]) == .now, "resolve falls back to the first visible page")
 check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the remembered page")
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
@@ -185,6 +186,40 @@ do {
     check(StopwatchFormat.precise(41.37) == "0:41.37" && StopwatchFormat.precise(3725.5) == "1:02:05.50", "stopwatch: lap format shows hundredths")
     check(StopwatchFormat.wing(30) == "<1m" && StopwatchFormat.wing(724) == "12m", "stopwatch: closed notch label")
     check(StopwatchFormat.spoken(724, running: true) == "Stopwatch, 12 minutes 4 seconds, running", "stopwatch: spoken label")
+}
+
+// Notes (docs/widget-hub.md §3.4)
+do {
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    func note(_ text: String, _ ago: Double) -> Note { Note(id: UUID(), text: text, created: t0.addingTimeInterval(-ago)) }
+    check(NotesLogic.capture("  hello \n") == "hello" && NotesLogic.capture("  \n ") == nil && NotesLogic.capture("") == nil, "notes: capture trims; empty saves nothing")
+    let a = note("Run bun test in core", 100), b = note("Café opens at nine", 50), c = note("tell Porter to convert the PDF", 10)
+    check(NotesLogic.search([a, b, c], query: "").map(\.text) == [c.text, b.text, a.text], "notes: no query lists newest first")
+    check(NotesLogic.search([a, b, c], query: "BUN CORE").map(\.text) == [a.text], "notes: every word must match, case-insensitively")
+    check(NotesLogic.search([a, b, c], query: "cafe").map(\.text) == [b.text], "notes: accent-insensitive")
+    check(NotesLogic.search([a, b, c], query: "zzz").isEmpty, "notes: no match gives nothing")
+    let w1 = note("xxtest at the end", 10), w2 = note("test first", 100)
+    check(NotesLogic.search([w1, w2], query: "test").map(\.text) == [w2.text, w1.text], "notes: a word-start match outranks a mid-word match")
+    var many: [Note] = []
+    for i in 0..<5_002 { many = NotesLogic.adding(Note(id: UUID(), text: "n\(i)", created: t0.addingTimeInterval(Double(i))), to: many) }
+    check(many.count == 5_000 && many.first?.text == "n2" && many.last?.text == "n5001", "notes: capped at 5,000, oldest dropped")
+    check(NotesLogic.age(t0.addingTimeInterval(-30), now: t0) == "now" && NotesLogic.age(t0.addingTimeInterval(-240), now: t0) == "4 min"
+          && NotesLogic.age(t0.addingTimeInterval(-7200), now: t0) == "2 h" && NotesLogic.age(t0.addingTimeInterval(-172_800), now: t0) == "2 d", "notes: age labels")
+    check(NotesLogic.count(total: 12, matches: nil) == "12 NOTES" && NotesLogic.count(total: 1, matches: nil) == "1 NOTE" && NotesLogic.count(total: 12, matches: 3) == "3 MATCH", "notes: count status")
+
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent("belay-notes-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let store = NotesStorage(url: dir.appendingPathComponent("sub/notes.json"))
+    check(store.load() == .missing, "notes: no file reads as missing")
+    check(store.save([a, b]) && store.load() == .notes([a, b]), "notes: save creates the folder and round-trips")
+    let raw = (try? String(contentsOf: store.url, encoding: .utf8)) ?? ""
+    check(raw.contains("\"version\" : 1") && raw.contains("\"created\" : \"2027-"), "notes: file has version 1 and ISO 8601 dates")
+    try? "not json".write(to: store.url, atomically: true, encoding: .utf8)
+    check(store.load() == .corrupt, "notes: a damaged file reads as corrupt, not empty")
+    store.setCorruptAside(now: t0)
+    check(store.load() == .missing && FileManager.default.fileExists(atPath: store.url.deletingLastPathComponent().appendingPathComponent("notes.json.bad-1800000000").path), "notes: a damaged file is moved aside, never overwritten")
+    let ro = NotesStorage(url: URL(fileURLWithPath: "/dev/null/notes.json"))
+    check(!ro.save([a]), "notes: an unwritable location reports failure")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")

@@ -9,6 +9,7 @@ struct NotchRoot: View {
     @ObservedObject var shots: Screenshots
     @ObservedObject var timer: NotchTimer
     @ObservedObject var stopwatch: NotchStopwatch
+    @ObservedObject var notes: NotesStore
     @ObservedObject var activities: ActivityCenter
     var beat: MusicBeat
     @ObservedObject var settings = AppSettings.shared
@@ -49,7 +50,7 @@ struct NotchRoot: View {
                         .id(settings.themeRevision)
                 }
 
-                ExpandedView(model: model, music: music, shots: shots, timer: timer, stopwatch: stopwatch, shown: open, showBand: !headerInBand, openSettings: openSettings)
+                ExpandedView(model: model, music: music, shots: shots, timer: timer, stopwatch: stopwatch, notes: notes, shown: open, showBand: !headerInBand, openSettings: openSettings)
                     .padding(.horizontal, Tok.rOpenEar)
                     .padding(.top, notchH)
                     .fixedSize(horizontal: false, vertical: true)

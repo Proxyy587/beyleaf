@@ -33,3 +33,4 @@ Check these before building on them. When you resolve one, move it to the "Resol
 - (none yet)
 
 - **Clock CPU (UNVERIFIED, 2026-11-26):** debug build with the notch open and music playing sampled 13–14% (0.4% after close). Not attributed to the Clock; measure a release build with only the Clock on Now (budget ≤ 0.3% idle).
+- **Notes by hand (UNVERIFIED, 2026-11-26):** pressing ⌃⌥N and the panel becoming key with the field focused; typing and Return in the field; hover Copy, Delete and Undo; Esc clearing then closing; keystrokes returning to the previous app after close. Registration (no prompt) and the save path to disk were checked; real key events were not sent.
