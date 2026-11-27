@@ -82,7 +82,7 @@ test("an existing file at the socket path is never deleted", () => {
 
 test("the crew is beepo alone until you make a buddy; a buddy can make a buddy", async () => {
   const first = await ask("crew.list", {}, (m) => m.type === "crew.roster");
-  expect(first.at(-1).data.buddies.map((b: any) => b.id)).toEqual(["beepo"]);
+  expect(first.find((m) => m.type === "crew.roster").data.buddies.map((b: any) => b.id)).toEqual(["beepo"]);
   const made = await ask("crew.buddy.create", { spec: { name: "sprout", sprite: "sprout", job: "code" } }, (m) => m.type === "crew.roster");
   expect(made.at(-1).data.buddies.map((b: any) => b.id)).toEqual(["beepo", "sprout"]);
   const kid = await ask("crew.buddy.create", { by: "sprout", spec: { name: "tester", sprite: "toby", job: "tests" } }, (m) => m.type === "crew.roster");
@@ -97,4 +97,15 @@ test("a refused crew request says why", async () => {
 test("a trading task is blocked, never planned", async () => {
   const r = await ask("task.create", { buddy: "beepo", goal: "start trading with my money", limits: { maxSteps: 10, maxMinutes: 10, maxMoney: 100 } }, (m) => m.type === "task.updated");
   expect(r.at(-1).data.task.status).toBe("blocked");
+});
+
+test("a routine is made on request, and 'run now' makes a task that still waits for a plan", async () => {
+  const made = await ask("crew.routine.create", { buddy: "beepo", goal: "summarise my inbox", schedule: { kind: "daily", time: "08:30", days: [] } }, (m) => m.type === "crew.routines");
+  const r = made.at(-1).data;
+  expect(r.routines.length).toBe(1);
+  expect(r.when[r.routines[0].id]).toContain("08:30");
+  const ran = await ask("crew.routine.runNow", { id: r.routines[0].id }, (m) => m.type === "task.updated");
+  expect(ran.at(-1).data.task.status).toBe("planning");
+  const bad = await ask("crew.routine.create", { buddy: "ghost", goal: "x", schedule: { kind: "every", minutes: 60 } }, (m) => m.type === "crew.refused");
+  expect(bad.at(-1).data.why).toContain("ghost");
 });

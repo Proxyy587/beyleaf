@@ -4,7 +4,7 @@ import SwiftUI
 // because you pressed Create, and a task runs only after you approve its plan.
 
 /// A pill that is either on or off.
-private struct ToggleChip: View {
+struct ToggleChip: View {
     let title: String
     let on: Bool
     let help: String
@@ -104,6 +104,68 @@ struct NewBuddyForm: View {
 
 private enum TierOrder { static let keys = ["observe", "errands", "hands", "sandbox"] }
 
+/// The buttons a task can need from you: approve its plan, allow a spend, say you paid, or stop it.
+struct TaskActions: View {
+    @ObservedObject var store: BuddyStore
+    let task: TaskEntry
+
+    var body: some View {
+        switch task.state {
+        case .planOK:
+            HStack(spacing: Tok.s1) { PillButton(title: "Approve plan") { store.act(task.id, "approve") }; IconButton(symbol: "xmark", label: "Cancel task") { store.act(task.id, "deny") } }
+        case .needsYou:
+            if task.current?.kind == "payment" {
+                HStack(spacing: Tok.s1) { PillButton(title: "I paid") { store.act(task.id, "approve") }; IconButton(symbol: "stop.fill", label: "Stop task") { store.act(task.id, "stop") } }
+            } else {
+                HStack(spacing: Tok.s1) { PillButton(title: "Allow") { store.act(task.id, "approve") }; IconButton(symbol: "xmark", label: "Skip this step") { store.act(task.id, "deny") } }
+            }
+        case .running, .planning, .paused:
+            IconButton(symbol: "stop.fill", label: "Stop task") { store.act(task.id, "stop") }
+        default:
+            EmptyView()
+        }
+    }
+}
+
+/// One task: who, what, how far, and what it waits for. `compact` puts the buttons under the text (a narrow column).
+struct TaskRow: View {
+    @ObservedObject var store: BuddyStore
+    let task: TaskEntry
+    var compact = false
+
+    var body: some View {
+        let t = task
+        let text = VStack(alignment: .leading, spacing: 2) {
+            Text(t.goal).font(Tok.body).foregroundStyle(t.state.isFinished ? Tok.ink3 : Tok.ink).lineLimit(compact ? 2 : 1).truncationMode(.tail)
+            StatusLine(text: statusText(t), live: t.state == .running)
+            if let note = t.note, t.state.needsYou || t.state == .blocked || t.state == .stopped || t.state == .failed {
+                Text(note).font(Tok.meta).foregroundStyle(t.state == .blocked ? Tok.warning : Tok.ink2).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        HStack(alignment: .top, spacing: Tok.s2) {
+            BuddyView(id: t.buddy, style: .smooth, mood: t.state == .done ? .happy : .idle, size: 22, eyeColor: t.state == .running ? Tok.live : nil).padding(.top, 2)
+            if compact {
+                VStack(alignment: .leading, spacing: Tok.s1) { text; TaskActions(store: store, task: t) }
+            } else {
+                text
+                Spacer(minLength: Tok.s2)
+                TaskActions(store: store, task: t)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: Tok.button, alignment: .topLeading)
+    }
+
+    private func statusText(_ t: TaskEntry) -> String {
+        var parts = [t.state.label]
+        if let step = t.current { parts.append(step.label) }
+        if let p = BuddyLogic.progress(done: t.done, total: t.steps.count), t.state != .done { parts.append(p) }
+        if t.moved > 0 || t.maxMoney != nil, let max = t.maxMoney {
+            parts.append("\(BuddyLogic.money(t.moved, currency: nil)) of \(BuddyLogic.money(max, currency: t.currency))")
+        }
+        return parts.joined(separator: " · ")
+    }
+}
+
 /// The Tasks widget: what each buddy is working toward, and what is waiting on you.
 struct TasksCard: View {
     @ObservedObject var store: BuddyStore
@@ -116,61 +178,10 @@ struct TasksCard: View {
                 Image(systemName: "checklist").font(Tok.icon).foregroundStyle(Tok.ink2).frame(width: Tok.gutter, height: Tok.gutter)
                 Text("Tasks").font(Tok.rowTitle).foregroundStyle(Tok.ink)
                 Spacer(minLength: Tok.s2)
-                StatusLine(text: summary, live: false)
+                StatusLine(text: store.taskSummary)
             }
-            if columns > 1 { ForEach(rows) { row($0) } }
+            if columns > 1 { ForEach(rows) { TaskRow(store: store, task: $0) } }
         }
         .card()
-    }
-
-    private var summary: String {
-        let n = store.needsYouCount
-        if n > 0 { return "\(n) need\(n == 1 ? "s" : "") you" }
-        let a = store.activeTasks.count
-        return a == 0 ? "none running" : "\(a) running"
-    }
-
-    private func row(_ t: TaskEntry) -> some View {
-        let face = BuddyView(id: t.buddy, style: .smooth, mood: t.state == .done ? .happy : .idle, size: 22, eyeColor: t.state == .running ? Tok.live : nil)
-        return HStack(alignment: .top, spacing: Tok.s2) {
-            face.padding(.top, 2)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(t.goal).font(Tok.body).foregroundStyle(t.state.isFinished ? Tok.ink3 : Tok.ink).lineLimit(1).truncationMode(.tail)
-                StatusLine(text: statusText(t), live: t.state == .running)
-                if let note = t.note, t.state.needsYou || t.state == .blocked || t.state == .stopped || t.state == .failed {
-                    Text(note).font(Tok.meta).foregroundStyle(t.state == .blocked ? Tok.warning : Tok.ink2).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: Tok.s2)
-            actions(t)
-        }
-        .frame(minHeight: Tok.button)
-    }
-
-    private func statusText(_ t: TaskEntry) -> String {
-        var parts = [t.state.label]
-        if let step = t.current { parts.append(step.label) }
-        if let p = BuddyLogic.progress(done: t.done, total: t.steps.count), t.state != .done { parts.append(p) }
-        if t.moved > 0 || t.maxMoney != nil, let max = t.maxMoney {
-            parts.append("\(BuddyLogic.money(t.moved, currency: nil)) of \(BuddyLogic.money(max, currency: t.currency))")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    @ViewBuilder private func actions(_ t: TaskEntry) -> some View {
-        switch t.state {
-        case .planOK:
-            HStack(spacing: Tok.s1) { PillButton(title: "Approve plan") { store.act(t.id, "approve") }; IconButton(symbol: "xmark", label: "Cancel task") { store.act(t.id, "deny") } }
-        case .needsYou:
-            if t.current?.kind == "payment" {
-                HStack(spacing: Tok.s1) { PillButton(title: "I paid") { store.act(t.id, "approve") }; IconButton(symbol: "stop.fill", label: "Stop task") { store.act(t.id, "stop") } }
-            } else {
-                HStack(spacing: Tok.s1) { PillButton(title: "Allow") { store.act(t.id, "approve") }; IconButton(symbol: "xmark", label: "Skip this step") { store.act(t.id, "deny") } }
-            }
-        case .running, .planning, .paused:
-            IconButton(symbol: "stop.fill", label: "Stop task") { store.act(t.id, "stop") }
-        default:
-            EmptyView()
-        }
     }
 }

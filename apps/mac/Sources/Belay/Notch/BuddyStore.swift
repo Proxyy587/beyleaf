@@ -80,6 +80,7 @@ final class BuddyStore: ObservableObject {
     private var link: AnyCancellable?
     private var refusalLink: AnyCancellable?
     private var taskLink: AnyCancellable?
+    private var routineLink: AnyCancellable?
 
     static let beepo = BuddyEntry(id: .beepo, key: "beepo", name: "beepo", job: "routes what you ask", state: .idle, detail: nil)
     static let maxBuddies = 8
@@ -92,6 +93,12 @@ final class BuddyStore: ObservableObject {
     var canAddBuddy: Bool { buddies.count < Self.maxBuddies }
     var activeTasks: [TaskEntry] { tasks.filter { $0.state.isActive } }
     var needsYouCount: Int { tasks.filter { $0.state.needsYou }.count }
+    var taskSummary: String {
+        let n = needsYouCount
+        if n > 0 { return "\(n) need\(n == 1 ? "s" : "") you" }
+        let a = activeTasks.count
+        return a == 0 ? "none running" : "\(a) running"
+    }
 
     func select(_ id: BuddyID) { selected = id }
 
@@ -105,6 +112,13 @@ final class BuddyStore: ObservableObject {
             guard let self, let why else { return }
             self.notice = why
             core.refusal = nil
+        }
+        routineLink = core.$routines.sink { [weak self] list in
+            guard let self, !self.isDemo else { return }
+            self.routines = list.compactMap { r in
+                guard let b = self.buddies.first(where: { $0.key == r.buddy }) else { return nil }
+                return RoutineEntry(id: r.id, buddy: b.id, goal: r.goal, when: r.when, next: r.next, paused: r.paused)
+            }
         }
         taskLink = core.$tasks.sink { [weak self] list in
             guard let self, !self.isDemo else { return }
@@ -186,8 +200,25 @@ final class BuddyStore: ObservableObject {
     }
 
     func setPaused(_ id: String, _ paused: Bool) {
-        guard let i = routines.firstIndex(where: { $0.id == id }) else { return }
-        routines[i].paused = paused
+        if isDemo, let i = routines.firstIndex(where: { $0.id == id }) { routines[i].paused = paused }
+        else { CoreLink.shared.pauseRoutine(id, paused: paused) }
+    }
+
+    func removeRoutine(_ id: String) {
+        if isDemo { routines.removeAll { $0.id == id } } else { CoreLink.shared.removeRoutine(id) }
+    }
+
+    /// Schedules a goal for the buddy on screen. When its time comes the core makes a task, which waits for your OK to its plan.
+    func schedule(goal: String, every: RoutineRepeat, time: String) {
+        let text = goal.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, let b = current else { return }
+        notice = nil
+        if isDemo {
+            routines.append(RoutineEntry(id: "demo-r\(routines.count + 1)", buddy: b.id, goal: text,
+                                         when: every == .hourly ? "every hour" : "\(every == .daily ? "daily" : "weekdays") \(time)", next: nil, paused: false))
+        } else {
+            CoreLink.shared.createRoutine(buddy: b.key, goal: text, schedule: every.schedule(time: time))
+        }
     }
 
     /// `--buddies-demo`: sample crew, thread and routines, in memory only. Nothing is saved or sent anywhere.

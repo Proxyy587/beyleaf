@@ -363,9 +363,9 @@ struct PlacedWidget: Equatable, Sendable {
 }
 
 enum WidgetLayout {
-    /// The panel grid: 2 columns, 3 when expanded. Each column is the same width in both, so widgets keep their size
+    /// The panel grid: 2 columns, 4 when expanded (so two wide widgets share a row, and four smalls). Each column is the same width in both, so widgets keep their size
     /// and expanded simply holds more of them (ADR 0023).
-    static func columns(expanded: Bool) -> Int { expanded ? 3 : 2 }
+    static func columns(expanded: Bool) -> Int { expanded ? 4 : 2 }
 
     /// Flows widgets into rows in the given order, each taking its span (clamped to the grid). A widget that doesn't
     /// fit the rest of the row starts the next one. Never reorders, never resizes: whatever the user arranged stays,
@@ -375,7 +375,8 @@ enum WidgetLayout {
         var rows: [[PlacedWidget]] = []
         var used = 0
         for item in items {
-            let n = min(max(1, item.span.rawValue), cols)
+            // Full is a whole row, however many columns the grid has.
+            let n = item.span == .full ? cols : min(max(1, item.span.rawValue), cols)
             if rows.isEmpty || used + n > cols { rows.append([]); used = 0 }
             rows[rows.count - 1].append(PlacedWidget(kind: item.kind, columns: n))
             used += n
@@ -383,11 +384,12 @@ enum WidgetLayout {
         return rows
     }
 
-    /// The open panel's width when expanded: the theme's width plus one more column (and its gap), capped so the
-    /// panel's shadow fits the canvas. `inner` is the width the grid gets at `base`.
-    static func expandedWidth(base: CGFloat, inner: CGFloat, gap: CGFloat, cap: CGFloat) -> CGFloat {
+    /// The open panel's width when expanded: the theme's width, plus two more grid columns (and their gaps), plus the page rail
+    /// (docs/notch-research.md). Capped so the panel and its shadow fit the canvas and the screen. `inner` is the width the grid
+    /// gets at `base`.
+    static func expandedWidth(base: CGFloat, inner: CGFloat, gap: CGFloat, rail: CGFloat, cap: CGFloat) -> CGFloat {
         let column = (inner - gap) / 2
-        return min(base + column + gap, max(base, cap))
+        return min(base + 2 * (column + gap) + rail, max(base, cap))
     }
 
     /// Width of one column when `inner` is split into `columns` with `gap` between.

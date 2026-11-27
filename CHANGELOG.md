@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed (expanded is a workspace, not a bigger panel)
+- **Expanded now shows more, not bigger** (`docs/notch-research.md`, from reading Perch, Avo and DynamicNotchKit): a page rail
+  with every page named (and a badge where something waits on you), four grid columns instead of two so two wide widgets share a
+  row, and a "needs you" bar on every page. Compact keeps the glance with dots at the bottom.
+- **Agents, expanded:** crew, conversation, and a right column with two tabs: **Tasks** and **Schedule**. Schedule runs a goal
+  daily, on weekdays or hourly; each time it comes round the core makes a task for the buddy, which waits for your OK to its
+  plan. Routines live in `belayd` (`crew/routines.ts`, tested): missed runs collapse into one and nothing runs by itself.
+- **Full is a whole row** at any column count (it was fixed at three columns).
+- **The menu bar icon is monochrome** (a template image, like other menu bar icons), with beepo's eyes cut out.
+
+
 ### Added (buddies you make, tasks, your own pages, beepo)
 - **Buddies are made by you** (ADR 0026). The crew starts as beepo alone. Press + to make one: pick a face, name it, say what
   it does, and choose how far it may reach (Look, Errands, Hands). A buddy you made can make up to three more, never with more

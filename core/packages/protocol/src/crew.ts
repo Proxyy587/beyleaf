@@ -72,6 +72,9 @@ export const CrewRequest = z.discriminatedUnion("type", [
   z.object({ type: z.literal("crew.say"), text: z.string().min(1).max(20000), thread: z.string().optional() }),
   z.object({ type: z.literal("crew.routine.pause"), id: z.string(), paused: z.boolean() }),
   z.object({ type: z.literal("crew.routine.runNow"), id: z.string() }),
+  /** A routine makes a task when its time comes; the task still waits for your OK to its plan (ADR 0026). */
+  z.object({ type: z.literal("crew.routine.create"), buddy: BuddyId, goal: z.string().min(1).max(500), schedule: Schedule }),
+  z.object({ type: z.literal("crew.routine.remove"), id: z.string() }),
   z.object({ type: z.literal("crew.list") }),
   /** `by` is "you" from the shell. A buddy's own request arrives through the Belay MCP server and is shown to you. */
   z.object({ type: z.literal("crew.buddy.create"), by: z.union([z.literal("you"), BuddyId]).default("you"), spec: BuddySpec }),
@@ -89,5 +92,11 @@ export const CrewEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("crew.created"), buddy: Buddy, by: z.union([z.literal("you"), BuddyId]) }),
   z.object({ type: z.literal("crew.removed"), id: BuddyId, by: z.union([z.literal("you"), BuddyId]) }),
   z.object({ type: z.literal("crew.refused"), why: z.string() }),
-  z.object({ type: z.literal("crew.routines"), routines: z.array(Routine), nextRun: z.record(z.string(), z.string().datetime().nullable()) }),
+  z.object({
+    type: z.literal("crew.routines"),
+    routines: z.array(Routine),
+    nextRun: z.record(z.string(), z.string().datetime().nullable()),
+    /** The schedule in words ("weekdays 08:30"), so the shell never has to word it. */
+    when: z.record(z.string(), z.string()),
+  }),
 ]);

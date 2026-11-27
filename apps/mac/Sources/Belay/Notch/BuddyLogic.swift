@@ -120,3 +120,27 @@ extension BuddyLogic {
         return v
     }
 }
+
+extension BuddyLogic {
+    /// "08:30" or "8:30": 24-hour time as the protocol wants it ("08:30"), else nil.
+    static func parseTime(_ text: String) -> String? {
+        let parts = text.trimmingCharacters(in: .whitespaces).split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]), parts[1].count == 2, (0...23).contains(h), (0...59).contains(m) else { return nil }
+        return String(format: "%02d:%02d", h, m)
+    }
+}
+
+/// How often a routine you schedule from the notch repeats. Wider schedules are the core's; these are the ones worth a chip.
+enum RoutineRepeat: String, CaseIterable, Sendable {
+    case daily, weekdays, hourly
+    var title: String { switch self { case .daily: "Daily"; case .weekdays: "Weekdays"; case .hourly: "Hourly" } }
+    /// The protocol's Schedule for this repeat at `time` ("08:30"; ignored for hourly).
+    func schedule(time: String) -> [String: Any] {
+        switch self {
+        case .daily: ["kind": "daily", "time": time, "days": [Int]()]
+        case .weekdays: ["kind": "daily", "time": time, "days": [1, 2, 3, 4, 5]]
+        case .hourly: ["kind": "every", "minutes": 60]
+        }
+    }
+    var needsTime: Bool { self != .hourly }
+}

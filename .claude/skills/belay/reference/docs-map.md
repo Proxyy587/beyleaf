@@ -20,3 +20,4 @@
 | What agents expose (hooks, logs, OTel) | `docs/feasibility.md` |
 | Market, competitors, pain, launch | `docs/market.md`, `docs/landscape.md`, `docs/pain.md`, `docs/launch.md`, `docs/verdict.md` |
 | Per-folder responsibilities | `apps/mac/README.md`, `core/README.md`, `core/packages/*/README.md` |
+| Notch app research (Perch, Avo, DynamicNotchKit) and what expanded takes from it | `docs/notch-research.md` |

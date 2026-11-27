@@ -27,51 +27,80 @@ struct ExpandedView: View {
         let visible = model.editing ? settings.pages.filter(\.enabled).map(\.kind) : Pages.visible(settings.pages) { isPresent($0) }
         let current = Pages.resolve(settings.page, visible: visible)
         let columns = WidgetLayout.columns(expanded: settings.expanded)
+        let expanded = settings.expanded
         VStack(alignment: .leading, spacing: Tok.s2) {
             if showBand {
                 NotchBand(model: model, openSettings: openSettings).blurReveal(shown, delay: 0.03)
             }
-            if model.editing {
-                WidgetEditor(page: current ?? settings.page, columns: columns).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
-            } else if let current {
-                // Only the page in place (and, while sliding, its neighbour) is in the view tree, so hidden pages can't
-                // tick, poll or fetch (§7). The pages sit edge to edge and move as one strip.
-                PagerStrip(swipe: model.swipe, stride: model.pageStride) {
-                    pageBody(current, columns: columns)
-                } partner: { page in
-                    pageBody(page, columns: columns)
+            // What waits on you stays in view on every page, in both sizes.
+            if needsBar { NeedsYouBar(store: buddies).blurReveal(shown, delay: 0.04) }
+            if expanded {
+                // Expanded is a workspace: every page named in a rail, the content beside it (docs/notch-research.md).
+                HStack(alignment: .top, spacing: 0) {
+                    PageRail(model: model, pages: visible, current: current).frame(width: Tok.rail - Tok.s2).blurReveal(shown, delay: 0.05)
+                    area(current: current, columns: columns, expanded: true)
                 }
-                // Pull out to the panel's edges so a sliding page is cut by the panel, not by the card margins.
-                .padding(.horizontal, -Tok.s2)
             } else {
-                EmptyLine(symbol: "square.grid.2x2", text: "No widgets") {
-                    PillButton(title: "Edit widgets") { withAnimation(Tok.open) { model.editing = true } }
+                area(current: current, columns: columns, expanded: false)
+                // Which page you are on, and the way to the others: small, centred, at the very bottom.
+                if visible.count > 1 || model.editing {
+                    PageDock(model: model, pages: visible, current: current)
+                        .blurReveal(shown, delay: 0.1)
+                        .transition(.opacity)
                 }
-                .padding(.horizontal, Tok.s3)
-                .blurReveal(shown, delay: 0.05)
-            }
-            // Which page you are on, and the way to the others: small, centred, at the very bottom.
-            if visible.count > 1 || model.editing {
-                PageDock(model: model, pages: visible, current: current)
-                    .blurReveal(shown, delay: 0.1)
-                    .transition(.opacity)
             }
         }
         .animation(Tok.open, value: model.editing)
+        .animation(Tok.open, value: needsBar)
         .padding(.horizontal, Tok.s2)
         .padding(.bottom, Tok.s2)
         .preference(key: PagesShown.self, value: PagesShown.Value(visible: visible, current: current))
     }
 
-    /// Height the band and the bottom inset take, which the page area can't use.
-    private var chrome: CGFloat { (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 + (dockShown ? Tok.dock + Tok.s2 : 0) }
-    private var dockShown: Bool { model.visiblePages.count > 1 || model.editing }
+    /// The page, the editor, or the empty line: what sits beside the rail (expanded) or fills the panel (compact).
+    @ViewBuilder private func area(current: PageKind?, columns: Int, expanded: Bool) -> some View {
+        if model.editing {
+            WidgetEditor(page: current ?? settings.page, columns: columns).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+        } else if let current {
+            // Only the page in place (and, while sliding, its neighbour) is in the view tree, so hidden pages can't
+            // tick, poll or fetch (§7). The pages sit edge to edge and move as one strip.
+            PagerStrip(swipe: model.swipe, stride: model.pageStride) {
+                pageBody(current, columns: columns)
+            } partner: { page in
+                pageBody(page, columns: columns)
+            }
+            // Pull out to the panel's edge so a sliding page is cut by the panel, not by the card margins.
+            .padding(.leading, expanded ? 0 : -Tok.s2)
+            .padding(.trailing, -Tok.s2)
+        } else {
+            EmptyLine(symbol: "square.grid.2x2", text: "No widgets") {
+                PillButton(title: "Edit widgets") { withAnimation(Tok.open) { model.editing = true } }
+            }
+            .padding(.horizontal, Tok.s3)
+            .blurReveal(shown, delay: 0.05)
+        }
+    }
+
+    /// The workspace on Agents already shows what waits on you, so the bar is for every other page.
+    private var needsBar: Bool { buddies.needsYouCount > 0 && !model.editing && !(settings.expanded && model.currentPage == .agents) }
+
+    /// Height the band, the bar, the dock and the bottom inset take, which the page area can't use.
+    private var chrome: CGFloat {
+        (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 + (dockShown ? Tok.dock + Tok.s2 : 0) + (needsBar ? NeedsYouBar.height + Tok.s2 : 0)
+    }
+    private var dockShown: Bool { !settings.expanded && (model.visiblePages.count > 1 || model.editing) }
 
     /// One page: its rows of widgets, scrolling vertically if they are taller than the room. Padded inside so the cards
     /// keep their margin while the page itself spans the panel.
-    private func pageBody(_ page: PageKind, columns: Int) -> some View {
+    @ViewBuilder private func pageBody(_ page: PageKind, columns: Int) -> some View {
         let rows = WidgetLayout.rows(entries(on: page), columns: columns)
-        return PageScroller(limit: model.maxContentHeight - chrome) {
+        if settings.expanded && page == .agents {
+            // Agents has a layout of its own when expanded: crew and conversation beside tasks and schedule.
+            PageScroller(limit: model.maxContentHeight - chrome) {
+                AgentsWorkspace(store: buddies).padding(.horizontal, Tok.s2)
+            }
+        } else {
+        PageScroller(limit: model.maxContentHeight - chrome) {
             VStack(alignment: .leading, spacing: Tok.s2) {
                 ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
                     SpanRow(columns: columns, spacing: Tok.s2) {
@@ -88,6 +117,7 @@ struct ExpandedView: View {
             }
             .animation(Tok.open, value: rows.map { $0.map(\.kind) })
             .padding(.horizontal, Tok.s2)
+        }
         }
     }
 

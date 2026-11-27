@@ -63,6 +63,21 @@ struct TaskDTO: Decodable, Equatable, Identifiable {
     let moved: Double
     let note: String?
 }
+/// A routine as the core reports it, with its schedule already in words and its next run already worked out.
+struct RoutineDTO: Equatable, Identifiable {
+    let id: String
+    let buddy: String
+    let goal: String
+    let paused: Bool
+    let when: String
+    let next: Date?
+}
+private struct RoutineWire: Decodable { let id: String; let buddy: String; let goal: String; let paused: Bool }
+private struct RoutinesData: Decodable {
+    let routines: [RoutineWire]
+    let nextRun: [String: String?]
+    let when: [String: String]
+}
 private struct RosterData: Decodable { let buddies: [BuddyDTO] }
 private struct TaskData: Decodable { let task: TaskDTO }
 private struct CreatedData: Decodable { let buddy: BuddyDTO; let by: String }
@@ -143,6 +158,7 @@ final class CoreLink: ObservableObject {
     @Published private(set) var buddies: [BuddyDTO] = []
     @Published private(set) var tasks: [TaskDTO] = []
     /// Why the core last said no (a full crew, a limit, a rule), shown once and cleared by the view that showed it.
+    @Published private(set) var routines: [RoutineDTO] = []
     @Published var refusal: String?
     /// Who made the buddy that appeared last, when a buddy made it (you are shown it, never surprised by it).
     @Published private(set) var madeByBuddy: (buddy: String, by: String)?
@@ -232,6 +248,13 @@ final class CoreLink: ObservableObject {
     func createBuddy(name: String, sprite: String, job: String, tiers: [String]) {
         request("crew.buddy.create", ["by": "you", "spec": ["name": name, "sprite": sprite, "job": job, "tiers": tiers]])
     }
+    /// `schedule` is the protocol's Schedule: {"kind": "daily", "time": "08:30", "days": [1,2,3,4,5]} or {"kind": "every", "minutes": 60}.
+    func createRoutine(buddy: String, goal: String, schedule: [String: Any]) {
+        request("crew.routine.create", ["buddy": buddy, "goal": goal, "schedule": schedule])
+    }
+    func pauseRoutine(_ id: String, paused: Bool) { request("crew.routine.pause", ["id": id, "paused": paused]) }
+    func removeRoutine(_ id: String) { request("crew.routine.remove", ["id": id]) }
+    func runRoutineNow(_ id: String) { request("crew.routine.runNow", ["id": id]) }
     func removeBuddy(_ id: String) { request("crew.buddy.remove", ["by": "you", "id": id]) }
     func createTask(buddy: String, goal: String, maxMoney: Double?) {
         var data: [String: Any] = ["buddy": buddy, "goal": goal]
@@ -276,6 +299,14 @@ final class CoreLink: ObservableObject {
             }
         case "crew.roster":
             if let r = try? dec.decode(Reply<RosterData>.self, from: data) { buddies = r.data.buddies }
+        case "crew.routines":
+            if let r = try? dec.decode(Reply<RoutinesData>.self, from: data) {
+                let iso = ISO8601DateFormatter(); iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                routines = r.data.routines.map { w in
+                    let next = (r.data.nextRun[w.id] ?? nil).flatMap { iso.date(from: $0) }
+                    return RoutineDTO(id: w.id, buddy: w.buddy, goal: w.goal, paused: w.paused, when: r.data.when[w.id] ?? "", next: next)
+                }
+            }
         case "crew.created":
             if let r = try? dec.decode(Reply<CreatedData>.self, from: data), r.data.by != "you" { madeByBuddy = (r.data.buddy.name, r.data.by) }
         case "crew.refused":

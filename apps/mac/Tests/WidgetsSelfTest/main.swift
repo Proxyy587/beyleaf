@@ -36,12 +36,12 @@ for columns in 1...4 {
             let flat = rows.flatMap { $0 }
             if flat.map(\.kind) != items.map(\.kind) { allOk = false }
             if rows.contains(where: { $0.map(\.columns).reduce(0, +) > columns }) { allOk = false }
-            if zip(flat, items).contains(where: { $0.columns != min($1.span.rawValue, columns) }) { allOk = false }
+            if zip(flat, items).contains(where: { $0.columns != ($1.span == .full ? columns : min($1.span.rawValue, columns)) }) { allOk = false }
             for (r, next) in zip(rows, rows.dropFirst()) where r.map(\.columns).reduce(0, +) + next[0].columns <= columns { allOk = false }
         }
     }
 }
-check(allOk, "grid: every order, span mix and 1-4 columns: order kept, no overfull row, spans honoured, rows tight")
+check(allOk, "grid: every order, span mix and 1-4 columns: order kept, no overfull row, spans honoured (full is a whole row), rows tight")
 
 // Sizes a widget may take, and cycling through them.
 check(WidgetKind.allCases.allSatisfy { $0.spans.contains($0.defaultSpan) && !$0.spans.isEmpty }, "spans: every kind's default is one it allows")
@@ -59,10 +59,11 @@ Pages.setSpan(.clock, .full, in: &cyc)
 check(Pages.span(of: .clock, in: cyc) == .full, "setSpan stores a span")
 
 // Expanded: one more column of the same width (widgets keep their size; the extra room holds more of them).
-check(WidgetLayout.columns(expanded: false) == 2 && WidgetLayout.columns(expanded: true) == 3, "expanded: 2 columns become 3")
-check(WidgetLayout.expandedWidth(base: 440, inner: 400, gap: 8, cap: 680) == 644, "expanded: width grows by exactly one column and a gap")
-check(WidgetLayout.expandedWidth(base: 560, inner: 520, gap: 8, cap: 680) == 680, "expanded: capped so the shadow fits")
-check(WidgetLayout.columnWidth(inner: 400, columns: 2, gap: 8) == WidgetLayout.columnWidth(inner: 644 - 40, columns: 3, gap: 8), "expanded: a column is the same width in both modes")
+check(WidgetLayout.columns(expanded: false) == 2 && WidgetLayout.columns(expanded: true) == 4, "expanded: 2 columns become 4")
+check(WidgetLayout.expandedWidth(base: 360, inner: 320, gap: 8, rail: 148, cap: 940) == 836 && WidgetLayout.expandedWidth(base: 440, inner: 400, gap: 8, rail: 148, cap: 940) == 940, "expanded: width grows by two columns, their gaps and the page rail, up to the cap")
+check(WidgetLayout.expandedWidth(base: 560, inner: 520, gap: 8, rail: 148, cap: 940) == 940, "expanded: capped so the shadow fits")
+check(WidgetLayout.columnWidth(inner: 940 - 24 - 148 - 16, columns: 4, gap: 8) >= 175 && WidgetLayout.columnWidth(inner: 940 - 24 - 148 - 16, columns: 4, gap: 8) < WidgetLayout.columnWidth(inner: 400, columns: 2, gap: 8), "expanded: four columns of at least 175 pt, a little narrower than compact's 196")
+check(shape(WidgetLayout.rows([(cl, .wide), (np, .wide), (ss, .full), (tm, .small)], columns: 4)) == "clock:2+nowPlaying:2 | screenshot:4 | timer:1", "grid: four columns hold two wide widgets in a row, and a full takes the whole row")
 let hasRoom = WidgetLayout.rows([(cl, .small), (ss, .small), (tm, .small), (np, .wide)], columns: 3).count
 check(hasRoom == 2 && WidgetLayout.rows([(cl, .small), (ss, .small), (tm, .small), (np, .wide)], columns: 2).count == 3, "expanded: three smalls fit one row instead of two")
 check(WidgetLayout.minHeight(.tile, button: 28, inset: 12) == 84 && WidgetLayout.minHeight(.wide, button: 28, inset: 12) == 60, "min height: tile and wide floors")

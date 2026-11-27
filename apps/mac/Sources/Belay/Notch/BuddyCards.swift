@@ -226,7 +226,7 @@ struct BuddiesCard: View {
                     .buttonStyle(.plain).accessibilityLabel("New buddy")
                 }
             }
-            .frame(width: 184, alignment: .leading)
+            .frame(width: 128, alignment: .leading)
             VStack(alignment: .leading, spacing: Tok.s3) {
                 HStack {
                     Text(b.name).font(Tok.title).foregroundStyle(Tok.ink)
@@ -243,24 +243,29 @@ struct BuddiesCard: View {
     }
 
     private func thread(_ b: BuddyEntry) -> some View {
-        let lines = BuddyLogic.tail(store.thread(b.id), columns: 3)
-        return VStack(alignment: .leading, spacing: Tok.s2) {
-            if lines.isEmpty {
-                Text("Nothing yet. Ask \(b.name) something.").font(Tok.body).foregroundStyle(Tok.ink3)
-            }
-            ForEach(lines) { line in
-                VStack(alignment: .leading, spacing: 2) {
-                    // Who is talking, when it isn't this thread's buddy (a hand-off).
-                    if let f = line.from, f != b.id { StatusLine(text: f.rawValue) }
-                    // Text, not bubbles: yours is quieter, a buddy's is full ink (docs/buddies.md §5).
-                    Text(line.text).font(Tok.body).foregroundStyle(line.from == nil ? Tok.ink2 : Tok.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    ForEach(line.steps) { StatusLine(text: $0.label) }
+        // The whole conversation, scrolled to the latest: the workspace has the room (the compact card shows only the last line).
+        let lines = store.thread(b.id)
+        return ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: Tok.s2) {
+                if lines.isEmpty {
+                    Text("Nothing yet. Ask \(b.name) something, or press Task to give it a goal.").font(Tok.body).foregroundStyle(Tok.ink3)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(lines) { line in
+                    VStack(alignment: .leading, spacing: 2) {
+                        // Who is talking, when it isn't this thread's buddy (a hand-off).
+                        if let f = line.from, f != b.id { StatusLine(text: f.rawValue) }
+                        // Text, not bubbles: yours is quieter, a buddy's is full ink (docs/buddies.md §5).
+                        Text(line.text).font(Tok.body).foregroundStyle(line.from == nil ? Tok.ink2 : Tok.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        ForEach(line.steps) { StatusLine(text: $0.label) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .defaultScrollAnchor(.bottom)
+        .frame(maxHeight: .infinity)
     }
 }
 
@@ -301,7 +306,16 @@ struct RoutinesCard: View {
         return "next \(BuddyLogic.until(next, now: now))"
     }
 
-    private func row(_ r: RoutineEntry, now: Date) -> some View {
+    private func row(_ r: RoutineEntry, now: Date) -> some View { RoutineRow(store: store, routine: r, now: now) }
+}
+
+/// One routine: who, what, when, and the pause and remove controls.
+struct RoutineRow: View {
+    @ObservedObject var store: BuddyStore
+    let routine: RoutineEntry
+    let now: Date
+    var body: some View {
+        let r = routine
         HStack(spacing: Tok.s2) {
             BuddyView(id: r.buddy, style: .smooth, mood: r.paused ? .sleep : .idle, size: 22)
             VStack(alignment: .leading, spacing: 0) {
@@ -314,5 +328,6 @@ struct RoutinesCard: View {
             }
         }
         .frame(minHeight: Tok.button)
+        .contextMenu { Button("Remove routine") { withAnimation(Tok.open) { store.removeRoutine(r.id) } } }
     }
 }

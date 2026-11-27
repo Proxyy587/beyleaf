@@ -32,7 +32,7 @@ final class NotchModel: ObservableObject {
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
     /// One page's width plus nothing between pages: how far a page travels to replace its neighbour.
-    var pageStride: CGFloat { openWidth - 2 * Tok.rOpenEar }
+    var pageStride: CGFloat { openWidth - 2 * Tok.rOpenEar - (AppSettings.shared.expanded ? Tok.rail : 0) }
 
     /// Shows `page` and remembers it as the page the notch opens on. The pages slide: the new one arrives from the side
     /// you're going to while the old one leaves the other way, so a click, a key and a swipe all move the same way.
@@ -161,7 +161,7 @@ final class NotchController {
 
     /// The panel is sized for the largest state; the SwiftUI shape animates inside it.
     /// Large enough for the widest, tallest theme plus its shadow; transparent areas pass clicks through.
-    private static let canvas = CGSize(width: 720, height: NotchModel.canvasHeight)
+    private static let canvas = CGSize(width: 1010, height: NotchModel.canvasHeight)
 
     func start(openOnLaunch: Bool) {
         let screen = Self.screen

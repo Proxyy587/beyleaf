@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { Envelope, ShellRequest, type EngineId, type EngineRow } from "@belay/protocol";
 import type { Task } from "@belay/protocol";
 import { Registry } from "./crew/registry";
+import { Routines } from "./crew/routines";
 import { Talk } from "./crew/talk";
 import * as M from "./tasks/machine";
 import { ENGINES } from "./engines/catalog";
@@ -29,6 +30,7 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
   // The crew starts as beepo alone; buddies and tasks exist only because you (or a buddy you made) asked (docs/buddies.md).
   const registry = new Registry();
   const talk = new Talk(registry);
+  const routines = new Routines();
   const tasks = new Map<string, Task>();
   const clients = new Set<import("bun").Socket<Conn>>();
   const watching = new Map<EngineId, AbortController>();
@@ -44,8 +46,19 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
   const roster = () => ({ buddies: registry.buddies, states: Object.fromEntries(registry.buddies.map((b) => [b.id, "idle"])), notes: talk.notes() });
   const world = async (): Promise<M.World> => ({ engineReady: (await rows()).some((r) => r.status.auth === "signed-in"), tradingEnabled: false, now: new Date() });
   const put = (t: Task) => { tasks.set(t.id, t); push("task.updated", { task: t }); return t; };
-  // Every task ends: a clock enforces the time limit while the core runs.
-  const clock = setInterval(() => { for (const t of tasks.values()) { const n = M.tick(t, new Date()); if (n !== t) put(n); } }, 15_000);
+  const routineState = () => ({
+    routines: routines.all,
+    nextRun: Object.fromEntries(routines.all.map((r) => [r.id, routines.next(r)?.toISOString() ?? null])),
+    when: Object.fromEntries(routines.all.map((r) => [r.id, routines.words(r)])),
+  });
+  /** A routine's time came (or you pressed run now): it makes a task, which waits for your OK to its plan like any other. */
+  const fire = async (r: { buddy: string; goal: string }) => put(M.create(r.buddy, r.goal, undefined, await world()));
+  // Every task ends: a clock enforces the time limit and fires due routines while the core runs.
+  const clock = setInterval(() => {
+    for (const t of tasks.values()) { const n = M.tick(t, new Date()); if (n !== t) put(n); }
+    const due = routines.due();
+    if (due.length) { due.forEach((r) => void fire(r)); push("crew.routines", routineState()); }
+  }, 15_000);
   clock.unref();
 
   async function handle(s: import("bun").Socket<Conn>, line: string) {
@@ -57,7 +70,18 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
     switch (req.type) {
       case "ping": return send(s, env.id, "pong", { type: "pong" });
       case "engines.list": return send(s, env.id, "engines.list.result", { type: "engines.list.result", engines: await rows() });
-      case "crew.list": return send(s, env.id, "crew.roster", { type: "crew.roster", ...roster() });
+      case "crew.list":
+        send(s, env.id, "crew.roster", { type: "crew.roster", ...roster() });
+        return send(s, env.id, "crew.routines", { type: "crew.routines", ...routineState() });
+      case "crew.routine.create": {
+        if (!registry.get(req.buddy)) return send(s, env.id, "crew.refused", { type: "crew.refused", why: `${req.buddy} is not on your crew` });
+        const r = routines.create(req.buddy, req.goal, req.schedule);
+        if (!r.ok) return send(s, env.id, "crew.refused", { type: "crew.refused", why: r.why });
+        return push("crew.routines", routineState());
+      }
+      case "crew.routine.remove": routines.remove(req.id); return push("crew.routines", routineState());
+      case "crew.routine.pause": routines.setPaused(req.id, req.paused); return push("crew.routines", routineState());
+      case "crew.routine.runNow": { const r = routines.runNow(req.id); if (r) await fire(r); return; }
       case "crew.buddy.create": {
         const r = registry.create(req.by, req.spec);
         if (!r.ok) return send(s, env.id, "crew.refused", { type: "crew.refused", why: r.why });
@@ -67,7 +91,8 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
       case "crew.buddy.remove": {
         const r = registry.remove(req.by, req.id);
         if (!r.ok) return send(s, env.id, "crew.refused", { type: "crew.refused", why: r.why });
-        for (const id of r.value) { talk.forget(id); for (const t of tasks.values()) if (t.buddy === id) put(M.stop(t)); push("crew.removed", { id, by: req.by }); }
+        for (const id of r.value) { talk.forget(id); routines.removeFor(id); for (const t of tasks.values()) if (t.buddy === id) put(M.stop(t)); push("crew.removed", { id, by: req.by }); }
+        push("crew.routines", routineState());
         return push("crew.roster", roster());
       }
       case "crew.tell": {
