@@ -42,7 +42,7 @@ final class NotchModel: ObservableObject {
         pageStep = step
         swipe.token += 1
         let token = swipe.token
-        if Tok.reduceMotion || !isOpen {
+        if Tok.reduceMotion || !isOpen || editing {
             withAnimation(Tok.open) { AppSettings.shared.page = page }
             swipe.offset = 0; swipe.partner = nil
             return

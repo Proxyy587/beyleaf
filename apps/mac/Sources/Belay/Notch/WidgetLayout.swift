@@ -6,13 +6,22 @@ import Foundation
 /// The pages of the open notch (ADR 0021). Order of cases is the default order. `agents` joins at A1.
 enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case now, notes, day, agents
+    /// Spare pages you can add: a page is a window of your own, named and filled as you like (up to eight in all).
+    case extra1, extra2, extra3, extra4
     var id: String { rawValue }
-    var name: String {
+    var isExtra: Bool { rawValue.hasPrefix("extra") }
+    /// The name a page starts with; yours (if you renamed it) wins.
+    var name: String { PageNames.custom[rawValue].flatMap { $0.isEmpty ? nil : $0 } ?? defaultName }
+    var defaultName: String {
         switch self {
         case .now: "Now"
         case .notes: "Notes"
         case .day: "Day"
         case .agents: "Agents"
+        case .extra1: "Page 5"
+        case .extra2: "Page 6"
+        case .extra3: "Page 7"
+        case .extra4: "Page 8"
         }
     }
     var symbol: String {
@@ -21,15 +30,22 @@ enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .notes: "square.and.pencil"
         case .day: "calendar"
         case .agents: "person.2"
+        case .extra1, .extra2, .extra3, .extra4: "square.grid.2x2"
         }
     }
+}
+
+/// The names you gave your pages. Set by the settings object on the main actor; read wherever a page is named.
+enum PageNames {
+    nonisolated(unsafe) static var custom: [String: String] = [:]
+    static let maxLength = 14
 }
 
 /// Every widget the open notch can show. Order of cases is the default order within each home page.
 enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, nowPlaying, timer, stopwatch, screenshot, notes, weather, calendar
     case system, keepAwake, moon, roll
-    case buddies, routines
+    case buddies, routines, tasks
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -47,6 +63,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .roll: "Roll"
         case .buddies: "Buddies"
         case .routines: "Routines"
+        case .tasks: "Tasks"
         }
     }
     var symbol: String {
@@ -65,15 +82,15 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .roll: "dice"
         case .buddies: "person.2"
         case .routines: "clock.arrow.circlepath"
+        case .tasks: "checklist"
         }
     }
     /// The page a widget starts on (and returns to on Reset).
     var home: PageKind {
         switch self {
         case .clock, .nowPlaying, .timer, .stopwatch, .screenshot, .system, .keepAwake, .moon, .roll: .now
-        case .notes: .notes
-        case .weather, .calendar: .day
-        case .buddies, .routines: .agents
+        case .weather, .calendar, .notes: .day
+        case .buddies, .routines, .tasks: .agents
         }
     }
     /// Side options start off (owner, 2026-11-25: the timer is a convenience, not the product; the stopwatch follows it).
@@ -83,7 +100,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     /// The span a widget gets when it is first placed (and on Reset). Exhaustive on purpose: a new kind must choose.
     var defaultSpan: WidgetSpan {
         switch self {
-        case .nowPlaying, .notes, .calendar, .system, .buddies, .routines: .wide
+        case .nowPlaying, .notes, .calendar, .system, .buddies, .routines, .tasks: .wide
         case .clock, .timer, .stopwatch, .screenshot, .weather, .keepAwake, .moon, .roll: .small
         }
     }
@@ -168,8 +185,13 @@ enum Pages {
     /// what ADR 0019 packed (no half-row holes). After that the user's choices are never re-packed.
     static let defaults: [PageSetting] = PageKind.allCases.map { page in
         var widgets = WidgetKind.allCases.filter { $0.home == page }.map { WidgetSetting(kind: $0, enabled: $0.onByDefault) }
+        // Notes is the last thing on Day: the glance (weather, what's next) comes first.
+        widgets = widgets.filter { $0.kind != .notes } + widgets.filter { $0.kind == .notes }
         autoSpans(&widgets, clockHasZones: false)
-        return PageSetting(kind: page, enabled: true, widgets: widgets)
+        // Weather and the calendar are glances: side by side, with Notes wide beneath, so Day reads as one full block.
+        if page == .day { for k in widgets.indices where widgets[k].kind == .weather || widgets[k].kind == .calendar { widgets[k].span = .small } }
+        // Notes lives on Day now; its old page stays available but off, like the spare pages you add yourself.
+        return PageSetting(kind: page, enabled: !(page.isExtra || page == .notes), widgets: widgets)
     }
 
     /// Gives a page's shown widgets the spans ADR 0019's rule would have drawn: a widget that is wide by nature stays
@@ -292,6 +314,26 @@ enum Pages {
     /// widget has something to show (live or ready).
     static func visible(_ pages: [PageSetting], present: (WidgetKind) -> Bool) -> [PageKind] {
         pages.filter { $0.enabled && $0.widgets.contains { $0.enabled && present($0.kind) } }.map(\.kind)
+    }
+
+    /// Takes a page away: its widgets go to the end of the nearest page that stays, with their sizes and whether they are
+    /// shown, and the page is switched off (the spare comes back empty if you add it again). Returns the page to show.
+    @discardableResult
+    static func remove(_ page: PageKind, in pages: inout [PageSetting]) -> PageKind? {
+        let on = pages.filter(\.enabled).map(\.kind)
+        guard on.count > 1, let i = pages.firstIndex(where: { $0.kind == page }), pages[i].enabled else { return nil }
+        let k = on.firstIndex(of: page) ?? 0
+        let heir = on[k == 0 ? 1 : k - 1]
+        guard let h = pages.firstIndex(where: { $0.kind == heir }) else { return nil }
+        pages[h].widgets.append(contentsOf: pages[i].widgets)
+        pages[i].widgets = []
+        pages[i].enabled = false
+        return heir
+    }
+
+    /// The first spare page that is off, in the order they were made available.
+    static func nextSpare(in pages: [PageSetting]) -> PageKind? {
+        PageKind.allCases.first { kind in kind.isExtra && !(pages.first { $0.kind == kind }?.enabled ?? false) }
     }
 
     /// The page to open on: the remembered one if it's visible, else the first visible page.

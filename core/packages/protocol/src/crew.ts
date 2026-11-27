@@ -17,8 +17,20 @@ export const Buddy = z.object({
   engine: z.enum(["claude-cli", "codex-cli", "local-model", "api-key", "rules", "fake"]),
   tiers: z.array(Tier),
   autonomy: Autonomy,
+  /** Who made this buddy: you, or another buddy (docs/buddies.md §2a). Buddies are never made on their own. */
+  createdBy: z.union([z.literal("you"), BuddyId]).default("you"),
 });
 export type Buddy = z.infer<typeof Buddy>;
+
+/** What a new buddy is made from. The rest (tiers, autonomy, engine) starts at the safest the maker allows. */
+export const BuddySpec = z.object({
+  name: z.string().min(1).max(24),
+  sprite: z.string(),
+  job: z.string().max(80),
+  tiers: z.array(Tier).optional(),
+  autonomy: Autonomy.optional(),
+});
+export type BuddySpec = z.infer<typeof BuddySpec>;
 
 export const BuddyState = z.enum(["idle", "working", "waiting", "done", "error", "paused"]);
 
@@ -60,11 +72,22 @@ export const CrewRequest = z.discriminatedUnion("type", [
   z.object({ type: z.literal("crew.say"), text: z.string().min(1).max(20000), thread: z.string().optional() }),
   z.object({ type: z.literal("crew.routine.pause"), id: z.string(), paused: z.boolean() }),
   z.object({ type: z.literal("crew.routine.runNow"), id: z.string() }),
+  z.object({ type: z.literal("crew.list") }),
+  /** `by` is "you" from the shell. A buddy's own request arrives through the Belay MCP server and is shown to you. */
+  z.object({ type: z.literal("crew.buddy.create"), by: z.union([z.literal("you"), BuddyId]).default("you"), spec: BuddySpec }),
+  z.object({ type: z.literal("crew.buddy.remove"), by: z.union([z.literal("you"), BuddyId]).default("you"), id: BuddyId }),
+  /** A message between buddies (or you to a buddy). Recorded in the pair's thread; buddies see each other's. */
+  z.object({ type: z.literal("crew.tell"), from: z.union([z.literal("you"), BuddyId]), to: BuddyId, text: z.string().min(1).max(4000) }),
+  /** Put a note in the shared notebook every buddy can read. */
+  z.object({ type: z.literal("crew.share"), by: z.union([z.literal("you"), BuddyId]), key: z.string().min(1).max(40), text: z.string().max(4000) }),
 ]);
 
 /** Core to shell. */
 export const CrewEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("crew.roster"), buddies: z.array(Buddy), states: z.record(BuddyId, BuddyState) }),
   z.object({ type: z.literal("crew.message"), message: Message }),
+  z.object({ type: z.literal("crew.created"), buddy: Buddy, by: z.union([z.literal("you"), BuddyId]) }),
+  z.object({ type: z.literal("crew.removed"), id: BuddyId, by: z.union([z.literal("you"), BuddyId]) }),
+  z.object({ type: z.literal("crew.refused"), why: z.string() }),
   z.object({ type: z.literal("crew.routines"), routines: z.array(Routine), nextRun: z.record(z.string(), z.string().datetime().nullable()) }),
 ]);

@@ -79,3 +79,22 @@ test("an existing file at the socket path is never deleted", () => {
   writeFileSync(f, "x");
   expect(() => startServer({ socketPath: f, deps })).toThrow(/not a socket/);
 });
+
+test("the crew is beepo alone until you make a buddy; a buddy can make a buddy", async () => {
+  const first = await ask("crew.list", {}, (m) => m.type === "crew.roster");
+  expect(first.at(-1).data.buddies.map((b: any) => b.id)).toEqual(["beepo"]);
+  const made = await ask("crew.buddy.create", { spec: { name: "sprout", sprite: "sprout", job: "code" } }, (m) => m.type === "crew.roster");
+  expect(made.at(-1).data.buddies.map((b: any) => b.id)).toEqual(["beepo", "sprout"]);
+  const kid = await ask("crew.buddy.create", { by: "sprout", spec: { name: "tester", sprite: "toby", job: "tests" } }, (m) => m.type === "crew.roster");
+  expect(kid.some((m) => m.type === "crew.created" && m.data.by === "sprout")).toBe(true);
+});
+
+test("a refused crew request says why", async () => {
+  const r = await ask("crew.buddy.remove", { id: "beepo" }, (m) => m.type === "crew.refused");
+  expect(r.at(-1).data.why).toContain("beepo");
+});
+
+test("a trading task is blocked, never planned", async () => {
+  const r = await ask("task.create", { buddy: "beepo", goal: "start trading with my money", limits: { maxSteps: 10, maxMinutes: 10, maxMoney: 100 } }, (m) => m.type === "task.updated");
+  expect(r.at(-1).data.task.status).toBe("blocked");
+});

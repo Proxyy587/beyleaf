@@ -59,6 +59,8 @@ enum Tok {
     // MARK: Space and layout
     static let s1: CGFloat = 4, s2: CGFloat = 8, s3: CGFloat = 12, s4: CGFloat = 16, s5: CGFloat = 20, s6: CGFloat = 24
     static var rowHeight: CGFloat { t.density.rowHeight }
+    /// Height of the page dots at the bottom of the open panel.
+    static let dock: CGFloat = 18
     static var gutter: CGFloat { 20 * t.textScale }
     static var button: CGFloat { 28 * min(1.15, t.textScale) }
     /// Space between an icon button's edge and its glyph. Buttons at a row's edge pull out by this much, so the glyph

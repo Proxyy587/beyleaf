@@ -30,3 +30,4 @@ New decision: copy the newest file, bump the number, and link it here.
 | [0023](0023-widget-span-grid.md) | Widgets have a user-chosen size (small, wide, full) on a 2- or 3-column grid; the app never re-packs (supersedes 0019's packing rule) | accepted |
 | [0024](0024-one-rope-positioning.md) | Belay is "one rope for every AI on your Mac"; session bus and rope are built first | accepted |
 | [0025](0025-engine-sign-in.md) | Engines sign in through the vendor's own CLI; status comes from the CLI, never from credential files | accepted |
+| [0026](0026-buddies-and-tasks-are-made-by-you.md) | Buddies and tasks exist only because you (or a buddy you made) asked; money is never autonomous; trading is off | accepted |

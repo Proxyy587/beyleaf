@@ -107,12 +107,13 @@ check(spanMap(lp, .now) == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:
 check(spanMap(lp, .day) == "calendar:2 weather:2", "migration: a lone tile after a wide widget was promoted, so it becomes wide")
 check(Pages.decode(Data(legacy.utf8), clockHasZones: true).map { spanMap($0, .now) } == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:1", "migration: clock with zones is wide")
 check(spanMap(Pages.defaults, .now) == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:2", "defaults: Now looks as ADR 0019 packed it")
-check(spanMap(Pages.defaults, .day) == "weather:2 calendar:2" && spanMap(Pages.defaults, .notes) == "notes:2", "defaults: Day and Notes are wide")
+check(spanMap(Pages.defaults, .day) == "weather:1 calendar:1 notes:2" && spanMap(Pages.defaults, .notes) == "", "defaults: Day holds weather and calendar side by side with notes wide beneath; the old Notes page is empty")
+check(Pages.defaults.filter(\.enabled).map(\.kind) == [.now, .day, .agents], "defaults: three pages are on; Notes and the spare pages are off")
 let withSpans = #"[{"kind":"now","enabled":true,"widgets":[{"kind":"clock","enabled":true,"span":1},{"kind":"nowPlaying","enabled":true,"span":3},{"kind":"timer","enabled":true,"span":9},{"kind":"screenshot","enabled":true,"span":"wide"}]}]"#
 let sp = Pages.decode(Data(withSpans.utf8)) ?? []
 check(invariant(sp), "spans decode holds the invariant")
 check(spanMap(sp, .now) == "clock:1 nowPlaying:3 timer:1 stopwatch:1 screenshot:1", "spans decode: kept as saved, a bad value falls back to the kind's default, no auto packing")
-check(spanMap(sp, .notes) == "notes:2" && spanMap(sp, .day) == "weather:2 calendar:2", "spans decode: pages missing from the data come back with their defaults")
+check(spanMap(sp, .day) == "weather:1 calendar:1 notes:2", "spans decode: widgets missing from the data come back with their defaults")
 let roundTrip = (try? JSONEncoder().encode(sp)).flatMap { Pages.decode($0) }
 check(roundTrip == sp, "spans survive encode then decode unchanged")
 var keep = sp
@@ -126,11 +127,11 @@ check(Pages.span(of: .clock, in: cleared) == .small, "hiding a widget keeps its 
 var moved = Pages.defaults
 Pages.move(.timer, to: .day, in: &moved)
 check(invariant(moved) && Pages.page(of: .timer, in: moved) == .day, "move between pages keeps the invariant")
-check(Pages.visible(moved, present: { _ in true }) == [.now, .notes, .day, .agents], "visible: pages with a shown widget, in order (Notes holds the Notes widget)")
-check(Pages.visible(Pages.defaults, present: { $0 == .notes }) == [.notes], "visible: the Notes page shows whenever its field is present")
+check(Pages.visible(moved, present: { _ in true }) == [.now, .day, .agents], "visible: pages that are on and have a shown widget, in order")
+check(Pages.visible(Pages.defaults, present: { $0 == .notes }) == [.day], "visible: Day shows whenever the Notes field is present")
 check(Pages.visible(moved, present: { $0 == .nowPlaying }) == [.now], "visible: a page with nothing present is skipped")
 var off = moved; off[0].enabled = false
-check(Pages.visible(off, present: { _ in true }) == [.notes, .day, .agents], "visible: a page switched off is skipped")
+check(Pages.visible(off, present: { _ in true }) == [.day, .agents], "visible: a page switched off is skipped")
 check(Pages.resolve(.notes, visible: [.now, .day]) == .now, "resolve falls back to the first visible page")
 check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the remembered page")
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
@@ -511,10 +512,40 @@ do {
     let now = Date(timeIntervalSince1970: 1_000_000)
     check(BuddyLogic.until(nil, now: now) == "on event" && BuddyLogic.until(now.addingTimeInterval(30), now: now) == "now" && BuddyLogic.until(now.addingTimeInterval(-5), now: now) == "now", "buddies: routine countdown, now and event")
     check(BuddyLogic.until(now.addingTimeInterval(12 * 60 + 5), now: now) == "in 12 min" && BuddyLogic.until(now.addingTimeInterval(3 * 3600 + 5), now: now) == "in 3 h" && BuddyLogic.until(now.addingTimeInterval(3 * 86_400 + 5), now: now) == "in 3 d", "buddies: routine countdown units")
-    check(WidgetKind.buddies.home == .agents && WidgetKind.routines.home == .agents && PageKind.allCases.last == .agents, "buddies: widgets live on the Agents page, the last page")
+    check(WidgetKind.buddies.home == .agents && WidgetKind.routines.home == .agents && PageKind.allCases.filter { !$0.isExtra }.last == .agents, "buddies: widgets live on the Agents page, the last built-in page")
     let pages = Pages.migrated(from: WidgetSetting.defaults)
-    check(Pages.visible(pages) { $0 != .buddies && $0 != .routines }.allSatisfy { $0 != .agents }, "buddies: the Agents page is hidden until the core reports buddies")
-    check(Pages.visible(pages) { _ in true }.contains(.agents), "buddies: the Agents page shows once a buddy is present")
+    check(Pages.visible(pages) { $0 != .buddies && $0 != .routines && $0 != .tasks }.allSatisfy { $0 != .agents }, "buddies: the Agents page is hidden when none of its widgets has anything to show")
+    check(Pages.visible(pages) { _ in true }.contains(.agents), "buddies: the Agents page shows once a buddy is present (beepo always is)")
+    check(WidgetKind.tasks.home == .agents && WidgetKind.tasks.defaultSpan == .wide, "tasks: the Tasks widget lives on Agents, wide")
+    check(TaskRunState.planOK.needsYou && TaskRunState.needsYou.needsYou && !TaskRunState.running.needsYou, "tasks: the plan and a step wait on you; running doesn't")
+    check(Set(TaskRunState.allCases.filter(\.isFinished)) == [.blocked, .done, .stopped, .failed], "tasks: finished states are blocked, done, stopped and failed")
+    check(TaskRunState.needsYou.urgency < TaskRunState.running.urgency && TaskRunState.running.urgency < TaskRunState.done.urgency, "tasks: what needs you sorts first, finished last")
+    check(BuddyLogic.parseLimit("150") == 150 && BuddyLogic.parseLimit(" 99.5 ") == 99.5 && BuddyLogic.parseLimit("") == nil && BuddyLogic.parseLimit("1e3") == nil && BuddyLogic.parseLimit("-5") == nil && BuddyLogic.parseLimit("0") == nil, "tasks: a limit is a positive number, typed plainly")
+    check(BuddyLogic.money(120, currency: "USD") == "120 USD" && BuddyLogic.money(12.5, currency: nil) == "12.50" && BuddyLogic.progress(done: 2, total: 3) == "2 of 3 steps" && BuddyLogic.progress(done: 0, total: 0) == nil, "tasks: money and progress words")
+}
+
+// Your own pages: add, name, remove (layout pass 2).
+do {
+    var p = Pages.defaults
+    check(Pages.nextSpare(in: p) == .extra1, "pages: the first spare page is offered")
+    p[p.firstIndex { $0.kind == .extra1 }!].enabled = true
+    check(Pages.nextSpare(in: p) == .extra2, "pages: then the next one")
+    check(PageKind.extra1.isExtra && !PageKind.agents.isExtra && PageKind.extra1.name == "Page 5", "pages: spare pages are named Page 5 and up")
+    PageNames.custom = ["extra1": "Trips"]
+    check(PageKind.extra1.name == "Trips", "pages: your name wins")
+    PageNames.custom = ["extra1": ""]
+    check(PageKind.extra1.name == "Page 5", "pages: an empty name falls back")
+    PageNames.custom = [:]
+    Pages.move(.timer, to: .extra1, in: &p)
+    check(Pages.page(of: .timer, in: p) == .extra1, "pages: a widget can live on a page you made")
+    let heir = Pages.remove(.extra1, in: &p)
+    check(heir == .agents && Pages.page(of: .timer, in: p) == .agents && p.first { $0.kind == .extra1 }?.enabled == false, "pages: removing a page moves its widgets to the neighbour before it and switches it off")
+    check(invariant(p), "pages: removing keeps the invariant (every widget exactly once)")
+    var one = Pages.defaults
+    for k in [PageKind.day, .agents] { one[one.firstIndex { $0.kind == k }!].enabled = false }
+    check(Pages.remove(.now, in: &one) == nil, "pages: the last page can't be removed")
+    var first = Pages.defaults
+    check(Pages.remove(.now, in: &first) == .day, "pages: removing the first page hands over to the next")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")

@@ -50,6 +50,12 @@ struct ExpandedView: View {
                 .padding(.horizontal, Tok.s3)
                 .blurReveal(shown, delay: 0.05)
             }
+            // Which page you are on, and the way to the others: small, centred, at the very bottom.
+            if visible.count > 1 || model.editing {
+                PageDock(model: model, pages: visible, current: current)
+                    .blurReveal(shown, delay: 0.1)
+                    .transition(.opacity)
+            }
         }
         .animation(Tok.open, value: model.editing)
         .padding(.horizontal, Tok.s2)
@@ -58,7 +64,8 @@ struct ExpandedView: View {
     }
 
     /// Height the band and the bottom inset take, which the page area can't use.
-    private var chrome: CGFloat { (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 }
+    private var chrome: CGFloat { (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 + (dockShown ? Tok.dock + Tok.s2 : 0) }
+    private var dockShown: Bool { model.visiblePages.count > 1 || model.editing }
 
     /// One page: its rows of widgets, scrolling vertically if they are taller than the room. Padded inside so the cards
     /// keep their margin while the page itself spans the panel.
@@ -92,6 +99,7 @@ struct ExpandedView: View {
         // Only real things (design.md §1): the Agents page exists once the core reports buddies (or in --buddies-demo).
         case .buddies: return buddies.hasBuddies
         case .routines: return !buddies.routines.isEmpty
+        case .tasks: return !buddies.tasks.isEmpty
         case .nowPlaying: return music.title != nil || music.availablePlayer != nil
         case .calendar:
             // A free day isn't news: with access and nothing in the next 24 h, the widget is gone.
@@ -129,6 +137,7 @@ struct ExpandedView: View {
         case .roll: RollCard(size: p.size)
         case .buddies: BuddiesCard(store: buddies, columns: p.columns)
         case .routines: RoutinesCard(store: buddies, columns: p.columns)
+        case .tasks: TasksCard(store: buddies, columns: p.columns)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
@@ -232,39 +241,48 @@ struct PageMetrics: PreferenceKey {
     static func reduce(value: inout Value, nextValue: () -> Value) { value = nextValue() }
 }
 
-/// One tab per visible page, beside the brand slot (docs/widget-hub.md §1.4): the page's symbol, the current one in a
-/// pill. Hidden with a single page. Hover names the page and its shortcut.
-struct PageDots: View {
+/// The pages as small dots at the bottom of the panel: the current one is a longer pill. Click one to go there; hover names it.
+/// While you are editing, a plus adds a page. Hidden with a single page (outside editing).
+struct PageDock: View {
     @ObservedObject var model: NotchModel
+    @ObservedObject var settings = AppSettings.shared
+    let pages: [PageKind]
+    let current: PageKind?
     @State private var hover: PageKind?
+
     var body: some View {
-        let pages = model.visiblePages
-        if pages.count > 1 {
-            HStack(spacing: 2) {
-                ForEach(Array(pages.enumerated()), id: \.element) { i, p in
-                    let current = p == model.currentPage
-                    Button { model.go(to: p) } label: {
-                        Image(systemName: p.symbol)
-                            .symbolVariant(current ? .fill : .none)
-                            .font(Tok.buttonIcon)
-                            .foregroundStyle(current ? Tok.ink : hover == p ? Tok.ink2 : Tok.ink3)
-                            .frame(width: Tok.button + 2, height: Tok.button)
-                            .background(Capsule().fill(current ? Tok.hoverFill : hover == p ? Tok.raised : .clear))
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .help("\(p.name)  ⌘\(i + 1)")
-                    .accessibilityLabel(p.name)
-                    .accessibilityAddTraits(current ? .isSelected : [])
-                    .onHover { h in withAnimation(Tok.hover) { hover = h ? p : (hover == p ? nil : hover) } }
+        HStack(spacing: 0) {
+            ForEach(Array(pages.enumerated()), id: \.element) { i, p in
+                let on = p == current
+                Button { model.go(to: p) } label: {
+                    Capsule().fill(on ? Tok.ink : hover == p ? Tok.ink2 : Tok.ink3)
+                        .frame(width: on ? 16 : 6, height: 6)
+                        .frame(width: on ? 26 : 16, height: Tok.dock)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .help("\(p.name)  ⌘\(i + 1)")
+                .accessibilityLabel(p.name)
+                .accessibilityAddTraits(on ? .isSelected : [])
+                .onHover { h in withAnimation(Tok.hover) { hover = h ? p : (hover == p ? nil : hover) } }
             }
-            .animation(Tok.hover, value: model.currentPage)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Pages")
-            .accessibilityAdjustableAction { d in model.go(by: d == .increment ? 1 : -1) }
-            .transition(.opacity)
+            if model.editing, settings.canAddPage {
+                Button {
+                    withAnimation(Tok.open) { if let p = settings.addPage() { settings.page = p } }
+                } label: {
+                    Image(systemName: "plus").font(.system(size: 9, weight: .semibold)).foregroundStyle(Tok.ink2)
+                        .frame(width: 22, height: Tok.dock).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Add a page")
+                .accessibilityLabel("Add a page")
+            }
         }
+        .animation(Tok.open, value: current)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Pages")
+        .accessibilityAdjustableAction { d in model.go(by: d == .increment ? 1 : -1) }
     }
 }
 
@@ -277,7 +295,9 @@ struct NotchBand: View {
     var body: some View {
         HStack(spacing: 0) {
             BrandSlot().padding(.leading, Tok.s3 - (Tok.button - 16) / 2)
-            PageDots(model: model).padding(.leading, Tok.s2)
+            if let name = model.currentPage?.name {
+                Text(name).font(Tok.rowTitle).foregroundStyle(Tok.ink2).lineLimit(1).padding(.leading, Tok.s1).blurSwap(on: name)
+            }
             Spacer(minLength: 0)
             if model.editing {
                 PillButton(title: "Done") { withAnimation(Tok.open) { model.editing = false } }
@@ -297,7 +317,6 @@ struct NotchBand: View {
             }
         }
         .animation(Tok.reveal, value: model.editing)
-        .animation(Tok.reveal, value: model.visiblePages.count > 1)
     }
 }
 
@@ -950,6 +969,7 @@ struct WidgetEditor: View {
     var body: some View {
         let rows = WidgetLayout.rows(shown.map { ($0, settings.span(of: $0)) }, columns: columns)
         VStack(alignment: .leading, spacing: Tok.s2) {
+            header
             ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { _, row in
                 SpanRow(columns: columns, spacing: Tok.s2) {
                     ForEach(row, id: \.kind) { placed in
@@ -958,15 +978,18 @@ struct WidgetEditor: View {
                 }
             }
             if !hidden.isEmpty {
-                HStack(spacing: Tok.s1) {
-                    ForEach(hidden) { k in
-                        Chip(title: "+ \(k.name)", label: "Show \(k.name) on \(page.name)") {
-                            withAnimation(Tok.open) { settings.moveWidget(k, to: page) }
+                // One row that scrolls sideways, so every name reads in full however many widgets are hidden.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Tok.s1) {
+                        ForEach(hidden) { k in
+                            Chip(title: "+ \(k.name)", label: "Show \(k.name) on \(page.name)") {
+                                withAnimation(Tok.open) { settings.moveWidget(k, to: page) }
+                            }
+                            .fixedSize()
                         }
                     }
-                    Spacer(minLength: 0)
+                    .padding(.horizontal, Tok.s1)
                 }
-                .padding(.horizontal, Tok.s1)
                 .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
             }
             Text(shown.isEmpty ? "Add a widget to show it on \(page.name)." : "Drag to arrange. Tap a widget to change its size.")
@@ -980,6 +1003,28 @@ struct WidgetEditor: View {
         .animation(Tok.open, value: hidden)
         .animation(Tok.open, value: shown.map { settings.span(of: $0) })
         .id(page)
+    }
+
+    /// The page's name, which you can change, and the way to remove the page (its widgets move to a neighbour).
+    private var header: some View {
+        HStack(spacing: Tok.s2) {
+            TextField("Page name", text: Binding(get: { settings.pageNames[page.rawValue] ?? page.defaultName },
+                                                 set: { settings.pageNames[page.rawValue] = String($0.prefix(PageNames.maxLength)) }))
+                .textFieldStyle(.plain).font(Tok.rowTitle).foregroundStyle(Tok.ink)
+                .onSubmit { settings.renamePage(page, to: settings.pageNames[page.rawValue] ?? "") }
+                .padding(.horizontal, Tok.s3).frame(width: 170, height: 26)
+                .background(Capsule().fill(Tok.hoverFill))
+                .help("Rename this page")
+                .accessibilityLabel("Page name")
+            Spacer(minLength: 0)
+            if settings.pages.filter(\.enabled).count > 1 {
+                IconButton(symbol: "trash", label: "Remove \(page.name)") {
+                    withAnimation(Tok.open) { if let heir = settings.removePage(page) { settings.page = heir } }
+                }
+            }
+        }
+        .padding(.horizontal, Tok.s2)
+        .frame(height: Tok.button)
     }
 
     /// A card in its slot. While it's the one being dragged, the slot shows a quiet placeholder instead.

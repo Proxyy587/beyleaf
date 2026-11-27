@@ -30,6 +30,43 @@ struct EngineRowDTO: Decodable, Equatable, Identifiable {
     var id: String { status.id }
 }
 
+/// Crew and task shapes, hand-mirrored from core/packages/protocol/src/crew.ts and tasks.ts until codegen.
+struct BuddyDTO: Decodable, Equatable, Identifiable {
+    let id: String
+    let name: String
+    let sprite: String
+    let job: String
+    let tiers: [String]
+    let autonomy: String
+    let createdBy: String
+}
+struct StepDTO: Decodable, Equatable, Identifiable {
+    let id: String
+    let label: String
+    let kind: String
+    let status: String
+    let amount: Double?
+}
+struct LimitsDTO: Decodable, Equatable {
+    let maxSteps: Int
+    let maxMinutes: Int
+    let maxMoney: Double?
+    let currency: String?
+}
+struct TaskDTO: Decodable, Equatable, Identifiable {
+    let id: String
+    let buddy: String
+    let goal: String
+    let status: String
+    let steps: [StepDTO]
+    let limits: LimitsDTO
+    let moved: Double
+    let note: String?
+}
+private struct RosterData: Decodable { let buddies: [BuddyDTO] }
+private struct TaskData: Decodable { let task: TaskDTO }
+private struct CreatedData: Decodable { let buddy: BuddyDTO; let by: String }
+private struct RefusedData: Decodable { let why: String }
 private struct EnginesData: Decodable { let engines: [EngineRowDTO] }
 private struct SignInData: Decodable { let row: EngineRowDTO; let watching: Bool }
 private struct Reply<T: Decodable>: Decodable { let id: String; let type: String; let data: T }
@@ -102,6 +139,13 @@ final class CoreLink: ObservableObject {
     @Published private(set) var engines: [EngineRowDTO] = []
     /// The engine whose sign-in is open in Terminal, until the CLI reports it signed in (or the user cancels).
     @Published private(set) var signingIn: String?
+    /// The crew as the core last reported it (beepo alone until you make a buddy), and the tasks it holds.
+    @Published private(set) var buddies: [BuddyDTO] = []
+    @Published private(set) var tasks: [TaskDTO] = []
+    /// Why the core last said no (a full crew, a limit, a rule), shown once and cleared by the view that showed it.
+    @Published var refusal: String?
+    /// Who made the buddy that appeared last, when a buddy made it (you are shown it, never surprised by it).
+    @Published private(set) var madeByBuddy: (buddy: String, by: String)?
 
     private var socket: LineSocket?
     private var process: Process?
@@ -154,6 +198,7 @@ final class CoreLink: ObservableObject {
             socket = s
             state = .ready
             refresh()
+            request("crew.list")
         } else if attempt < 20 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.connect(attempt: attempt + 1) }
         } else {
@@ -180,6 +225,23 @@ final class CoreLink: ObservableObject {
     /// watch for the result. Belay never sees the code, the password or the token (ADR 0025).
     func signIn(_ id: String) {
         request("engines.signin", ["id": id])
+    }
+
+    // MARK: crew and tasks (the core decides; these only ask)
+
+    func createBuddy(name: String, sprite: String, job: String, tiers: [String]) {
+        request("crew.buddy.create", ["by": "you", "spec": ["name": name, "sprite": sprite, "job": job, "tiers": tiers]])
+    }
+    func removeBuddy(_ id: String) { request("crew.buddy.remove", ["by": "you", "id": id]) }
+    func createTask(buddy: String, goal: String, maxMoney: Double?) {
+        var data: [String: Any] = ["buddy": buddy, "goal": goal]
+        if let maxMoney { data["limits"] = ["maxSteps": 30, "maxMinutes": 60, "maxMoney": maxMoney] }
+        request("task.create", data)
+    }
+    func taskAction(_ id: String, _ action: String, paused: Bool? = nil) {
+        var data: [String: Any] = ["id": id]
+        if let paused { data["paused"] = paused }
+        request("task.\(action)", data)
     }
 
     func cancelSignIn(_ id: String) {
@@ -211,6 +273,16 @@ final class CoreLink: ObservableObject {
                     signingIn = r.data.row.id
                     Self.openInTerminal(cmd, engine: r.data.row.id)
                 }
+            }
+        case "crew.roster":
+            if let r = try? dec.decode(Reply<RosterData>.self, from: data) { buddies = r.data.buddies }
+        case "crew.created":
+            if let r = try? dec.decode(Reply<CreatedData>.self, from: data), r.data.by != "you" { madeByBuddy = (r.data.buddy.name, r.data.by) }
+        case "crew.refused":
+            if let r = try? dec.decode(Reply<RefusedData>.self, from: data) { refusal = r.data.why }
+        case "task.updated":
+            if let r = try? dec.decode(Reply<TaskData>.self, from: data) {
+                if let i = tasks.firstIndex(where: { $0.id == r.data.task.id }) { tasks[i] = r.data.task } else { tasks.append(r.data.task) }
             }
         default: break
         }

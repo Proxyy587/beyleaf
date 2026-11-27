@@ -6,6 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added (buddies you make, tasks, your own pages, beepo)
+- **Buddies are made by you** (ADR 0026). The crew starts as beepo alone. Press + to make one: pick a face, name it, say what
+  it does, and choose how far it may reach (Look, Errands, Hands). A buddy you made can make up to three more, never with more
+  reach or freedom than it has, and the notch says "made by …". Buddies message each other and share a notebook, in the open.
+  The rules are in `belayd` (`crew/registry.ts`, `talk.ts`) with tests.
+- **Tasks.** The composer's Task chip sends a goal. Nothing runs until you approve its plan. Spending or sending asks every
+  time; paying is yours (Belay never types card or bank details); every task has step, time and money limits; a money goal
+  with no limit is refused; **trading is off**. A Tasks widget on the Agents page shows each task and what waits on you.
+  The engine runtime that plans and runs steps isn't built yet, so a real task stops at "planning" and says so.
+- **Your own pages.** Edit widgets now has a page name you can change, a remove button (its widgets move to a neighbour) and
+  a + to add a page, up to eight.
+- **beepo is the logo** in the menu bar and the app icon (`scripts/make-icon.sh`), as it already was in the notch.
+
+### Changed
+- **Pagination is at the bottom:** small dots, the current page a longer pill; the page's name sits beside the logo.
+- **Notes moved onto Day** (weather and calendar side by side, notes beneath), so no page is a single thin row. Existing
+  layouts are reset once to the new defaults.
+- Hidden-widget chips in the editor scroll sideways and show their full names.
+
+
 ### Changed (layout and paging pass)
 - **Pages slide.** Pages now sit side by side and move as one strip: the page follows your fingers one to one, then
   springs to rest, committing past a fifth of the page or on a flick. Tabs and ⌘[ ⌘] slide the same way. Before, a swipe
