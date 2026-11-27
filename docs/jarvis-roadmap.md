@@ -2,6 +2,7 @@
 
 **Status:** owner request 2026-11-26, plan accepted, **Phase 1 partly done**. Update the table in §2 in the same commit as any phase work.
 **Read first:** `docs/status.md` (what exists), then this file (what we're building and in what order).
+**Design spec for Phases 2–7:** `docs/buddies.md` (cast, compact vs expanded, chat, Mac reach tiers, routines, build order).
 **Decision record:** ADR 0022 (direction), ADR 0008/0018 (clean-room rule), ADR 0009–0011 (crew).
 
 > **In one line:** Belay becomes a Mac-native assistant like Jarvis or Friday. Buddies (the crew, `docs/crew.md`)
