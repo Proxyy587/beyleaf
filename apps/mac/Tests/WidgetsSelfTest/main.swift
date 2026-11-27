@@ -126,11 +126,11 @@ check(Pages.span(of: .clock, in: cleared) == .small, "hiding a widget keeps its 
 var moved = Pages.defaults
 Pages.move(.timer, to: .day, in: &moved)
 check(invariant(moved) && Pages.page(of: .timer, in: moved) == .day, "move between pages keeps the invariant")
-check(Pages.visible(moved, present: { _ in true }) == [.now, .notes, .day], "visible: pages with a shown widget, in order (Notes holds the Notes widget)")
+check(Pages.visible(moved, present: { _ in true }) == [.now, .notes, .day, .agents], "visible: pages with a shown widget, in order (Notes holds the Notes widget)")
 check(Pages.visible(Pages.defaults, present: { $0 == .notes }) == [.notes], "visible: the Notes page shows whenever its field is present")
 check(Pages.visible(moved, present: { $0 == .nowPlaying }) == [.now], "visible: a page with nothing present is skipped")
 var off = moved; off[0].enabled = false
-check(Pages.visible(off, present: { _ in true }) == [.notes, .day], "visible: a page switched off is skipped")
+check(Pages.visible(off, present: { _ in true }) == [.notes, .day, .agents], "visible: a page switched off is skipped")
 check(Pages.resolve(.notes, visible: [.now, .day]) == .now, "resolve falls back to the first visible page")
 check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the remembered page")
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
@@ -489,6 +489,25 @@ MainActor.assumeIsolated {
     let h = (1...7).reduce([String]()) { RollLogic.pushed($0, String($1)) }
     check(h == ["7", "6", "5", "4", "3"] && RollLogic.historyText(["4", "3"]) == "4 · 3", "roll: history keeps the newest five")
     check(RollLogic.spoken(.d6, last: "4") == "D6 roll: 4." && RollLogic.spoken(.coin, last: nil) == "Roll a coin.", "roll: spoken")
+}
+
+// Buddies (docs/buddies.md): ordering, wording, roster strip, thread tails, routine countdown.
+do {
+    let order = BuddyLogic.ordered([("a", BuddyRunState.idle), ("b", .working), ("c", .waiting), ("d", .error), ("e", .working), ("f", .paused), ("g", .done)], state: \.1).map(\.0)
+    check(order == ["c", "d", "b", "e", "g", "a", "f"], "buddies: needs-you, then stopped, then working (ties keep order), done, idle, paused")
+    check(BuddyLogic.statusText(.working, detail: "running tests") == "working · running tests" && BuddyLogic.statusText(.idle, detail: nil) == "idle" && BuddyLogic.statusText(.waiting, detail: "") == "needs you", "buddies: status wording")
+    check(BuddyLogic.strip(count: 4, selected: 0, fit: 7).visible == [0, 1, 2, 3] && BuddyLogic.strip(count: 4, selected: 0, fit: 7).more == 0, "buddies: a short roster shows everyone")
+    check(BuddyLogic.strip(count: 10, selected: 2, fit: 7).visible == [0, 1, 2, 3, 4, 5, 6] && BuddyLogic.strip(count: 10, selected: 2, fit: 7).more == 3, "buddies: a long roster collapses into +n")
+    check(BuddyLogic.strip(count: 10, selected: 9, fit: 7).visible.last == 9 && BuddyLogic.strip(count: 10, selected: 9, fit: 7).visible.count == 7, "buddies: the selected buddy is always in the strip")
+    check(BuddyLogic.strip(count: 0, selected: 0, fit: 7).visible.isEmpty, "buddies: no buddies, no strip")
+    check(BuddyLogic.tail(Array(1...9), columns: 3) == [4, 5, 6, 7, 8, 9] && BuddyLogic.tail(Array(1...9), columns: 2) == [8, 9] && BuddyLogic.tail([1], columns: 1).isEmpty, "buddies: thread tail per form")
+    let now = Date(timeIntervalSince1970: 1_000_000)
+    check(BuddyLogic.until(nil, now: now) == "on event" && BuddyLogic.until(now.addingTimeInterval(30), now: now) == "now" && BuddyLogic.until(now.addingTimeInterval(-5), now: now) == "now", "buddies: routine countdown, now and event")
+    check(BuddyLogic.until(now.addingTimeInterval(12 * 60 + 5), now: now) == "in 12 min" && BuddyLogic.until(now.addingTimeInterval(3 * 3600 + 5), now: now) == "in 3 h" && BuddyLogic.until(now.addingTimeInterval(3 * 86_400 + 5), now: now) == "in 3 d", "buddies: routine countdown units")
+    check(WidgetKind.buddies.home == .agents && WidgetKind.routines.home == .agents && PageKind.allCases.last == .agents, "buddies: widgets live on the Agents page, the last page")
+    let pages = Pages.migrated(from: WidgetSetting.defaults)
+    check(Pages.visible(pages) { $0 != .buddies && $0 != .routines }.allSatisfy { $0 != .agents }, "buddies: the Agents page is hidden until the core reports buddies")
+    check(Pages.visible(pages) { _ in true }.contains(.agents), "buddies: the Agents page shows once a buddy is present")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")

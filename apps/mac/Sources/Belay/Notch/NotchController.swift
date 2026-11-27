@@ -191,6 +191,8 @@ final class NotchController {
             Task { @MainActor in self.settings.weatherCity = await WeatherService.shared.search(name)?.first }
         }
         if a.contains("--calendar-demo") { CalendarService.shared.loadDemo() }
+        // `--buddies-demo`: sample buddies, thread and routines, in memory only (docs/buddies.md).
+        if a.contains("--buddies-demo") { BuddyStore.shared.loadDemo() }
         if a.contains("--start-stopwatch") { stopwatch.start() }
         if a.contains("--demo-stopwatch") { stopwatch.demo() }
         if let i = a.firstIndex(of: "--start-timer"), a.indices.contains(i + 1), let m = Int(a[i + 1]) { countdown.start(minutes: m) }

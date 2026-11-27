@@ -14,6 +14,7 @@ struct ExpandedView: View {
     @ObservedObject var notes: NotesStore
     @ObservedObject var weather = WeatherService.shared
     @ObservedObject var calendar = CalendarService.shared
+    @ObservedObject var buddies = BuddyStore.shared
     @ObservedObject var settings = AppSettings.shared
     var shown: Bool
     /// No notch (external display): the band is the panel's first line instead of sitting beside the camera.
@@ -91,6 +92,9 @@ struct ExpandedView: View {
     private func isPresent(_ kind: WidgetKind) -> Bool {
         switch kind {
         case .clock, .timer, .stopwatch, .notes, .system, .keepAwake, .moon, .roll: return true
+        // Only real things (design.md §1): the Agents page exists once the core reports buddies (or in --buddies-demo).
+        case .buddies: return buddies.hasBuddies
+        case .routines: return !buddies.routines.isEmpty
         case .nowPlaying: return music.title != nil || music.availablePlayer != nil
         case .calendar:
             // A free day isn't news: with access and nothing in the next 24 h, the widget is gone.
@@ -126,6 +130,8 @@ struct ExpandedView: View {
         case .keepAwake: KeepAwakeCard(size: p.size)
         case .moon: MoonCard(size: p.size, ticking: shown)
         case .roll: RollCard(size: p.size)
+        case .buddies: BuddiesCard(store: buddies, columns: p.columns)
+        case .routines: RoutinesCard(store: buddies, columns: p.columns)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }

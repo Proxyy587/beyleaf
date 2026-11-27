@@ -5,13 +5,14 @@ import Foundation
 
 /// The pages of the open notch (ADR 0021). Order of cases is the default order. `agents` joins at A1.
 enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
-    case now, notes, day
+    case now, notes, day, agents
     var id: String { rawValue }
     var name: String {
         switch self {
         case .now: "Now"
         case .notes: "Notes"
         case .day: "Day"
+        case .agents: "Agents"
         }
     }
     var symbol: String {
@@ -19,6 +20,7 @@ enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .now: "play.circle"
         case .notes: "square.and.pencil"
         case .day: "calendar"
+        case .agents: "person.2"
         }
     }
 }
@@ -27,6 +29,7 @@ enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
 enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, nowPlaying, timer, stopwatch, screenshot, notes, weather, calendar
     case system, keepAwake, moon, roll
+    case buddies, routines
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -42,6 +45,8 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .keepAwake: "Keep awake"
         case .moon: "Moon"
         case .roll: "Roll"
+        case .buddies: "Buddies"
+        case .routines: "Routines"
         }
     }
     var symbol: String {
@@ -58,6 +63,8 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .keepAwake: "cup.and.saucer"
         case .moon: "moon.stars"
         case .roll: "dice"
+        case .buddies: "person.2"
+        case .routines: "clock.arrow.circlepath"
         }
     }
     /// The page a widget starts on (and returns to on Reset).
@@ -66,6 +73,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .clock, .nowPlaying, .timer, .stopwatch, .screenshot, .system, .keepAwake, .moon, .roll: .now
         case .notes: .notes
         case .weather, .calendar: .day
+        case .buddies, .routines: .agents
         }
     }
     /// Side options start off (owner, 2026-11-25: the timer is a convenience, not the product; the stopwatch follows it).
@@ -75,7 +83,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     /// The span a widget gets when it is first placed (and on Reset). Exhaustive on purpose: a new kind must choose.
     var defaultSpan: WidgetSpan {
         switch self {
-        case .nowPlaying, .notes, .calendar, .system: .wide
+        case .nowPlaying, .notes, .calendar, .system, .buddies, .routines: .wide
         case .clock, .timer, .stopwatch, .screenshot, .weather, .keepAwake, .moon, .roll: .small
         }
     }
