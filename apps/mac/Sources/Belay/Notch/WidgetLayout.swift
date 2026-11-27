@@ -383,33 +383,38 @@ enum PanelFit {
 }
 
 /// The two-finger page swipe as a small state machine, fed with finger-direction deltas (already normalised for
-/// natural scrolling). The view layer only applies what it returns.
+/// natural scrolling). The page follows the fingers one to one; on release it commits when the travel passes a fifth of
+/// the page or the fingers were flicking. The view layer only applies what it returns.
 struct SwipeTracker {
     enum Axis { case undecided, horizontal, vertical }
     enum Phase { case began, changed, ended }
 
-    /// Follow resistance and its cap (≤ 40 pt), the travel that commits, and how far an end of the list gives.
-    static let resistance: CGFloat = 0.35
-    static let maxFollow: CGFloat = 40
-    static let commitTravel: CGFloat = 60
-    static let endGive: CGFloat = 14
+    /// Share of the page width that commits on release, the flick speed (pt/s) that commits from a short drag, and the
+    /// least travel a flick needs.
+    static let commitFraction: CGFloat = 0.2
+    static let flickSpeed: CGFloat = 450
+    static let flickTravel: CGFloat = 14
+    /// How far an end of the list gives, as a share of the page width (rubber band).
+    static let endGive: CGFloat = 0.06
     /// Travel before the gesture is called horizontal or vertical.
     static let decide: CGFloat = 6
 
     struct Result: Equatable {
         /// The event belongs to a page swipe: don't pass it on (vertical scrolling must not see it).
         var consumed = false
-        /// Where the page follows to, or nil to leave it.
+        /// Where the page follows to (negative = towards the next page), or nil to leave it.
         var offset: CGFloat?
         /// +1 next page, -1 previous, once, on release.
         var commit: Int?
-        /// Released: spring back to rest.
+        /// Released: settle (to the other page when `commit` is set, else back to rest).
         var settle = false
     }
 
     private(set) var axis = Axis.undecided
     private var x: CGFloat = 0, y: CGFloat = 0
     private var swallowMomentum = false
+    /// Recent (time, x) samples for the release velocity.
+    private var samples: [(t: TimeInterval, x: CGFloat)] = []
 
     /// Momentum after a horizontal swipe is swallowed, so it can't scroll the page vertically.
     mutating func momentum(ended: Bool) -> Bool {
@@ -418,28 +423,44 @@ struct SwipeTracker {
         return s
     }
 
-    mutating func reset() { axis = .undecided; x = 0; y = 0; swallowMomentum = false }
+    mutating func reset() { axis = .undecided; x = 0; y = 0; swallowMomentum = false; samples = [] }
+
+    /// Finger speed over roughly the last 100 ms, in pt/s (negative = leftwards).
+    private var velocity: CGFloat {
+        guard let last = samples.last, let first = samples.first(where: { last.t - $0.t <= 0.1 }), last.t > first.t else { return 0 }
+        return (last.x - first.x) / CGFloat(last.t - first.t)
+    }
+
+    /// The rubber band: free movement where a page exists, a small give where it doesn't.
+    static func follow(_ x: CGFloat, width: CGFloat, hasNeighbour: Bool) -> CGFloat {
+        if hasNeighbour { return max(-width, min(width, x)) }
+        let give = width * endGive
+        return (x < 0 ? -1 : 1) * give * (1 - exp(-abs(x) / (width * 0.3)))
+    }
 
     /// `hasNeighbour(step)`: whether a page exists that way (else the end gives a little and never commits).
-    mutating func feed(dx: CGFloat, dy: CGFloat, phase: Phase, followsFingers: Bool, hasNeighbour: (Int) -> Bool) -> Result {
-        if phase == .began { x = 0; y = 0; axis = .undecided; swallowMomentum = false }
+    mutating func feed(dx: CGFloat, dy: CGFloat, phase: Phase, followsFingers: Bool, width: CGFloat = 600, time: TimeInterval = 0,
+                       hasNeighbour: (Int) -> Bool) -> Result {
+        if phase == .began { x = 0; y = 0; axis = .undecided; swallowMomentum = false; samples = [] }
         x += dx; y += dy
+        samples.append((time, x))
+        if samples.count > 12 { samples.removeFirst() }
         if axis == .undecided, abs(x) + abs(y) > Self.decide { axis = abs(x) > abs(y) * 1.5 ? .horizontal : .vertical }
         var r = Result(consumed: axis == .horizontal)
         if axis == .horizontal {
             let step = x < 0 ? 1 : -1
             let has = hasNeighbour(step)
             if phase == .ended {
-                if has, abs(x) > Self.commitTravel { r.commit = step }
+                let v = velocity
+                let flicked = abs(v) > Self.flickSpeed && abs(x) > Self.flickTravel && (v < 0) == (x < 0)
+                if has, abs(x) > width * Self.commitFraction || flicked { r.commit = step }
                 r.settle = true
                 swallowMomentum = true
             } else if followsFingers {
-                let sign: CGFloat = x < 0 ? -1 : 1
-                r.offset = sign * (has ? min(Self.maxFollow, abs(x) * Self.resistance)
-                                       : Self.endGive * (1 - exp(-abs(x) / 50)))
+                r.offset = Self.follow(x, width: width, hasNeighbour: has)
             }
         }
-        if phase == .ended { axis = .undecided; x = 0; y = 0 }
+        if phase == .ended { axis = .undecided; x = 0; y = 0; samples = [] }
         return r
     }
 }

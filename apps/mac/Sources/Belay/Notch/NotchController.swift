@@ -31,12 +31,48 @@ final class NotchModel: ObservableObject {
 
     init(metrics: NotchMetrics) { self.metrics = metrics }
 
-    /// Shows `page` and remembers it as the page the notch opens on.
+    /// One page's width plus nothing between pages: how far a page travels to replace its neighbour.
+    var pageStride: CGFloat { openWidth - 2 * Tok.rOpenEar }
+
+    /// Shows `page` and remembers it as the page the notch opens on. The pages slide: the new one arrives from the side
+    /// you're going to while the old one leaves the other way, so a click, a key and a swipe all move the same way.
     func go(to page: PageKind) {
-        guard page != currentPage, visiblePages.contains(page) else { return }
-        let from = currentPage.flatMap { visiblePages.firstIndex(of: $0) } ?? 0
-        pageStep = (visiblePages.firstIndex(of: page) ?? 0) >= from ? 1 : -1
-        withAnimation(Tok.open) { AppSettings.shared.page = page }
+        guard page != currentPage, visiblePages.contains(page), let from = currentPage else { return }
+        let step = (visiblePages.firstIndex(of: page) ?? 0) >= (visiblePages.firstIndex(of: from) ?? 0) ? 1 : -1
+        pageStep = step
+        swipe.token += 1
+        let token = swipe.token
+        if Tok.reduceMotion || !isOpen {
+            withAnimation(Tok.open) { AppSettings.shared.page = page }
+            swipe.offset = 0; swipe.partner = nil
+            return
+        }
+        // Phase one, unanimated: the new page becomes the page in place and the old one its neighbour, with the offset
+        // chosen so nothing on screen moves (a swipe in progress already has the new page partway in).
+        let travel = CGFloat(step) * pageStride
+        var instant = Transaction(); instant.disablesAnimations = true
+        withTransaction(instant) {
+            AppSettings.shared.page = page
+            swipe.partner = from; swipe.side = -step
+            swipe.offset += travel
+        }
+        // Phase two, next turn of the run loop so phase one is drawn first: slide to rest.
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated { self?.slideToRest(token: token) }
+        }
+    }
+
+    /// Springs the page in place back to rest and drops the neighbour once it has left.
+    func slideToRest(token: Int? = nil) {
+        if let token, token != swipe.token { return }
+        swipe.token += 1
+        let mine = swipe.token
+        withAnimation(Tok.slide, completionCriteria: .logicallyComplete) {
+            swipe.offset = 0
+        } completion: { [weak self] in
+            guard let self, self.swipe.token == mine else { return }
+            self.swipe.partner = nil; self.swipe.side = 0
+        }
     }
 
     /// Next (+1) or previous (-1) page. False at either end (no wrap).
@@ -341,7 +377,7 @@ final class NotchController {
     private func removeInputMonitors() {
         inputMonitors.forEach(NSEvent.removeMonitor)
         inputMonitors.removeAll()
-        swipeWatchdog?.cancel(); swipe.reset(); model.swipe.offset = 0
+        swipeWatchdog?.cancel(); swipe.reset(); model.swipe.token += 1; model.swipe.offset = 0; model.swipe.partner = nil
     }
 
     /// Whether an input event is for the open panel. DEBUG `--trace-input` also takes events with no window: the ones
@@ -369,21 +405,30 @@ final class NotchController {
         // Finger direction, whatever the natural-scrolling setting.
         let sign: CGFloat = e.isDirectionInvertedFromDevice ? 1 : -1
         let m = model!
-        let r = swipe.feed(dx: e.scrollingDeltaX * sign, dy: e.scrollingDeltaY, phase: phase, followsFingers: !Tok.reduceMotion) { step in
+        let r = swipe.feed(dx: e.scrollingDeltaX * sign, dy: e.scrollingDeltaY, phase: phase, followsFingers: !Tok.reduceMotion,
+                           width: m.pageStride, time: e.timestamp) { step in
             m.currentPage.flatMap { Pages.neighbour(of: $0, by: step, visible: m.visiblePages) } != nil
         }
-        if let step = r.commit { model.go(by: step) }
-        if r.settle { withAnimation(Tok.open) { model.swipe.offset = 0 } }
-        else if let o = r.offset, o != model.swipe.offset { model.swipe.offset = o }
+        if let o = r.offset {
+            // The neighbour rides in from the side the fingers are going to; at the end of the list there is none.
+            let step = o < 0 ? 1 : -1
+            let next = m.currentPage.flatMap { Pages.neighbour(of: $0, by: step, visible: m.visiblePages) }
+            if m.swipe.partner != next || m.swipe.side != step { m.swipe.token += 1; m.swipe.partner = next; m.swipe.side = step }
+            if o != m.swipe.offset { m.swipe.offset = o }
+        }
+        if r.settle {
+            if let step = r.commit, let next = m.currentPage.flatMap({ Pages.neighbour(of: $0, by: step, visible: m.visiblePages) }) { m.go(to: next) }
+            else { m.slideToRest() }
+        }
         // The end of a gesture can go to another window if the pointer drifted off the panel, and then we never see it.
-        // Without it the page would stay displaced and faded: settle after a short silence.
+        // Without it the page would stay displaced: settle after a short silence.
         swipeWatchdog?.cancel()
-        if model.swipe.offset != 0 {
+        if model.swipe.offset != 0, !r.settle {
             let w = DispatchWorkItem { [weak self] in
                 MainActor.assumeIsolated {
                     guard let self, self.model.swipe.offset != 0 else { return }
                     self.swipe.reset()
-                    withAnimation(Tok.open) { self.model.swipe.offset = 0 }
+                    self.model.slideToRest()
                 }
             }
             swipeWatchdog = w
@@ -430,9 +475,16 @@ final class NotchController {
     }
 }
 
-/// How far the open page is pulled by a swipe in progress. Separate from NotchModel so a swipe re-renders only the
-/// wrapper that applies the offset, not the panel.
+/// How far the open page is pulled by a swipe or a slide in progress, and the neighbouring page that rides along. Separate
+/// from NotchModel so a swipe re-renders only the strip that applies it, not the panel.
 @MainActor
 final class SwipeState: ObservableObject {
+    /// Points the page in place has moved from rest (negative = towards the next page).
     @Published var offset: CGFloat = 0
+    /// The page sliding in or out beside it, and the side it sits on (+1 right, -1 left). Only exists while moving, so a
+    /// page that isn't on screen never ticks, polls or fetches.
+    @Published var partner: PageKind?
+    var side = 0
+    /// Bumped by every new gesture or slide, so a finished slide can't clear a newer one's neighbour.
+    var token = 0
 }

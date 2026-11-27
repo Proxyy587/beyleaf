@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed (layout and paging pass)
+- **Pages slide.** Pages now sit side by side and move as one strip: the page follows your fingers one to one, then
+  springs to rest, committing past a fifth of the page or on a flick. Tabs and ⌘[ ⌘] slide the same way. Before, a swipe
+  nudged the page 40 pt and then swapped it with a fade. Ends rubber-band; reduced motion cross-fades.
+- **Page tabs replace the dots:** each page's own symbol, the current one in a pill, with the shortcut on hover.
+- **Rows fill the panel.** A row that doesn't use every column stretches its widgets across it, so no hole sits beside a
+  wide widget (the order and sizes you chose are unchanged).
+- **Agents page:** the chosen buddy is named in its chip, the composer is a visible field with its send button in place,
+  and Routines has a header with the next run.
+- **System widget:** values no longer clip ("7.6 GB fr…"); the disk row reads FREE and every value column lines up.
+
+
 _Docs: widget-hub, ui-inventory, status and open-questions updated for ADR 0023 and the hover rules._
 
 ### Fixed

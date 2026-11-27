@@ -84,20 +84,26 @@ struct BuddiesCard: View {
     }
 
     private func roster(selected: BuddyID) -> some View {
-        let strip = BuddyLogic.strip(count: store.buddies.count, selected: store.buddies.firstIndex { $0.id == selected } ?? 0, fit: 7)
-        return HStack(spacing: Tok.s2) {
+        let strip = BuddyLogic.strip(count: store.buddies.count, selected: store.buddies.firstIndex { $0.id == selected } ?? 0, fit: 6)
+        return HStack(spacing: Tok.s1) {
             ForEach(strip.visible, id: \.self) { i in
                 let e = store.buddies[i]
+                let on = e.id == selected
                 Button { withAnimation(Tok.hover) { store.select(e.id) } } label: {
-                    BuddyFace(entry: e, size: 28)
-                        .padding(Tok.s1)
-                        .background(Circle().fill(e.id == selected ? Tok.hoverFill : .clear))
+                    // The chosen buddy is named; the rest are faces, named on hover.
+                    HStack(spacing: Tok.s2) {
+                        BuddyFace(entry: e, size: 26)
+                        if on { Text(e.name).font(Tok.rowTitle).foregroundStyle(Tok.ink).lineLimit(1).transition(.opacity) }
+                    }
+                    .padding(.vertical, 3).padding(.leading, 5).padding(.trailing, on ? Tok.s3 : 5)
+                    .background(Capsule().fill(on ? Tok.hoverFill : .clear))
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .help("\(e.name) · \(e.state.label)")
                 .accessibilityLabel("\(e.name), \(e.state.label)")
             }
-            if strip.more > 0 { Text("+\(strip.more)").font(Tok.digits).foregroundStyle(Tok.ink3) }
+            if strip.more > 0 { Text("+\(strip.more)").font(Tok.digits).foregroundStyle(Tok.ink3).padding(.leading, Tok.s1) }
             Spacer(minLength: Tok.s2)
             if store.isDemo { StatusLine(text: "demo") }
         }
@@ -115,16 +121,22 @@ struct BuddiesCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// A field you can see is a field: a tonal capsule with the send button always in place, dimmed until there's text.
     private func composer(_ b: BuddyEntry) -> some View {
-        HStack(spacing: Tok.s2) {
+        let empty = store.draft.trimmingCharacters(in: .whitespaces).isEmpty
+        return HStack(spacing: Tok.s2) {
             TextField("Ask \(b.name)", text: $store.draft)
                 .textFieldStyle(.plain).font(Tok.body).foregroundStyle(Tok.ink)
                 .focused($focused)
-                .onSubmit { store.send() }
+                .onSubmit { if !empty { store.send() } }
                 .accessibilityLabel("Ask \(b.name)")
-            if !store.draft.isEmpty { IconButton(symbol: "arrow.up", label: "Send") { store.send() } }
+            IconButton(symbol: "arrow.up.circle.fill", label: "Send") { store.send() }
+                .disabled(empty)
+                .opacity(empty ? 0.5 : 1)
         }
-        .frame(minHeight: Tok.button)
+        .padding(.leading, Tok.s3).padding(.trailing, 2)
+        .frame(minHeight: Tok.button + 4)
+        .background(Capsule().fill(Tok.hoverFill))
     }
 
     // MARK: full (expanded)
@@ -203,6 +215,12 @@ struct RoutinesCard: View {
                         }
                     }
                 } else {
+                    HStack(spacing: Tok.s2) {
+                        Image(systemName: "clock.arrow.circlepath").font(Tok.icon).foregroundStyle(Tok.ink2).frame(width: Tok.gutter, height: Tok.gutter)
+                        Text("Routines").font(Tok.rowTitle).foregroundStyle(Tok.ink)
+                        Spacer(minLength: Tok.s2)
+                        StatusLine(text: soonest(ctx.date))
+                    }
                     ForEach(rows) { r in row(r, now: ctx.date) }
                 }
             }

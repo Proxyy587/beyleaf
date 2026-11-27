@@ -154,30 +154,37 @@ let busy = WidgetLayout.rows(WidgetKind.allCases.map { ($0, WidgetSpan.small) },
 check(busy.flatMap { $0 }.map(\.kind) == WidgetKind.allCases, "overflow: nothing is dropped when rows exceed the room")
 
 // 13. Page swipe (docs/widget-hub.md §1.3). Deltas are finger-direction: negative = fingers left = next page.
-func swipe(_ steps: [(CGFloat, CGFloat)], hasNeighbour: Bool = true, follow: Bool = true) -> (results: [SwipeTracker.Result], tracker: SwipeTracker) {
+// The page follows the fingers one to one (page width 600 here) and commits past a fifth of it, or on a flick.
+func swipe(_ steps: [(CGFloat, CGFloat)], hasNeighbour: Bool = true, follow: Bool = true, dt: TimeInterval = 0.2) -> (results: [SwipeTracker.Result], tracker: SwipeTracker) {
     var t = SwipeTracker(), out: [SwipeTracker.Result] = []
     for (i, d) in steps.enumerated() {
         let phase: SwipeTracker.Phase = i == 0 ? .began : i == steps.count - 1 ? .ended : .changed
-        out.append(t.feed(dx: d.0, dy: d.1, phase: phase, followsFingers: follow) { _ in hasNeighbour })
+        out.append(t.feed(dx: d.0, dy: d.1, phase: phase, followsFingers: follow, width: 600, time: Double(i) * dt) { _ in hasNeighbour })
     }
     return (out, t)
 }
 let drag = swipe([(-10, 0), (-30, 0), (-30, 0), (-60, 0), (0, 0)])
 check(drag.results.dropLast().allSatisfy(\.consumed), "swipe: horizontal gesture is consumed")
-check(drag.results.dropLast().compactMap(\.offset).allSatisfy { $0 <= 0 && $0 >= -40 }, "swipe: follow offset stays within 40 pt")
-check(drag.results.last?.commit == 1 && drag.results.last?.settle == true, "swipe: fingers left past 60 pt commits to the next page")
-check(swipe([(40, 0), (40, 0), (0, 0)]).results.last?.commit == -1, "swipe: fingers right past 60 pt commits to the previous page")
+check(drag.results.dropLast().compactMap(\.offset) == [-10, -40, -70, -130], "swipe: the page follows the fingers one to one")
+check(drag.results.last?.commit == 1 && drag.results.last?.settle == true, "swipe: slowly dragging past a fifth of the page commits to the next page")
+check(swipe([(40, 0), (40, 0), (40, 0), (40, 0), (0, 0)]).results.last?.commit == -1, "swipe: fingers right past a fifth of the page commits to the previous page")
 let short = swipe([(-20, 0), (-30, 0), (0, 0)])
-check(short.results.last?.commit == nil && short.results.last?.settle == true, "swipe: under 60 pt springs back without committing")
+check(short.results.last?.commit == nil && short.results.last?.settle == true, "swipe: a short slow drag springs back without committing")
+let flick = swipe([(-8, 0), (-14, 0), (-22, 0), (0, 0)], dt: 0.02)
+check(flick.results.last?.commit == 1, "swipe: a quick flick commits even from a short drag")
+let tiny = swipe([(-4, 0), (-4, 0), (-4, 0), (0, 0)], dt: 0.005)
+check(tiny.results.last?.commit == nil, "swipe: a twitch under 14 pt never commits")
+let wrongWay = swipe([(-40, 0), (-40, 0), (30, 0), (0, 0)], dt: 0.02)
+check(wrongWay.results.last?.commit == nil, "swipe: a flick back the other way does not commit")
 let huge = swipe([(-500, 0), (-500, 0), (0, 0)])
-check(huge.results.compactMap(\.offset).allSatisfy { abs($0) <= 40 }, "swipe: a huge swipe still moves the page at most 40 pt")
+check(huge.results.compactMap(\.offset).allSatisfy { abs($0) <= 600 }, "swipe: a huge swipe moves the page at most one page width")
 let edge = swipe([(-80, 0), (-80, 0), (0, 0)], hasNeighbour: false)
 check(edge.results.last?.commit == nil, "swipe: no commit past the last page (no wrap)")
-check(edge.results.compactMap(\.offset).allSatisfy { abs($0) < 14 }, "swipe: the end rubber-bands under 14 pt")
+check(edge.results.compactMap(\.offset).allSatisfy { abs($0) < 600 * SwipeTracker.endGive }, "swipe: the end rubber-bands under 6% of the page")
 let vertical = swipe([(-2, 10), (-3, 30), (-60, 40), (0, 0)])
 check(vertical.results.allSatisfy { !$0.consumed && $0.offset == nil && $0.commit == nil }, "swipe: a vertical scroll is never consumed, even if it drifts sideways")
 check(swipe([(-10, 0), (-40, 0), (0, 0)], follow: false).results.allSatisfy { $0.offset == nil }, "swipe: reduced motion has no follow")
-check(swipe([(-40, 0), (-40, 0), (0, 0)], follow: false).results.last?.commit == 1, "swipe: reduced motion still commits")
+check(swipe([(-100, 0), (-100, 0), (0, 0)], follow: false).results.last?.commit == 1, "swipe: reduced motion still commits")
 var mt = drag.tracker
 check(mt.momentum(ended: false) && mt.momentum(ended: true) && !mt.momentum(ended: false), "swipe: momentum after a swipe is swallowed, then released")
 var v2 = SwipeTracker(); _ = v2.feed(dx: 0, dy: 20, phase: .began, followsFingers: true) { _ in true }; _ = v2.feed(dx: 0, dy: 0, phase: .ended, followsFingers: true) { _ in true }

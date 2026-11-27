@@ -27,7 +27,6 @@ struct ExpandedView: View {
         let visible = model.editing ? settings.pages.filter(\.enabled).map(\.kind) : Pages.visible(settings.pages) { isPresent($0) }
         let current = Pages.resolve(settings.page, visible: visible)
         let columns = WidgetLayout.columns(expanded: settings.expanded)
-        let rows = current.map { WidgetLayout.rows(entries(on: $0), columns: columns) } ?? []
         VStack(alignment: .leading, spacing: Tok.s2) {
             if showBand {
                 NotchBand(model: model, openSettings: openSettings).blurReveal(shown, delay: 0.03)
@@ -35,30 +34,15 @@ struct ExpandedView: View {
             if model.editing {
                 WidgetEditor(page: current ?? settings.page, columns: columns).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
             } else if let current {
-                // Only the visible page is in the view tree, so hidden pages can't tick, poll or fetch (§7).
-                SwipeFollow(swipe: model.swipe) {
-                    PageScroller(limit: model.maxContentHeight - chrome) {
-                        VStack(alignment: .leading, spacing: Tok.s2) {
-                            ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
-                                SpanRow(columns: columns, spacing: Tok.s2) {
-                                    ForEach(row, id: \.kind) { placed in
-                                        widget(placed)
-                                            .frame(minHeight: WidgetLayout.minHeight(placed.size, button: Tok.button, inset: Tok.s3), maxHeight: .infinity)
-                                            .layoutValue(key: SpanColumns.self, value: placed.columns)
-                                            .contextMenu { menu(placed.kind, on: current, columns: columns) }
-                                    }
-                                }
-                                .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
-                                .blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
-                            }
-                        }
-                        .animation(Tok.open, value: rows.map { $0.map(\.kind) })
-                    }
+                // Only the page in place (and, while sliding, its neighbour) is in the view tree, so hidden pages can't
+                // tick, poll or fetch (§7). The pages sit edge to edge and move as one strip.
+                PagerStrip(swipe: model.swipe, stride: model.pageStride) {
+                    pageBody(current, columns: columns)
+                } partner: { page in
+                    pageBody(page, columns: columns)
                 }
-                // Pages slide inside the card edges, so nothing hangs outside the panel mid-swipe.
-                .clipped()
-                .id(current)
-                .transition(pageTransition)
+                // Pull out to the panel's edges so a sliding page is cut by the panel, not by the card margins.
+                .padding(.horizontal, -Tok.s2)
             } else {
                 EmptyLine(symbol: "square.grid.2x2", text: "No widgets") {
                     PillButton(title: "Edit widgets") { withAnimation(Tok.open) { model.editing = true } }
@@ -67,7 +51,6 @@ struct ExpandedView: View {
                 .blurReveal(shown, delay: 0.05)
             }
         }
-        .animation(Tok.open, value: current)
         .animation(Tok.open, value: model.editing)
         .padding(.horizontal, Tok.s2)
         .padding(.bottom, Tok.s2)
@@ -77,14 +60,28 @@ struct ExpandedView: View {
     /// Height the band and the bottom inset take, which the page area can't use.
     private var chrome: CGFloat { (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 }
 
-    /// The new page slides in from the side you're going to, out of a slight blur; the old one leaves the other way.
-    private var pageTransition: AnyTransition {
-        if Tok.reduceMotion { return .opacity }
-        let d = CGFloat(model.pageStep) * Tok.s6
-        // Opacity and offset only: a blur pass over a whole scrolling page, on both the leaving and the arriving view, was
-        // the heaviest thing in the transition and the one most likely to be interrupted mid-flight.
-        return .asymmetric(insertion: AnyTransition.opacity.combined(with: .offset(x: d)),
-                           removal: AnyTransition.opacity.combined(with: .offset(x: -d)))
+    /// One page: its rows of widgets, scrolling vertically if they are taller than the room. Padded inside so the cards
+    /// keep their margin while the page itself spans the panel.
+    private func pageBody(_ page: PageKind, columns: Int) -> some View {
+        let rows = WidgetLayout.rows(entries(on: page), columns: columns)
+        return PageScroller(limit: model.maxContentHeight - chrome) {
+            VStack(alignment: .leading, spacing: Tok.s2) {
+                ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
+                    SpanRow(columns: columns, spacing: Tok.s2) {
+                        ForEach(row, id: \.kind) { placed in
+                            widget(placed)
+                                .frame(minHeight: WidgetLayout.minHeight(placed.size, button: Tok.button, inset: Tok.s3), maxHeight: .infinity)
+                                .layoutValue(key: SpanColumns.self, value: placed.columns)
+                                .contextMenu { menu(placed.kind, on: page, columns: columns) }
+                        }
+                    }
+                    .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+                    .blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
+                }
+            }
+            .animation(Tok.open, value: rows.map { $0.map(\.kind) })
+            .padding(.horizontal, Tok.s2)
+        }
     }
 
     /// Whether a widget has something to show right now (live or ready); `false` means gone, taking no space. Its size
@@ -163,13 +160,28 @@ struct PagesShown: PreferenceKey {
     static func reduce(value: inout Value, nextValue: () -> Value) { let n = nextValue(); if !n.visible.isEmpty { value = n } }
 }
 
-/// Applies the swipe-follow offset. Only this wrapper observes the swipe, so moving fingers never re-lays out the panel.
-struct SwipeFollow<Content: View>: View {
+/// The page in place and, while one is sliding, its neighbour beside it. Only this wrapper observes the swipe, so moving
+/// fingers never re-lays out the panel; the strip is sized by the page in place alone, and the neighbour rides along as
+/// an overlay (it is clipped to that height until it becomes the page in place).
+struct PagerStrip<Anchor: View, Partner: View>: View {
     @ObservedObject var swipe: SwipeState
-    @ViewBuilder var content: Content
+    let stride: CGFloat
+    @ViewBuilder var anchor: Anchor
+    @ViewBuilder var partner: (PageKind) -> Partner
+
     var body: some View {
-        // Render-only: an offset and a fade, no layout per scroll event (docs/widget-hub.md §7).
-        content.offset(x: swipe.offset).opacity(1 - Double(abs(swipe.offset)) / 120)
+        // Render-only: offsets, no layout per scroll event (docs/widget-hub.md §7).
+        anchor
+            .frame(width: stride, alignment: .topLeading)
+            .offset(x: swipe.offset)
+            .overlay(alignment: .topLeading) {
+                if let p = swipe.partner {
+                    partner(p)
+                        .frame(width: stride, alignment: .topLeading)
+                        .offset(x: swipe.offset + CGFloat(swipe.side) * stride)
+                }
+            }
+            .clipped()
     }
 }
 
@@ -220,38 +232,39 @@ struct PageMetrics: PreferenceKey {
     static func reduce(value: inout Value, nextValue: () -> Value) { value = nextValue() }
 }
 
-/// One dot per visible page, beside the brand slot (docs/widget-hub.md §1.4). Hidden with a single page.
+/// One tab per visible page, beside the brand slot (docs/widget-hub.md §1.4): the page's symbol, the current one in a
+/// pill. Hidden with a single page. Hover names the page and its shortcut.
 struct PageDots: View {
     @ObservedObject var model: NotchModel
     @State private var hover: PageKind?
     var body: some View {
         let pages = model.visiblePages
         if pages.count > 1 {
-            HStack(spacing: 0) {
-                ForEach(pages) { p in
+            HStack(spacing: 2) {
+                ForEach(Array(pages.enumerated()), id: \.element) { i, p in
+                    let current = p == model.currentPage
                     Button { model.go(to: p) } label: {
-                        Circle()
-                            .fill(p == model.currentPage ? Tok.ink : hover == p ? Tok.ink2 : Tok.ink3)
-                            .frame(width: 6, height: 6)
-                            .frame(width: 14, height: Tok.button)
-                            .contentShape(Rectangle())
+                        Image(systemName: p.symbol)
+                            .symbolVariant(current ? .fill : .none)
+                            .font(Tok.buttonIcon)
+                            .foregroundStyle(current ? Tok.ink : hover == p ? Tok.ink2 : Tok.ink3)
+                            .frame(width: Tok.button + 2, height: Tok.button)
+                            .background(Capsule().fill(current ? Tok.hoverFill : hover == p ? Tok.raised : .clear))
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .help(p.name)
+                    .help("\(p.name)  ⌘\(i + 1)")
+                    .accessibilityLabel(p.name)
+                    .accessibilityAddTraits(current ? .isSelected : [])
                     .onHover { h in withAnimation(Tok.hover) { hover = h ? p : (hover == p ? nil : hover) } }
                 }
             }
             .animation(Tok.hover, value: model.currentPage)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Page")
-            .accessibilityValue(value(pages))
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Pages")
             .accessibilityAdjustableAction { d in model.go(by: d == .increment ? 1 : -1) }
             .transition(.opacity)
         }
-    }
-    private func value(_ pages: [PageKind]) -> String {
-        guard let c = model.currentPage, let i = pages.firstIndex(of: c) else { return "" }
-        return "\(i + 1) of \(pages.count), \(c.name)"
     }
 }
 
@@ -264,7 +277,7 @@ struct NotchBand: View {
     var body: some View {
         HStack(spacing: 0) {
             BrandSlot().padding(.leading, Tok.s3 - (Tok.button - 16) / 2)
-            PageDots(model: model).padding(.leading, Tok.s1)
+            PageDots(model: model).padding(.leading, Tok.s2)
             Spacer(minLength: 0)
             if model.editing {
                 PillButton(title: "Done") { withAnimation(Tok.open) { model.editing = false } }
@@ -1197,23 +1210,25 @@ struct SpanRow: Layout {
     var columns: Int
     var spacing: CGFloat
 
-    private func cell(_ subview: LayoutSubview, _ column: CGFloat) -> CGFloat {
-        let n = CGFloat(min(max(1, subview[SpanColumns.self]), columns))
-        return column * n + spacing * (n - 1)
+    /// Each child's share of the row: its span, stretched so a row that doesn't use every column still fills the panel
+    /// (no hole beside it; the user's order and sizes are unchanged, ADR 0023).
+    private func widths(_ subviews: Subviews, in width: CGFloat) -> [CGFloat] {
+        let spans = subviews.map { CGFloat(min(max(1, $0[SpanColumns.self]), columns)) }
+        let total = max(1, spans.reduce(0, +))
+        let room = width - spacing * CGFloat(max(0, subviews.count - 1))
+        return spans.map { room * $0 / total }
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? CGFloat(columns) * 200
-        let column = WidgetLayout.columnWidth(inner: width, columns: columns, gap: spacing)
-        let height = subviews.map { $0.sizeThatFits(ProposedViewSize(width: cell($0, column), height: nil)).height }.max() ?? 0
+        let w = widths(subviews, in: width)
+        let height = zip(subviews, w).map { $0.sizeThatFits(ProposedViewSize(width: $1, height: nil)).height }.max() ?? 0
         return CGSize(width: width, height: height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let column = WidgetLayout.columnWidth(inner: bounds.width, columns: columns, gap: spacing)
         var x = bounds.minX
-        for subview in subviews {
-            let w = cell(subview, column)
+        for (subview, w) in zip(subviews, widths(subviews, in: bounds.width)) {
             subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: ProposedViewSize(width: w, height: bounds.height))
             x += w + spacing
         }
