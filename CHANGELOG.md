@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed (review pass)
+- belayd no longer dies on an unhandled error in one request or a due routine: the request gets an error reply instead.
+- Blank goals are refused for tasks and routines; finished tasks are dropped oldest first past 200 so the core can't grow without bound.
+
 ### Changed (expanded is a workspace, not a bigger panel)
 - **Expanded now shows more, not bigger** (`docs/notch-research.md`, from reading Perch, Avo and DynamicNotchKit): a page rail
   with every page named (and a badge where something waits on you), four grid columns instead of two so two wide widgets share a

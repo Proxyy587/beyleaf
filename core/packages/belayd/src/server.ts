@@ -18,6 +18,7 @@ export interface ServerOptions {
 }
 
 type Conn = { buf: string };
+const MAX_TASKS = 200;
 
 export function startServer({ socketPath, deps, watch }: ServerOptions) {
   mkdirSync(dirname(socketPath), { recursive: true, mode: 0o700 });
@@ -45,7 +46,13 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
   const push = (type: string, data: object) => clients.forEach((c) => send(c, "", type, { type, ...data }));
   const roster = () => ({ buddies: registry.buddies, states: Object.fromEntries(registry.buddies.map((b) => [b.id, "idle"])), notes: talk.notes() });
   const world = async (): Promise<M.World> => ({ engineReady: (await rows()).some((r) => r.status.auth === "signed-in"), tradingEnabled: false, now: new Date() });
-  const put = (t: Task) => { tasks.set(t.id, t); push("task.updated", { task: t }); return t; };
+  const put = (t: Task) => {
+    tasks.set(t.id, t);
+    // Finished tasks are forgotten oldest first, so a long-running core (or a noisy routine) can't grow without bound.
+    for (const [id, old] of tasks) { if (tasks.size <= MAX_TASKS) break; if (["done", "stopped", "failed", "blocked"].includes(old.status)) tasks.delete(id); }
+    push("task.updated", { task: t });
+    return t;
+  };
   const routineState = () => ({
     routines: routines.all,
     nextRun: Object.fromEntries(routines.all.map((r) => [r.id, routines.next(r)?.toISOString() ?? null])),
@@ -57,7 +64,7 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
   const clock = setInterval(() => {
     for (const t of tasks.values()) { const n = M.tick(t, new Date()); if (n !== t) put(n); }
     const due = routines.due();
-    if (due.length) { due.forEach((r) => void fire(r)); push("crew.routines", routineState()); }
+    if (due.length) { due.forEach((r) => fire(r).catch(() => {})); push("crew.routines", routineState()); }
   }, 15_000);
   clock.unref();
 
@@ -105,6 +112,7 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
       }
       case "task.create": {
         if (!registry.get(req.buddy)) return send(s, env.id, "crew.refused", { type: "crew.refused", why: `${req.buddy} is not on your crew` });
+        if (!req.goal.trim()) return send(s, env.id, "crew.refused", { type: "crew.refused", why: "say what the task is" });
         put(M.create(req.buddy, req.goal, req.limits, await world()));
         return;
       }
@@ -150,7 +158,7 @@ export function startServer({ socketPath, deps, watch }: ServerOptions) {
         while ((nl = s.data.buf.indexOf("\n")) >= 0) {
           const line = s.data.buf.slice(0, nl);
           s.data.buf = s.data.buf.slice(nl + 1);
-          if (line.trim()) void handle(s, line);
+          if (line.trim()) handle(s, line).catch(() => send(s, "", "error", { type: "error", message: "request failed" }));
         }
       },
     },

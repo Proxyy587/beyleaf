@@ -18,6 +18,7 @@ export class Routines {
   get(id: string): Routine | undefined { return this.list.find((r) => r.id === id); }
 
   create(buddy: string, goal: string, schedule: Schedule): Result<Routine> {
+    if (!goal.trim()) return { ok: false, why: "say what the routine is for" };
     if (this.list.length >= MAX_ROUTINES) return { ok: false, why: `that's ${MAX_ROUTINES} routines; remove one first` };
     if (schedule.kind === "every" && schedule.minutes < 5) return { ok: false, why: "a routine can run at most every 5 minutes" };
     if (schedule.kind === "once" && Date.parse(schedule.at) <= this.now().getTime()) return { ok: false, why: "that time has already passed" };
