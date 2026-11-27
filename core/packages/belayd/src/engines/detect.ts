@@ -46,12 +46,16 @@ export async function detectEngine(def: EngineDef, deps: Deps, timeoutMs = 4000)
   const base = { id: def.id, name: def.name, verified: def.verified, method: null, plan: null } as const;
   const path = findBinary(def.bins, deps);
   if (!path) return { ...base, installed: false, path: null, version: null, auth: "unknown" };
-  const env = subscriptionEnv(deps.env);
+  // A GUI app starts with a short PATH and some CLIs are scripts (`#!/usr/bin/env node`): put the binary's own folder first.
+  const env = { ...subscriptionEnv(deps.env), PATH: [path.slice(0, path.lastIndexOf("/")), ...searchDirs(deps.env, deps.home)].join(":") };
   const [ver, status] = await Promise.all([
     deps.exec([path, "--version"], { timeoutMs, env }),
     def.status ? deps.exec([path, ...def.status.args], { timeoutMs, env }) : Promise.resolve(null),
   ]);
-  const parsed = def.status && status ? def.status.parse(status) : { auth: "unknown" as const };
+  let parsed = def.status && status ? def.status.parse(status) : { auth: "unknown" as const };
+  // Vendors keep logins in the macOS Keychain, which needs the user's session variables. Without them "signed out" can be a
+  // false negative (seen with Claude Code when USER was missing), so say "can't tell" instead of accusing the user.
+  if (parsed.auth === "signed-out" && !deps.env.USER && !deps.env.LOGNAME) parsed = { auth: "unknown" };
   return {
     ...base, installed: true, path,
     version: ver && ver.code === 0 ? firstLine(ver.stdout) : null,

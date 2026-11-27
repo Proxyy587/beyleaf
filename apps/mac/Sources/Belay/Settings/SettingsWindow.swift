@@ -828,13 +828,12 @@ private struct AccountsPane: View {
     var body: some View {
         Group {
             Section {
-                ForEach(accounts.clis) { cli in
-                    LabeledContent(cli.name) {
-                        if !cli.checked { ProgressView().controlSize(.small) }
-                        else if let v = cli.version { Text(v).foregroundStyle(.secondary).textSelection(.enabled) }
-                        else if cli.path != nil { Text("Installed").foregroundStyle(.secondary) }
-                        else { Text("Not found").foregroundStyle(.secondary) }
-                    }
+                if accounts.state == .off {
+                    Text("Belay's core isn't running, so engines can't be checked.").foregroundStyle(.secondary)
+                } else if accounts.engines.isEmpty {
+                    ProgressView().controlSize(.small)
+                } else {
+                    ForEach(accounts.engines) { row in EngineRow(row: row, accounts: accounts) }
                 }
             } header: {
                 HStack {
@@ -843,9 +842,56 @@ private struct AccountsPane: View {
                     Button("Check again") { accounts.refresh() }.buttonStyle(.borderless).controlSize(.small)
                 }
             } footer: {
-                Text("Belay uses the agents you already have, signed in their own way. It never asks for or stores your passwords or tokens.")
+                Text("Belay uses the agents you already have, signed in their own way, in Terminal. It never asks for or stores your passwords or tokens, and it never opens their credential files.")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+private struct EngineRow: View {
+    let row: EngineRowDTO
+    @ObservedObject var accounts: AIAccounts
+
+    private var state: String {
+        let s = row.status
+        guard s.installed else { return "Not installed" }
+        switch s.auth {
+        case "signed-in": return ["Signed in", s.method, s.plan].compactMap { $0 }.joined(separator: " · ")
+        case "signed-out": return "Not signed in"
+        default: return s.verified ? "Can't tell if signed in" : "Installed · can't tell if signed in"
+        }
+    }
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: 8) {
+                Text(state).foregroundStyle(.secondary).textSelection(.enabled)
+                action
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(row.status.name)
+                if let v = row.status.version { Text(v).font(.caption).foregroundStyle(.tertiary) }
+            }
+        }
+    }
+
+    @ViewBuilder private var action: some View {
+        switch row.step.kind {
+        case "signin":
+            if accounts.signingIn == row.id {
+                Text("Waiting for sign-in").foregroundStyle(.secondary)
+                Button("Cancel") { accounts.cancel(row.id) }.buttonStyle(.borderless)
+            } else {
+                Button("Sign in") { accounts.signIn(row.id) }
+            }
+        case "install":
+            if let c = row.step.command, c.contains(" ") && !c.hasPrefix("See ") {
+                Button("Copy install command") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(c, forType: .string) }
+            }
+            if let u = row.step.url, let url = URL(string: u) { Button("Open page") { NSWorkspace.shared.open(url) } }
+        default: EmptyView()
         }
     }
 }

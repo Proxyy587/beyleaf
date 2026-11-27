@@ -9,3 +9,8 @@ const socketPath = i > 0 && process.argv[i + 1] ? process.argv[i + 1]! : join(ho
 const server = startServer({ socketPath, deps: realDeps() });
 console.log(`belayd listening on ${server.socketPath}`);
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => { server.stop(); process.exit(0); });
+
+// `--exit-with-parent`: the app holds our stdin; when it quits or dies the pipe closes and so do we (no orphan daemon).
+if (process.argv.includes("--exit-with-parent")) {
+  void (async () => { for await (const _ of Bun.stdin.stream()) { /* drain */ } server.stop(); process.exit(0); })();
+}

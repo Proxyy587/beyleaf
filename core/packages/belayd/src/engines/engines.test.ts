@@ -27,7 +27,7 @@ describe("status parsers", () => {
 });
 
 const deps = (over: Partial<Deps> = {}): Deps => ({
-  env: { PATH: "/usr/bin:/bin", ANTHROPIC_API_KEY: "sk-x", HOME: "/Users/u" },
+  env: { PATH: "/usr/bin:/bin", ANTHROPIC_API_KEY: "sk-x", HOME: "/Users/u", USER: "u" },
   home: "/Users/u",
   isExecutable: (p) => p === "/opt/homebrew/bin/claude",
   exec: async () => null,
@@ -54,6 +54,12 @@ describe("finding and detecting", () => {
     }));
     expect(s).toMatchObject({ installed: true, version: "2.1.311 (Claude Code)", auth: "signed-in", method: "claude.ai", plan: "pro", verified: true });
     expect(seen.every((e) => e && !("ANTHROPIC_API_KEY" in e) && e.PATH)).toBe(true);
+    expect(seen.every((e) => e!.PATH!.startsWith("/opt/homebrew/bin:"))).toBe(true); // its own folder first, for node-script CLIs
+  });
+  test("signed out with no USER in the environment is unknown, not an accusation", async () => {
+    const out = async (cmd: string[]) => (cmd.includes("--version") ? r("2\n") : r(JSON.stringify({ loggedIn: false })));
+    expect((await detectEngine(claude, deps({ exec: out, env: { PATH: "/bin" } }))).auth).toBe("unknown");
+    expect((await detectEngine(claude, deps({ exec: out, env: { PATH: "/bin", USER: "u" } }))).auth).toBe("signed-out");
   });
   test("a CLI that hangs is unknown, not signed out", async () => {
     const s = await detectEngine(claude, deps());

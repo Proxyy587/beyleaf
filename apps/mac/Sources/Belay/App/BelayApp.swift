@@ -36,6 +36,7 @@ final class BelayApp: NSObject, NSApplicationDelegate {
         notch = controller
         controller.start(openOnLaunch: CommandLine.arguments.contains("--expand"))
         installStatusItem()
+        CoreLink.shared.startIfRequested()
         if CommandLine.arguments.contains("--settings") { settingsWindow.show() }
         #if DEBUG
         BuddyReviewWindow.showIfRequested()
@@ -45,6 +46,8 @@ final class BelayApp: NSObject, NSApplicationDelegate {
             Logger(subsystem: "app.belay.mac", category: "perf").notice("ready \(Self.msSinceProcessStart(), privacy: .public) ms after launch")
         }
     }
+
+    func applicationWillTerminate(_ notification: Notification) { CoreLink.shared.stop() }
 
     private static func msSinceProcessStart() -> Int {
         var info = kinfo_proc()

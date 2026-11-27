@@ -9,7 +9,7 @@ const dir = mkdtempSync(join(tmpdir(), "belayd-"));
 const sock = join(dir, "run", "b.sock");
 let signedIn = false;
 const deps: Deps = {
-  env: { PATH: "/bin" }, home: "/h",
+  env: { PATH: "/bin", USER: "u" }, home: "/h",
   isExecutable: (p) => p === "/bin/claude",
   exec: async (cmd) => cmd.includes("--version") ? { code: 0, stdout: "9.9\n", stderr: "" }
     : { code: 0, stdout: JSON.stringify({ loggedIn: signedIn, authMethod: "claude.ai", subscriptionType: "pro" }), stderr: "" },

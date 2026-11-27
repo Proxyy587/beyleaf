@@ -105,7 +105,7 @@ away instead.
 | Appearance · live preview | See the change before you close Settings | — | Replay (Motion) | Stays pinned while the form scrolls | built |
 | Appearance · Theme swatches, Save current as, Import/Export | Pick a look in one click; keep or share your own (ADR 0015) | Midnight | Click a swatch; right-click deletes your own | Swatches drawn in each theme's colours, face and surface | built |
 | Appearance · Layout / Type / Colour / Surface / Motion | Fine-tune width, density, fonts, colours, surface, roundness, motion | Theme's values | Segmented switcher, per-section reset | Fonts shown in their own face | built |
-| Agents · Command-line agents | Know Belay found your `claude` / `codex` (never credentials, ADR 0004) | — | Check again | Checking, version, Installed, Not found | built |
+| Agents · Command-line agents: each engine (Claude Code, Codex, Cursor, Antigravity, OpenCode) with version and state (signed in · method · plan, not signed in, can't tell, not installed) and one action | Connect the AI you already pay for without Belay touching credentials (ADR 0004, 0025) | — | Check again; Sign in (opens the vendor's own command in Terminal); Cancel; Copy install command; Open page | Core not running (one line), checking, can't tell, waiting for sign-in | built; Terminal hand-off UNVERIFIED by hand |
 | About | Version, licence and credits | — | — | — | built |
 | Show advanced settings | (cut: the tabs keep Settings short without hiding things) | — | — | — | **cut** |
 | Sounds | Hear rope drops and catches when you're away from the screen | Off | Switch, per-sound | Muted while the asking terminal is focused | planned E2 |
