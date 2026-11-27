@@ -10,6 +10,14 @@ Check these before building on them. When you resolve one, move it to the "Resol
 - [ ] Whether `PermissionRequest` fires for headless `claude -p` runs (needed by `e2e/`).
 - [ ] Haptic pattern range on Force Touch trackpads (`NSHapticFeedbackManager`).
 
+## Engines and sign-in (ADR 0025)
+- [ ] `codex login status` output and exit codes (parser is a guess for "Logged in using ChatGPT" / "Not logged in"; Codex isn't installed on the dev Mac).
+- [ ] Status and login commands for `cursor-agent`, `agy` (Antigravity) and `opencode`: none verified, so they report `unknown` and offer Sign in.
+- [ ] The **Sign in** button: opening a `.command` file in Terminal and the vendor's login completing end to end (not run: the dev Mac is already signed in to Claude Code).
+- [ ] False "signed out" when the environment lacks session variables: seen once with Claude Code (no `USER`); the core now reports `unknown` in that case. Check other CLIs.
+- [ ] Shell row types in `CoreLink.swift` are hand-mirrored from the zod schemas until the Swift codegen exists (ADR 0001).
+- [ ] A packaged build needs belayd as a compiled binary (`bun build --compile`) instead of `bun src/main.ts`; dev builds start it only with `--core-dir`.
+
 ## Before v0.2 (Hands / Crew)
 - [ ] Claude Code non-interactive flags: streaming JSON output, per-run MCP config, session resume.
 - [ ] Codex exec / app-server JSON events; per-server MCP environment for the capability token.

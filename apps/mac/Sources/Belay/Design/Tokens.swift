@@ -59,17 +59,21 @@ enum Tok {
     // MARK: Space and layout
     static let s1: CGFloat = 4, s2: CGFloat = 8, s3: CGFloat = 12, s4: CGFloat = 16, s5: CGFloat = 20, s6: CGFloat = 24
     static var rowHeight: CGFloat { t.density.rowHeight }
+    /// Width of the page rail down the left of the expanded panel: icon, name and a badge for each page.
+    static let rail: CGFloat = 148
+    /// Height of the page dots at the bottom of the open panel.
+    static let dock: CGFloat = 18
     static var gutter: CGFloat { 20 * t.textScale }
     static var button: CGFloat { 28 * min(1.15, t.textScale) }
     /// Space between an icon button's edge and its glyph. Buttons at a row's edge pull out by this much, so the glyph
     /// (not the invisible hit area) lines up with text and values above and below.
     static var buttonInset: CGFloat { (button - 15 * t.textScale) / 2 }
-    /// The open panel's width: the theme's, or one grid column (and its gap) wider when expanded, so the extra room
-    /// holds more widgets rather than bigger ones (ADR 0023). Capped so the shadow fits the canvas.
+    /// The open panel's width: the theme's, or when expanded two grid columns (and their gaps) wider plus the page rail, so the
+    /// extra room holds more (a third column, every page's name) rather than bigger things (ADR 0023). Capped so the shadow fits.
     static var openWidth: CGFloat {
         let base = CGFloat(t.width)
         guard AppSettings.shared.expanded else { return base }
-        return WidgetLayout.expandedWidth(base: base, inner: base - 2 * rOpenEar - 2 * s2, gap: s2, cap: 680)
+        return WidgetLayout.expandedWidth(base: base, inner: base - 2 * rOpenEar - 2 * s2, gap: s2, rail: rail, cap: 940)
     }
     /// Album art in the wide Now playing card.
     static let heroArt: CGFloat = 56
@@ -87,6 +91,10 @@ enum Tok {
     }
     static var close: Animation {
         reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.28 / t.speed, dampingFraction: 1.0)
+    }
+    /// A page sliding in beside its neighbour: critically damped so it lands without wobble, a touch slower than opening.
+    static var slide: Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.42 / t.speed, dampingFraction: 0.92)
     }
     /// Live-activity morph: squash-and-stretch with a touch more bounce than opening (Dynamic Island feel).
     static var jelly: Animation {

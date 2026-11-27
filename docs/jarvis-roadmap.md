@@ -2,6 +2,7 @@
 
 **Status:** owner request 2026-11-26, plan accepted, **Phase 1 partly done**. Update the table in §2 in the same commit as any phase work.
 **Read first:** `docs/status.md` (what exists), then this file (what we're building and in what order).
+**Design spec for Phases 2–7:** `docs/buddies.md` (cast, compact vs expanded, chat, Mac reach tiers, routines, build order).
 **Decision record:** ADR 0022 (direction), ADR 0008/0018 (clean-room rule), ADR 0009–0011 (crew).
 
 > **In one line:** Belay becomes a Mac-native assistant like Jarvis or Friday. Buddies (the crew, `docs/crew.md`)
@@ -34,8 +35,8 @@
 |---|---|---|---|
 | 1 | **Polish pages + widgets** | `feat/widget-hub` | **Done in code.** Paging + overflow committed (`149f106`). All eight widgets exist (§3). Not merged, not pushed |
 | 1b | **Build the missing widgets** (Clock, Stopwatch, Notes, Weather, Calendar) per `docs/widget-hub.md` §3, one commit each | `feat/widget-hub` | **Built** (owner go-ahead 2026-11-26): all five widgets, one commit each, self-tests pass; by-hand checks still UNVERIFIED (`open-questions.md`). Not merged, not pushed |
-| 2 | **Buddy core:** a buddy = persistent character + own thread + memory notes + personality + engine choice; shown in the notch with the 30 traced sprites | `feat/buddy-core` | Not started |
-| 3 | **Chat + Agents page:** 1:1 and group threads; the Agents page reserved in `widget-hub.md` §6 | `feat/buddy-chat` | Not started |
+| 2 | **Buddy core:** a buddy = persistent character + own thread + memory notes + personality + engine choice; shown in the notch with the 30 traced sprites | `feat/buddy-core` | **Partly done (2026-11-27):** crew protocol subset, scheduler and router in `core/`; Agents page, Buddies and Routines widgets in Swift on demo data; **belayd socket + Swift link, engine detection and sign-in through the vendor's CLI (ADR 0025)**. **Not done:** session bus and hooks (ADR 0024 Phase 1: next), `CrewService`/`FakeRuntime`, real engine runs, persistence |
+| 3 | **Chat + Agents page:** 1:1 and group threads; the Agents page reserved in `widget-hub.md` §6 | `feat/buddy-chat` | Layout and composer exist (Phase 2); no real replies yet |
 | 4 | **Routines:** cron-style schedules per buddy, run by `belayd`; missed runs shown after sleep | `feat/buddy-routines` | Not started |
 | 5 | **Connectors:** calendar, mail, files, web; every outward action behind a card | `feat/connectors` | Not started |
 | 6 | **Mac control (Clicky side):** Porter actions for apps, files, Shortcuts, screen, voice | `feat/mac-control` | Not started |

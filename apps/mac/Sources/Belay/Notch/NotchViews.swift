@@ -14,6 +14,7 @@ struct ExpandedView: View {
     @ObservedObject var notes: NotesStore
     @ObservedObject var weather = WeatherService.shared
     @ObservedObject var calendar = CalendarService.shared
+    @ObservedObject var buddies = BuddyStore.shared
     @ObservedObject var settings = AppSettings.shared
     var shown: Bool
     /// No notch (external display): the band is the panel's first line instead of sitting beside the camera.
@@ -26,64 +27,98 @@ struct ExpandedView: View {
         let visible = model.editing ? settings.pages.filter(\.enabled).map(\.kind) : Pages.visible(settings.pages) { isPresent($0) }
         let current = Pages.resolve(settings.page, visible: visible)
         let columns = WidgetLayout.columns(expanded: settings.expanded)
-        let rows = current.map { WidgetLayout.rows(entries(on: $0), columns: columns) } ?? []
+        let expanded = settings.expanded
         VStack(alignment: .leading, spacing: Tok.s2) {
             if showBand {
                 NotchBand(model: model, openSettings: openSettings).blurReveal(shown, delay: 0.03)
             }
-            if model.editing {
-                WidgetEditor(page: current ?? settings.page, columns: columns).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
-            } else if let current {
-                // Only the visible page is in the view tree, so hidden pages can't tick, poll or fetch (§7).
-                SwipeFollow(swipe: model.swipe) {
-                    PageScroller(limit: model.maxContentHeight - chrome) {
-                        VStack(alignment: .leading, spacing: Tok.s2) {
-                            ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
-                                SpanRow(columns: columns, spacing: Tok.s2) {
-                                    ForEach(row, id: \.kind) { placed in
-                                        widget(placed)
-                                            .frame(minHeight: WidgetLayout.minHeight(placed.size, button: Tok.button, inset: Tok.s3), maxHeight: .infinity)
-                                            .layoutValue(key: SpanColumns.self, value: placed.columns)
-                                            .contextMenu { menu(placed.kind, on: current, columns: columns) }
-                                    }
-                                }
-                                .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
-                                .blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
-                            }
-                        }
-                        .animation(Tok.open, value: rows.map { $0.map(\.kind) })
-                    }
+            // What waits on you stays in view on every page, in both sizes.
+            if needsBar { NeedsYouBar(store: buddies).blurReveal(shown, delay: 0.04) }
+            if expanded {
+                // Expanded is a workspace: every page named in a rail, the content beside it (docs/notch-research.md).
+                HStack(alignment: .top, spacing: 0) {
+                    PageRail(model: model, pages: visible, current: current).frame(width: Tok.rail - Tok.s2).blurReveal(shown, delay: 0.05)
+                    area(current: current, columns: columns, expanded: true)
                 }
-                // Pages slide inside the card edges, so nothing hangs outside the panel mid-swipe.
-                .clipped()
-                .id(current)
-                .transition(pageTransition)
             } else {
-                EmptyLine(symbol: "square.grid.2x2", text: "No widgets") {
-                    PillButton(title: "Edit widgets") { withAnimation(Tok.open) { model.editing = true } }
+                area(current: current, columns: columns, expanded: false)
+                // Which page you are on, and the way to the others: small, centred, at the very bottom.
+                if visible.count > 1 || model.editing {
+                    PageDock(model: model, pages: visible, current: current)
+                        .blurReveal(shown, delay: 0.1)
+                        .transition(.opacity)
                 }
-                .padding(.horizontal, Tok.s3)
-                .blurReveal(shown, delay: 0.05)
             }
         }
-        .animation(Tok.open, value: current)
         .animation(Tok.open, value: model.editing)
+        .animation(Tok.open, value: needsBar)
         .padding(.horizontal, Tok.s2)
         .padding(.bottom, Tok.s2)
         .preference(key: PagesShown.self, value: PagesShown.Value(visible: visible, current: current))
     }
 
-    /// Height the band and the bottom inset take, which the page area can't use.
-    private var chrome: CGFloat { (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 }
+    /// The page, the editor, or the empty line: what sits beside the rail (expanded) or fills the panel (compact).
+    @ViewBuilder private func area(current: PageKind?, columns: Int, expanded: Bool) -> some View {
+        if model.editing {
+            WidgetEditor(page: current ?? settings.page, columns: columns).transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+        } else if let current {
+            // Only the page in place (and, while sliding, its neighbour) is in the view tree, so hidden pages can't
+            // tick, poll or fetch (§7). The pages sit edge to edge and move as one strip.
+            PagerStrip(swipe: model.swipe, stride: model.pageStride) {
+                pageBody(current, columns: columns)
+            } partner: { page in
+                pageBody(page, columns: columns)
+            }
+            // Pull out to the panel's edge so a sliding page is cut by the panel, not by the card margins.
+            .padding(.leading, expanded ? 0 : -Tok.s2)
+            .padding(.trailing, -Tok.s2)
+        } else {
+            EmptyLine(symbol: "square.grid.2x2", text: "No widgets") {
+                PillButton(title: "Edit widgets") { withAnimation(Tok.open) { model.editing = true } }
+            }
+            .padding(.horizontal, Tok.s3)
+            .blurReveal(shown, delay: 0.05)
+        }
+    }
 
-    /// The new page slides in from the side you're going to, out of a slight blur; the old one leaves the other way.
-    private var pageTransition: AnyTransition {
-        if Tok.reduceMotion { return .opacity }
-        let d = CGFloat(model.pageStep) * Tok.s6
-        // Opacity and offset only: a blur pass over a whole scrolling page, on both the leaving and the arriving view, was
-        // the heaviest thing in the transition and the one most likely to be interrupted mid-flight.
-        return .asymmetric(insertion: AnyTransition.opacity.combined(with: .offset(x: d)),
-                           removal: AnyTransition.opacity.combined(with: .offset(x: -d)))
+    /// The workspace on Agents already shows what waits on you, so the bar is for every other page.
+    private var needsBar: Bool { buddies.needsYouCount > 0 && !model.editing && !(settings.expanded && model.currentPage == .agents) }
+
+    /// Height the band, the bar, the dock and the bottom inset take, which the page area can't use.
+    private var chrome: CGFloat {
+        (showBand ? Tok.button + Tok.s2 : 0) + Tok.s2 + (dockShown ? Tok.dock + Tok.s2 : 0) + (needsBar ? NeedsYouBar.height + Tok.s2 : 0)
+    }
+    private var dockShown: Bool { !settings.expanded && (model.visiblePages.count > 1 || model.editing) }
+
+    /// One page: its rows of widgets, scrolling vertically if they are taller than the room. Padded inside so the cards
+    /// keep their margin while the page itself spans the panel.
+    @ViewBuilder private func pageBody(_ page: PageKind, columns: Int) -> some View {
+        let rows = WidgetLayout.rows(entries(on: page), columns: columns)
+        if settings.expanded && page == .agents {
+            // Agents has a layout of its own when expanded: crew and conversation beside tasks and schedule.
+            PageScroller(limit: model.maxContentHeight - chrome) {
+                AgentsWorkspace(store: buddies).padding(.horizontal, Tok.s2)
+            }
+        } else {
+        PageScroller(limit: model.maxContentHeight - chrome) {
+            VStack(alignment: .leading, spacing: Tok.s2) {
+                ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { index, row in
+                    SpanRow(columns: columns, spacing: Tok.s2) {
+                        ForEach(row, id: \.kind) { placed in
+                            widget(placed)
+                                .frame(minHeight: WidgetLayout.minHeight(placed.size, button: Tok.button, inset: Tok.s3), maxHeight: .infinity)
+                                .layoutValue(key: SpanColumns.self, value: placed.columns)
+                                .contextMenu { menu(placed.kind, on: page, columns: columns) }
+                        }
+                    }
+                    .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
+                    .blurReveal(shown, delay: 0.05 + Double(index) * 0.025)
+                }
+            }
+            .animation(Tok.open, value: rows.map { $0.map(\.kind) })
+            .padding(.horizontal, Tok.s2)
+        }
+        }
     }
 
     /// Whether a widget has something to show right now (live or ready); `false` means gone, taking no space. Its size
@@ -91,6 +126,10 @@ struct ExpandedView: View {
     private func isPresent(_ kind: WidgetKind) -> Bool {
         switch kind {
         case .clock, .timer, .stopwatch, .notes, .system, .keepAwake, .moon, .roll: return true
+        // Only real things (design.md §1): the Agents page exists once the core reports buddies (or in --buddies-demo).
+        case .buddies: return buddies.hasBuddies
+        case .routines: return !buddies.routines.isEmpty
+        case .tasks: return !buddies.tasks.isEmpty
         case .nowPlaying: return music.title != nil || music.availablePlayer != nil
         case .calendar:
             // A free day isn't news: with access and nothing in the next 24 h, the widget is gone.
@@ -126,6 +165,9 @@ struct ExpandedView: View {
         case .keepAwake: KeepAwakeCard(size: p.size)
         case .moon: MoonCard(size: p.size, ticking: shown)
         case .roll: RollCard(size: p.size)
+        case .buddies: BuddiesCard(store: buddies, columns: p.columns)
+        case .routines: RoutinesCard(store: buddies, columns: p.columns)
+        case .tasks: TasksCard(store: buddies, columns: p.columns)
         case .screenshot: if let c = shots.lastCopied { ScreenshotCard(copied: c, shots: shots, size: p.size, ticking: shown) }
         }
     }
@@ -157,13 +199,28 @@ struct PagesShown: PreferenceKey {
     static func reduce(value: inout Value, nextValue: () -> Value) { let n = nextValue(); if !n.visible.isEmpty { value = n } }
 }
 
-/// Applies the swipe-follow offset. Only this wrapper observes the swipe, so moving fingers never re-lays out the panel.
-struct SwipeFollow<Content: View>: View {
+/// The page in place and, while one is sliding, its neighbour beside it. Only this wrapper observes the swipe, so moving
+/// fingers never re-lays out the panel; the strip is sized by the page in place alone, and the neighbour rides along as
+/// an overlay (it is clipped to that height until it becomes the page in place).
+struct PagerStrip<Anchor: View, Partner: View>: View {
     @ObservedObject var swipe: SwipeState
-    @ViewBuilder var content: Content
+    let stride: CGFloat
+    @ViewBuilder var anchor: Anchor
+    @ViewBuilder var partner: (PageKind) -> Partner
+
     var body: some View {
-        // Render-only: an offset and a fade, no layout per scroll event (docs/widget-hub.md §7).
-        content.offset(x: swipe.offset).opacity(1 - Double(abs(swipe.offset)) / 120)
+        // Render-only: offsets, no layout per scroll event (docs/widget-hub.md §7).
+        anchor
+            .frame(width: stride, alignment: .topLeading)
+            .offset(x: swipe.offset)
+            .overlay(alignment: .topLeading) {
+                if let p = swipe.partner {
+                    partner(p)
+                        .frame(width: stride, alignment: .topLeading)
+                        .offset(x: swipe.offset + CGFloat(swipe.side) * stride)
+                }
+            }
+            .clipped()
     }
 }
 
@@ -214,38 +271,48 @@ struct PageMetrics: PreferenceKey {
     static func reduce(value: inout Value, nextValue: () -> Value) { value = nextValue() }
 }
 
-/// One dot per visible page, beside the brand slot (docs/widget-hub.md §1.4). Hidden with a single page.
-struct PageDots: View {
+/// The pages as small dots at the bottom of the panel: the current one is a longer pill. Click one to go there; hover names it.
+/// While you are editing, a plus adds a page. Hidden with a single page (outside editing).
+struct PageDock: View {
     @ObservedObject var model: NotchModel
+    @ObservedObject var settings = AppSettings.shared
+    let pages: [PageKind]
+    let current: PageKind?
     @State private var hover: PageKind?
+
     var body: some View {
-        let pages = model.visiblePages
-        if pages.count > 1 {
-            HStack(spacing: 0) {
-                ForEach(pages) { p in
-                    Button { model.go(to: p) } label: {
-                        Circle()
-                            .fill(p == model.currentPage ? Tok.ink : hover == p ? Tok.ink2 : Tok.ink3)
-                            .frame(width: 6, height: 6)
-                            .frame(width: 14, height: Tok.button)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .help(p.name)
-                    .onHover { h in withAnimation(Tok.hover) { hover = h ? p : (hover == p ? nil : hover) } }
+        HStack(spacing: 0) {
+            ForEach(Array(pages.enumerated()), id: \.element) { i, p in
+                let on = p == current
+                Button { model.go(to: p) } label: {
+                    Capsule().fill(on ? Tok.ink : hover == p ? Tok.ink2 : Tok.ink3)
+                        .frame(width: on ? 16 : 6, height: 6)
+                        .frame(width: on ? 26 : 16, height: Tok.dock)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .help("\(p.name)  ⌘\(i + 1)")
+                .accessibilityLabel(p.name)
+                .accessibilityAddTraits(on ? .isSelected : [])
+                .onHover { h in withAnimation(Tok.hover) { hover = h ? p : (hover == p ? nil : hover) } }
             }
-            .animation(Tok.hover, value: model.currentPage)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Page")
-            .accessibilityValue(value(pages))
-            .accessibilityAdjustableAction { d in model.go(by: d == .increment ? 1 : -1) }
-            .transition(.opacity)
+            if model.editing, settings.canAddPage {
+                Button {
+                    withAnimation(Tok.open) { if let p = settings.addPage() { settings.page = p } }
+                } label: {
+                    Image(systemName: "plus").font(.system(size: 9, weight: .semibold)).foregroundStyle(Tok.ink2)
+                        .frame(width: 22, height: Tok.dock).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Add a page")
+                .accessibilityLabel("Add a page")
+            }
         }
-    }
-    private func value(_ pages: [PageKind]) -> String {
-        guard let c = model.currentPage, let i = pages.firstIndex(of: c) else { return "" }
-        return "\(i + 1) of \(pages.count), \(c.name)"
+        .animation(Tok.open, value: current)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Pages")
+        .accessibilityAdjustableAction { d in model.go(by: d == .increment ? 1 : -1) }
     }
 }
 
@@ -258,7 +325,9 @@ struct NotchBand: View {
     var body: some View {
         HStack(spacing: 0) {
             BrandSlot().padding(.leading, Tok.s3 - (Tok.button - 16) / 2)
-            PageDots(model: model).padding(.leading, Tok.s1)
+            if let name = model.currentPage?.name {
+                Text(name).font(Tok.rowTitle).foregroundStyle(Tok.ink2).lineLimit(1).padding(.leading, Tok.s1).blurSwap(on: name)
+            }
             Spacer(minLength: 0)
             if model.editing {
                 PillButton(title: "Done") { withAnimation(Tok.open) { model.editing = false } }
@@ -278,7 +347,6 @@ struct NotchBand: View {
             }
         }
         .animation(Tok.reveal, value: model.editing)
-        .animation(Tok.reveal, value: model.visiblePages.count > 1)
     }
 }
 
@@ -931,6 +999,7 @@ struct WidgetEditor: View {
     var body: some View {
         let rows = WidgetLayout.rows(shown.map { ($0, settings.span(of: $0)) }, columns: columns)
         VStack(alignment: .leading, spacing: Tok.s2) {
+            header
             ForEach(Array(rows.enumerated()), id: \.element.first!.kind) { _, row in
                 SpanRow(columns: columns, spacing: Tok.s2) {
                     ForEach(row, id: \.kind) { placed in
@@ -939,15 +1008,18 @@ struct WidgetEditor: View {
                 }
             }
             if !hidden.isEmpty {
-                HStack(spacing: Tok.s1) {
-                    ForEach(hidden) { k in
-                        Chip(title: "+ \(k.name)", label: "Show \(k.name) on \(page.name)") {
-                            withAnimation(Tok.open) { settings.moveWidget(k, to: page) }
+                // One row that scrolls sideways, so every name reads in full however many widgets are hidden.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: Tok.s1) {
+                        ForEach(hidden) { k in
+                            Chip(title: "+ \(k.name)", label: "Show \(k.name) on \(page.name)") {
+                                withAnimation(Tok.open) { settings.moveWidget(k, to: page) }
+                            }
+                            .fixedSize()
                         }
                     }
-                    Spacer(minLength: 0)
+                    .padding(.horizontal, Tok.s1)
                 }
-                .padding(.horizontal, Tok.s1)
                 .transition(Tok.reduceMotion ? .opacity : AnyTransition(.blurReplace))
             }
             Text(shown.isEmpty ? "Add a widget to show it on \(page.name)." : "Drag to arrange. Tap a widget to change its size.")
@@ -961,6 +1033,28 @@ struct WidgetEditor: View {
         .animation(Tok.open, value: hidden)
         .animation(Tok.open, value: shown.map { settings.span(of: $0) })
         .id(page)
+    }
+
+    /// The page's name, which you can change, and the way to remove the page (its widgets move to a neighbour).
+    private var header: some View {
+        HStack(spacing: Tok.s2) {
+            TextField("Page name", text: Binding(get: { settings.pageNames[page.rawValue] ?? page.defaultName },
+                                                 set: { settings.pageNames[page.rawValue] = String($0.prefix(PageNames.maxLength)) }))
+                .textFieldStyle(.plain).font(Tok.rowTitle).foregroundStyle(Tok.ink)
+                .onSubmit { settings.renamePage(page, to: settings.pageNames[page.rawValue] ?? "") }
+                .padding(.horizontal, Tok.s3).frame(width: 170, height: 26)
+                .background(Capsule().fill(Tok.hoverFill))
+                .help("Rename this page")
+                .accessibilityLabel("Page name")
+            Spacer(minLength: 0)
+            if settings.pages.filter(\.enabled).count > 1 {
+                IconButton(symbol: "trash", label: "Remove \(page.name)") {
+                    withAnimation(Tok.open) { if let heir = settings.removePage(page) { settings.page = heir } }
+                }
+            }
+        }
+        .padding(.horizontal, Tok.s2)
+        .frame(height: Tok.button)
     }
 
     /// A card in its slot. While it's the one being dragged, the slot shows a quiet placeholder instead.
@@ -1191,23 +1285,25 @@ struct SpanRow: Layout {
     var columns: Int
     var spacing: CGFloat
 
-    private func cell(_ subview: LayoutSubview, _ column: CGFloat) -> CGFloat {
-        let n = CGFloat(min(max(1, subview[SpanColumns.self]), columns))
-        return column * n + spacing * (n - 1)
+    /// Each child's share of the row: its span, stretched so a row that doesn't use every column still fills the panel
+    /// (no hole beside it; the user's order and sizes are unchanged, ADR 0023).
+    private func widths(_ subviews: Subviews, in width: CGFloat) -> [CGFloat] {
+        let spans = subviews.map { CGFloat(min(max(1, $0[SpanColumns.self]), columns)) }
+        let total = max(1, spans.reduce(0, +))
+        let room = width - spacing * CGFloat(max(0, subviews.count - 1))
+        return spans.map { room * $0 / total }
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? CGFloat(columns) * 200
-        let column = WidgetLayout.columnWidth(inner: width, columns: columns, gap: spacing)
-        let height = subviews.map { $0.sizeThatFits(ProposedViewSize(width: cell($0, column), height: nil)).height }.max() ?? 0
+        let w = widths(subviews, in: width)
+        let height = zip(subviews, w).map { $0.sizeThatFits(ProposedViewSize(width: $1, height: nil)).height }.max() ?? 0
         return CGSize(width: width, height: height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let column = WidgetLayout.columnWidth(inner: bounds.width, columns: columns, gap: spacing)
         var x = bounds.minX
-        for subview in subviews {
-            let w = cell(subview, column)
+        for (subview, w) in zip(subviews, widths(subviews, in: bounds.width)) {
             subview.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: ProposedViewSize(width: w, height: bounds.height))
             x += w + spacing
         }

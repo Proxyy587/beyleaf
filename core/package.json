@@ -1,0 +1,5 @@
+{
+  "name": "belay-core",
+  "private": true,
+  "workspaces": ["packages/*"]
+}

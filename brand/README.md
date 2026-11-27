@@ -2,7 +2,7 @@
 
 **The mark:** the notch, and the one point that needs you. Chosen 2026-11-24 from three rounds of exploration (`explore/`).
 
-**Temporary logo (2026-11-25):** beepo, the first of the buddies (`buddies/`), stands in for the logo in the notch's brand slot and Settings → About. The app icon and the menu bar icon still use the mark below until they are redesigned.
+**Logo (2026-11-27):** beepo, the first of the buddies (`buddies/`), is the logo: the notch's brand slot, Settings → About, the menu bar, and the app icon (`apps/mac/scripts/make-icon.sh` draws it into `export/app-icon-1024.png` and `AppIcon.icns`). The notch-and-point mark below is kept for reference.
 
 | File | Use |
 |---|---|

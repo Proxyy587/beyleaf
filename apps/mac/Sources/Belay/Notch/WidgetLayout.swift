@@ -5,13 +5,23 @@ import Foundation
 
 /// The pages of the open notch (ADR 0021). Order of cases is the default order. `agents` joins at A1.
 enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
-    case now, notes, day
+    case now, notes, day, agents
+    /// Spare pages you can add: a page is a window of your own, named and filled as you like (up to eight in all).
+    case extra1, extra2, extra3, extra4
     var id: String { rawValue }
-    var name: String {
+    var isExtra: Bool { rawValue.hasPrefix("extra") }
+    /// The name a page starts with; yours (if you renamed it) wins.
+    var name: String { PageNames.custom[rawValue].flatMap { $0.isEmpty ? nil : $0 } ?? defaultName }
+    var defaultName: String {
         switch self {
         case .now: "Now"
         case .notes: "Notes"
         case .day: "Day"
+        case .agents: "Agents"
+        case .extra1: "Page 5"
+        case .extra2: "Page 6"
+        case .extra3: "Page 7"
+        case .extra4: "Page 8"
         }
     }
     var symbol: String {
@@ -19,14 +29,23 @@ enum PageKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .now: "play.circle"
         case .notes: "square.and.pencil"
         case .day: "calendar"
+        case .agents: "person.2"
+        case .extra1, .extra2, .extra3, .extra4: "square.grid.2x2"
         }
     }
+}
+
+/// The names you gave your pages. Set by the settings object on the main actor; read wherever a page is named.
+enum PageNames {
+    nonisolated(unsafe) static var custom: [String: String] = [:]
+    static let maxLength = 14
 }
 
 /// Every widget the open notch can show. Order of cases is the default order within each home page.
 enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case clock, nowPlaying, timer, stopwatch, screenshot, notes, weather, calendar
     case system, keepAwake, moon, roll
+    case buddies, routines, tasks
     var id: String { rawValue }
     var name: String {
         switch self {
@@ -42,6 +61,9 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .keepAwake: "Keep awake"
         case .moon: "Moon"
         case .roll: "Roll"
+        case .buddies: "Buddies"
+        case .routines: "Routines"
+        case .tasks: "Tasks"
         }
     }
     var symbol: String {
@@ -58,14 +80,17 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
         case .keepAwake: "cup.and.saucer"
         case .moon: "moon.stars"
         case .roll: "dice"
+        case .buddies: "person.2"
+        case .routines: "clock.arrow.circlepath"
+        case .tasks: "checklist"
         }
     }
     /// The page a widget starts on (and returns to on Reset).
     var home: PageKind {
         switch self {
         case .clock, .nowPlaying, .timer, .stopwatch, .screenshot, .system, .keepAwake, .moon, .roll: .now
-        case .notes: .notes
-        case .weather, .calendar: .day
+        case .weather, .calendar, .notes: .day
+        case .buddies, .routines, .tasks: .agents
         }
     }
     /// Side options start off (owner, 2026-11-25: the timer is a convenience, not the product; the stopwatch follows it).
@@ -75,7 +100,7 @@ enum WidgetKind: String, Codable, CaseIterable, Identifiable, Sendable {
     /// The span a widget gets when it is first placed (and on Reset). Exhaustive on purpose: a new kind must choose.
     var defaultSpan: WidgetSpan {
         switch self {
-        case .nowPlaying, .notes, .calendar, .system: .wide
+        case .nowPlaying, .notes, .calendar, .system, .buddies, .routines, .tasks: .wide
         case .clock, .timer, .stopwatch, .screenshot, .weather, .keepAwake, .moon, .roll: .small
         }
     }
@@ -160,8 +185,13 @@ enum Pages {
     /// what ADR 0019 packed (no half-row holes). After that the user's choices are never re-packed.
     static let defaults: [PageSetting] = PageKind.allCases.map { page in
         var widgets = WidgetKind.allCases.filter { $0.home == page }.map { WidgetSetting(kind: $0, enabled: $0.onByDefault) }
+        // Notes is the last thing on Day: the glance (weather, what's next) comes first.
+        widgets = widgets.filter { $0.kind != .notes } + widgets.filter { $0.kind == .notes }
         autoSpans(&widgets, clockHasZones: false)
-        return PageSetting(kind: page, enabled: true, widgets: widgets)
+        // Weather and the calendar are glances: side by side, with Notes wide beneath, so Day reads as one full block.
+        if page == .day { for k in widgets.indices where widgets[k].kind == .weather || widgets[k].kind == .calendar { widgets[k].span = .small } }
+        // Notes lives on Day now; its old page stays available but off, like the spare pages you add yourself.
+        return PageSetting(kind: page, enabled: !(page.isExtra || page == .notes), widgets: widgets)
     }
 
     /// Gives a page's shown widgets the spans ADR 0019's rule would have drawn: a widget that is wide by nature stays
@@ -286,6 +316,26 @@ enum Pages {
         pages.filter { $0.enabled && $0.widgets.contains { $0.enabled && present($0.kind) } }.map(\.kind)
     }
 
+    /// Takes a page away: its widgets go to the end of the nearest page that stays, with their sizes and whether they are
+    /// shown, and the page is switched off (the spare comes back empty if you add it again). Returns the page to show.
+    @discardableResult
+    static func remove(_ page: PageKind, in pages: inout [PageSetting]) -> PageKind? {
+        let on = pages.filter(\.enabled).map(\.kind)
+        guard on.count > 1, let i = pages.firstIndex(where: { $0.kind == page }), pages[i].enabled else { return nil }
+        let k = on.firstIndex(of: page) ?? 0
+        let heir = on[k == 0 ? 1 : k - 1]
+        guard let h = pages.firstIndex(where: { $0.kind == heir }) else { return nil }
+        pages[h].widgets.append(contentsOf: pages[i].widgets)
+        pages[i].widgets = []
+        pages[i].enabled = false
+        return heir
+    }
+
+    /// The first spare page that is off, in the order they were made available.
+    static func nextSpare(in pages: [PageSetting]) -> PageKind? {
+        PageKind.allCases.first { kind in kind.isExtra && !(pages.first { $0.kind == kind }?.enabled ?? false) }
+    }
+
     /// The page to open on: the remembered one if it's visible, else the first visible page.
     static func resolve(_ remembered: PageKind, visible: [PageKind]) -> PageKind? {
         visible.contains(remembered) ? remembered : visible.first
@@ -313,9 +363,9 @@ struct PlacedWidget: Equatable, Sendable {
 }
 
 enum WidgetLayout {
-    /// The panel grid: 2 columns, 3 when expanded. Each column is the same width in both, so widgets keep their size
+    /// The panel grid: 2 columns, 4 when expanded (so two wide widgets share a row, and four smalls). Each column is the same width in both, so widgets keep their size
     /// and expanded simply holds more of them (ADR 0023).
-    static func columns(expanded: Bool) -> Int { expanded ? 3 : 2 }
+    static func columns(expanded: Bool) -> Int { expanded ? 4 : 2 }
 
     /// Flows widgets into rows in the given order, each taking its span (clamped to the grid). A widget that doesn't
     /// fit the rest of the row starts the next one. Never reorders, never resizes: whatever the user arranged stays,
@@ -325,7 +375,8 @@ enum WidgetLayout {
         var rows: [[PlacedWidget]] = []
         var used = 0
         for item in items {
-            let n = min(max(1, item.span.rawValue), cols)
+            // Full is a whole row, however many columns the grid has.
+            let n = item.span == .full ? cols : min(max(1, item.span.rawValue), cols)
             if rows.isEmpty || used + n > cols { rows.append([]); used = 0 }
             rows[rows.count - 1].append(PlacedWidget(kind: item.kind, columns: n))
             used += n
@@ -333,11 +384,12 @@ enum WidgetLayout {
         return rows
     }
 
-    /// The open panel's width when expanded: the theme's width plus one more column (and its gap), capped so the
-    /// panel's shadow fits the canvas. `inner` is the width the grid gets at `base`.
-    static func expandedWidth(base: CGFloat, inner: CGFloat, gap: CGFloat, cap: CGFloat) -> CGFloat {
+    /// The open panel's width when expanded: the theme's width, plus two more grid columns (and their gaps), plus the page rail
+    /// (docs/notch-research.md). Capped so the panel and its shadow fit the canvas and the screen. `inner` is the width the grid
+    /// gets at `base`.
+    static func expandedWidth(base: CGFloat, inner: CGFloat, gap: CGFloat, rail: CGFloat, cap: CGFloat) -> CGFloat {
         let column = (inner - gap) / 2
-        return min(base + column + gap, max(base, cap))
+        return min(base + 2 * (column + gap) + rail, max(base, cap))
     }
 
     /// Width of one column when `inner` is split into `columns` with `gap` between.
@@ -375,33 +427,38 @@ enum PanelFit {
 }
 
 /// The two-finger page swipe as a small state machine, fed with finger-direction deltas (already normalised for
-/// natural scrolling). The view layer only applies what it returns.
+/// natural scrolling). The page follows the fingers one to one; on release it commits when the travel passes a fifth of
+/// the page or the fingers were flicking. The view layer only applies what it returns.
 struct SwipeTracker {
     enum Axis { case undecided, horizontal, vertical }
     enum Phase { case began, changed, ended }
 
-    /// Follow resistance and its cap (≤ 40 pt), the travel that commits, and how far an end of the list gives.
-    static let resistance: CGFloat = 0.35
-    static let maxFollow: CGFloat = 40
-    static let commitTravel: CGFloat = 60
-    static let endGive: CGFloat = 14
+    /// Share of the page width that commits on release, the flick speed (pt/s) that commits from a short drag, and the
+    /// least travel a flick needs.
+    static let commitFraction: CGFloat = 0.2
+    static let flickSpeed: CGFloat = 450
+    static let flickTravel: CGFloat = 14
+    /// How far an end of the list gives, as a share of the page width (rubber band).
+    static let endGive: CGFloat = 0.06
     /// Travel before the gesture is called horizontal or vertical.
     static let decide: CGFloat = 6
 
     struct Result: Equatable {
         /// The event belongs to a page swipe: don't pass it on (vertical scrolling must not see it).
         var consumed = false
-        /// Where the page follows to, or nil to leave it.
+        /// Where the page follows to (negative = towards the next page), or nil to leave it.
         var offset: CGFloat?
         /// +1 next page, -1 previous, once, on release.
         var commit: Int?
-        /// Released: spring back to rest.
+        /// Released: settle (to the other page when `commit` is set, else back to rest).
         var settle = false
     }
 
     private(set) var axis = Axis.undecided
     private var x: CGFloat = 0, y: CGFloat = 0
     private var swallowMomentum = false
+    /// Recent (time, x) samples for the release velocity.
+    private var samples: [(t: TimeInterval, x: CGFloat)] = []
 
     /// Momentum after a horizontal swipe is swallowed, so it can't scroll the page vertically.
     mutating func momentum(ended: Bool) -> Bool {
@@ -410,28 +467,44 @@ struct SwipeTracker {
         return s
     }
 
-    mutating func reset() { axis = .undecided; x = 0; y = 0; swallowMomentum = false }
+    mutating func reset() { axis = .undecided; x = 0; y = 0; swallowMomentum = false; samples = [] }
+
+    /// Finger speed over roughly the last 100 ms, in pt/s (negative = leftwards).
+    private var velocity: CGFloat {
+        guard let last = samples.last, let first = samples.first(where: { last.t - $0.t <= 0.1 }), last.t > first.t else { return 0 }
+        return (last.x - first.x) / CGFloat(last.t - first.t)
+    }
+
+    /// The rubber band: free movement where a page exists, a small give where it doesn't.
+    static func follow(_ x: CGFloat, width: CGFloat, hasNeighbour: Bool) -> CGFloat {
+        if hasNeighbour { return max(-width, min(width, x)) }
+        let give = width * endGive
+        return (x < 0 ? -1 : 1) * give * (1 - exp(-abs(x) / (width * 0.3)))
+    }
 
     /// `hasNeighbour(step)`: whether a page exists that way (else the end gives a little and never commits).
-    mutating func feed(dx: CGFloat, dy: CGFloat, phase: Phase, followsFingers: Bool, hasNeighbour: (Int) -> Bool) -> Result {
-        if phase == .began { x = 0; y = 0; axis = .undecided; swallowMomentum = false }
+    mutating func feed(dx: CGFloat, dy: CGFloat, phase: Phase, followsFingers: Bool, width: CGFloat = 600, time: TimeInterval = 0,
+                       hasNeighbour: (Int) -> Bool) -> Result {
+        if phase == .began { x = 0; y = 0; axis = .undecided; swallowMomentum = false; samples = [] }
         x += dx; y += dy
+        samples.append((time, x))
+        if samples.count > 12 { samples.removeFirst() }
         if axis == .undecided, abs(x) + abs(y) > Self.decide { axis = abs(x) > abs(y) * 1.5 ? .horizontal : .vertical }
         var r = Result(consumed: axis == .horizontal)
         if axis == .horizontal {
             let step = x < 0 ? 1 : -1
             let has = hasNeighbour(step)
             if phase == .ended {
-                if has, abs(x) > Self.commitTravel { r.commit = step }
+                let v = velocity
+                let flicked = abs(v) > Self.flickSpeed && abs(x) > Self.flickTravel && (v < 0) == (x < 0)
+                if has, abs(x) > width * Self.commitFraction || flicked { r.commit = step }
                 r.settle = true
                 swallowMomentum = true
             } else if followsFingers {
-                let sign: CGFloat = x < 0 ? -1 : 1
-                r.offset = sign * (has ? min(Self.maxFollow, abs(x) * Self.resistance)
-                                       : Self.endGive * (1 - exp(-abs(x) / 50)))
+                r.offset = Self.follow(x, width: width, hasNeighbour: has)
             }
         }
-        if phase == .ended { axis = .undecided; x = 0; y = 0 }
+        if phase == .ended { axis = .undecided; x = 0; y = 0; samples = [] }
         return r
     }
 }

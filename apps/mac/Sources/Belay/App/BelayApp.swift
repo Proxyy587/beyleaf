@@ -22,6 +22,7 @@ final class BelayApp: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        BeepoMark.renderIconIfAsked()
         #if DEBUG
         let perf = Logger(subsystem: "app.belay.mac", category: "perf")
         perf.notice("didFinishLaunching \(Self.msSinceProcessStart(), privacy: .public) ms")
@@ -36,6 +37,8 @@ final class BelayApp: NSObject, NSApplicationDelegate {
         notch = controller
         controller.start(openOnLaunch: CommandLine.arguments.contains("--expand"))
         installStatusItem()
+        CoreLink.shared.startIfRequested()
+        BuddyStore.shared.attach(CoreLink.shared)
         if CommandLine.arguments.contains("--settings") { settingsWindow.show() }
         #if DEBUG
         BuddyReviewWindow.showIfRequested()
@@ -45,6 +48,8 @@ final class BelayApp: NSObject, NSApplicationDelegate {
             Logger(subsystem: "app.belay.mac", category: "perf").notice("ready \(Self.msSinceProcessStart(), privacy: .public) ms after launch")
         }
     }
+
+    func applicationWillTerminate(_ notification: Notification) { CoreLink.shared.stop() }
 
     private static func msSinceProcessStart() -> Int {
         var info = kinfo_proc()
@@ -59,7 +64,7 @@ final class BelayApp: NSObject, NSApplicationDelegate {
     /// A small menu bar item so a dock-less app can be opened, configured and quit.
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = BelayMark.templateImage()
+        item.button?.image = BeepoMark.menuBarImage()
         let menu = NSMenu()
         menu.addItem(withTitle: "Open notch", action: #selector(openNotch), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self

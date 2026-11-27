@@ -1,0 +1,30 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "belay-core",
+    },
+    "packages/belayd": {
+      "name": "belayd",
+      "version": "0.0.0",
+      "dependencies": {
+        "@belay/protocol": "workspace:*",
+      },
+    },
+    "packages/protocol": {
+      "name": "@belay/protocol",
+      "version": "1.0.0",
+      "dependencies": {
+        "zod": "^3.23.8",
+      },
+    },
+  },
+  "packages": {
+    "@belay/protocol": ["@belay/protocol@workspace:packages/protocol"],
+
+    "belayd": ["belayd@workspace:packages/belayd"],
+
+    "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+  }
+}

@@ -49,7 +49,7 @@ struct SystemCard: View {
 
     private func diskRow(_ s: SystemStats.Snapshot) -> some View {
         let f = (s.diskTotal ?? 0) == 0 ? 0 : 1 - Double(s.diskFree ?? 0) / Double(s.diskTotal ?? 1)
-        return MeterRow(label: "DISK", fraction: f, value: s.diskFree.map { SystemLogic.bytes(Double($0)) + " free" } ?? "–", tint: f > 0.95 ? Tok.warning : Tok.ink)
+        return MeterRow(label: "FREE", fraction: f, value: s.diskFree.map { SystemLogic.bytes(Double($0)) } ?? "–", tint: f > 0.95 ? Tok.warning : Tok.ink)
     }
 
     private func netRow(_ s: SystemStats.Snapshot) -> some View {
@@ -99,7 +99,7 @@ private struct MeterRow: View {
                         GeometryReader { g in Capsule().fill(tint).frame(width: g.size.width * min(1, max(0, fraction))) }
                     }
                 Text(value).font(Tok.digits).foregroundStyle(Tok.ink).lineLimit(1).minimumScaleFactor(0.8)
-                    .frame(minWidth: 56, alignment: .trailing)
+                    .frame(width: 58, alignment: .trailing)
             }
             if let caption { StatusLine(text: caption).padding(.leading, 34 + Tok.s2) }
         }

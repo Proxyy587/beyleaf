@@ -36,6 +36,8 @@ final class AppSettings: ObservableObject {
     @Published var screenshotAutoCopy: Bool { didSet { save(screenshotAutoCopy, "screenshotAutoCopy") } }
     /// What the open notch shows: pages of widgets, in the user's order (ADR 0021). Not part of the theme.
     @Published var pages: [PageSetting] { didSet { if pages != oldValue { savePages() } } }
+    /// Names you gave pages (by page id). Empty means the page's own name.
+    @Published var pageNames: [String: String] { didSet { PageNames.custom = pageNames; if persistsPages { d.set(pageNames, forKey: "pageNames") } } }
     /// The page the notch opens on: the one the user last chose (docs/widget-hub.md §1.3).
     @Published var page: PageKind { didSet { if page != oldValue, persistsPages { save(page.rawValue, "notchPage") } } }
     /// Show a running timer in the closed notch (when music isn't playing) and flash when it ends.
@@ -141,6 +143,25 @@ final class AppSettings: ObservableObject {
         p[i].widgets = shown + p[i].widgets.filter { !kinds.contains($0.kind) }
         pages = p
     }
+    /// Turns on the next spare page, empty, and returns it so the editor can go there.
+    @discardableResult func addPage() -> PageKind? {
+        guard let spare = Pages.nextSpare(in: pages), let i = pages.firstIndex(where: { $0.kind == spare }) else { return nil }
+        pages[i].enabled = true; pages[i].widgets = []
+        return spare
+    }
+    /// Removes a page; its widgets move to a neighbour. Returns the page to show instead.
+    @discardableResult func removePage(_ kind: PageKind) -> PageKind? {
+        var p = pages
+        guard let heir = Pages.remove(kind, in: &p) else { return nil }
+        pages = p
+        pageNames[kind.rawValue] = nil
+        return heir
+    }
+    func renamePage(_ kind: PageKind, to name: String) {
+        let n = String(name.trimmingCharacters(in: .whitespaces).prefix(PageNames.maxLength))
+        pageNames[kind.rawValue] = n.isEmpty ? nil : n
+    }
+    var canAddPage: Bool { Pages.nextSpare(in: pages) != nil }
     func movePages(from source: IndexSet, to destination: Int) { var p = pages; p.move(fromOffsets: source, toOffset: destination); pages = p }
     func setPageEnabled(_ kind: PageKind, _ on: Bool) {
         guard let i = pages.firstIndex(where: { $0.kind == kind }), pages[i].enabled != on else { return }
@@ -188,7 +209,13 @@ final class AppSettings: ObservableObject {
         pages = d.data(forKey: "pages").flatMap { Pages.decode($0, clockHasZones: zonesShown) }
             ?? Pages.migrated(from: d.data(forKey: "widgets").flatMap(WidgetSetting.decode) ?? Self.migratedWidgets(from: savedTheme), clockHasZones: zonesShown)
         page = PageKind(rawValue: d.string(forKey: "notchPage") ?? "") ?? .now
-        if d.data(forKey: "pages") == nil { savePages() }
+        pageNames = (d.dictionary(forKey: "pageNames") as? [String: String]) ?? [:]
+        PageNames.custom = pageNames
+        // Layout pass 2 (2026-11-27): Notes joined Day (beside weather and the calendar) and the Notes page went away by default, so
+        // pages aren't left with one thin row. Applied once to a saved layout; after that your arrangement is never touched.
+        if d.data(forKey: "pages") != nil, d.integer(forKey: "layoutVersion") < 3 { pages = Pages.defaults; page = .now }
+        d.set(3, forKey: "layoutVersion")
+        if d.data(forKey: "pages") == nil || pages != Pages.decode(d.data(forKey: "pages") ?? Data(), clockHasZones: zonesShown) { savePages() }
         #if DEBUG
         let a = CommandLine.arguments
         if a.contains("--demo-pages") || a.contains("--page") { persistsPages = false }

@@ -6,6 +6,8 @@
 | Processes, modules, protocol v1, flows, storage, security, tests | `docs/architecture.md` |
 | Sub-agents (Crew): roles, runtimes, tools, messaging, budgets, taint, SceneSpec | `docs/crew.md` |
 | Jarvis direction: phases, state, handoff between agents (buddies, routines, connectors, Mac control) | `docs/jarvis-roadmap.md` |
+| Buddies design: cast, compact vs expanded, chat, Mac reach tiers, routines, build order | `docs/buddies.md` |
+| What we sell, USP, adapters, engines and subscriptions, flows, build order | `docs/product-vision.md` |
 | File conversion: wheel, entry points, planner, providers, format coverage | `docs/conversions.md` |
 | Stack choices, Rust question, performance budgets | `docs/tech-stack.md` |
 | Day-by-day v0.1 plan and Day 1 spike | `docs/build-plan.md` |
@@ -18,3 +20,4 @@
 | What agents expose (hooks, logs, OTel) | `docs/feasibility.md` |
 | Market, competitors, pain, launch | `docs/market.md`, `docs/landscape.md`, `docs/pain.md`, `docs/launch.md`, `docs/verdict.md` |
 | Per-folder responsibilities | `apps/mac/README.md`, `core/README.md`, `core/packages/*/README.md` |
+| Notch app research (Perch, Avo, DynamicNotchKit) and what expanded takes from it | `docs/notch-research.md` |

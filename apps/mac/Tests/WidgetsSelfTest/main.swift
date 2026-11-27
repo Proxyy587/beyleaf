@@ -36,12 +36,12 @@ for columns in 1...4 {
             let flat = rows.flatMap { $0 }
             if flat.map(\.kind) != items.map(\.kind) { allOk = false }
             if rows.contains(where: { $0.map(\.columns).reduce(0, +) > columns }) { allOk = false }
-            if zip(flat, items).contains(where: { $0.columns != min($1.span.rawValue, columns) }) { allOk = false }
+            if zip(flat, items).contains(where: { $0.columns != ($1.span == .full ? columns : min($1.span.rawValue, columns)) }) { allOk = false }
             for (r, next) in zip(rows, rows.dropFirst()) where r.map(\.columns).reduce(0, +) + next[0].columns <= columns { allOk = false }
         }
     }
 }
-check(allOk, "grid: every order, span mix and 1-4 columns: order kept, no overfull row, spans honoured, rows tight")
+check(allOk, "grid: every order, span mix and 1-4 columns: order kept, no overfull row, spans honoured (full is a whole row), rows tight")
 
 // Sizes a widget may take, and cycling through them.
 check(WidgetKind.allCases.allSatisfy { $0.spans.contains($0.defaultSpan) && !$0.spans.isEmpty }, "spans: every kind's default is one it allows")
@@ -59,10 +59,11 @@ Pages.setSpan(.clock, .full, in: &cyc)
 check(Pages.span(of: .clock, in: cyc) == .full, "setSpan stores a span")
 
 // Expanded: one more column of the same width (widgets keep their size; the extra room holds more of them).
-check(WidgetLayout.columns(expanded: false) == 2 && WidgetLayout.columns(expanded: true) == 3, "expanded: 2 columns become 3")
-check(WidgetLayout.expandedWidth(base: 440, inner: 400, gap: 8, cap: 680) == 644, "expanded: width grows by exactly one column and a gap")
-check(WidgetLayout.expandedWidth(base: 560, inner: 520, gap: 8, cap: 680) == 680, "expanded: capped so the shadow fits")
-check(WidgetLayout.columnWidth(inner: 400, columns: 2, gap: 8) == WidgetLayout.columnWidth(inner: 644 - 40, columns: 3, gap: 8), "expanded: a column is the same width in both modes")
+check(WidgetLayout.columns(expanded: false) == 2 && WidgetLayout.columns(expanded: true) == 4, "expanded: 2 columns become 4")
+check(WidgetLayout.expandedWidth(base: 360, inner: 320, gap: 8, rail: 148, cap: 940) == 836 && WidgetLayout.expandedWidth(base: 440, inner: 400, gap: 8, rail: 148, cap: 940) == 940, "expanded: width grows by two columns, their gaps and the page rail, up to the cap")
+check(WidgetLayout.expandedWidth(base: 560, inner: 520, gap: 8, rail: 148, cap: 940) == 940, "expanded: capped so the shadow fits")
+check(WidgetLayout.columnWidth(inner: 940 - 24 - 148 - 16, columns: 4, gap: 8) >= 175 && WidgetLayout.columnWidth(inner: 940 - 24 - 148 - 16, columns: 4, gap: 8) < WidgetLayout.columnWidth(inner: 400, columns: 2, gap: 8), "expanded: four columns of at least 175 pt, a little narrower than compact's 196")
+check(shape(WidgetLayout.rows([(cl, .wide), (np, .wide), (ss, .full), (tm, .small)], columns: 4)) == "clock:2+nowPlaying:2 | screenshot:4 | timer:1", "grid: four columns hold two wide widgets in a row, and a full takes the whole row")
 let hasRoom = WidgetLayout.rows([(cl, .small), (ss, .small), (tm, .small), (np, .wide)], columns: 3).count
 check(hasRoom == 2 && WidgetLayout.rows([(cl, .small), (ss, .small), (tm, .small), (np, .wide)], columns: 2).count == 3, "expanded: three smalls fit one row instead of two")
 check(WidgetLayout.minHeight(.tile, button: 28, inset: 12) == 84 && WidgetLayout.minHeight(.wide, button: 28, inset: 12) == 60, "min height: tile and wide floors")
@@ -107,12 +108,13 @@ check(spanMap(lp, .now) == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:
 check(spanMap(lp, .day) == "calendar:2 weather:2", "migration: a lone tile after a wide widget was promoted, so it becomes wide")
 check(Pages.decode(Data(legacy.utf8), clockHasZones: true).map { spanMap($0, .now) } == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:1", "migration: clock with zones is wide")
 check(spanMap(Pages.defaults, .now) == "clock:2 nowPlaying:2 timer:1 stopwatch:1 screenshot:2", "defaults: Now looks as ADR 0019 packed it")
-check(spanMap(Pages.defaults, .day) == "weather:2 calendar:2" && spanMap(Pages.defaults, .notes) == "notes:2", "defaults: Day and Notes are wide")
+check(spanMap(Pages.defaults, .day) == "weather:1 calendar:1 notes:2" && spanMap(Pages.defaults, .notes) == "", "defaults: Day holds weather and calendar side by side with notes wide beneath; the old Notes page is empty")
+check(Pages.defaults.filter(\.enabled).map(\.kind) == [.now, .day, .agents], "defaults: three pages are on; Notes and the spare pages are off")
 let withSpans = #"[{"kind":"now","enabled":true,"widgets":[{"kind":"clock","enabled":true,"span":1},{"kind":"nowPlaying","enabled":true,"span":3},{"kind":"timer","enabled":true,"span":9},{"kind":"screenshot","enabled":true,"span":"wide"}]}]"#
 let sp = Pages.decode(Data(withSpans.utf8)) ?? []
 check(invariant(sp), "spans decode holds the invariant")
 check(spanMap(sp, .now) == "clock:1 nowPlaying:3 timer:1 stopwatch:1 screenshot:1", "spans decode: kept as saved, a bad value falls back to the kind's default, no auto packing")
-check(spanMap(sp, .notes) == "notes:2" && spanMap(sp, .day) == "weather:2 calendar:2", "spans decode: pages missing from the data come back with their defaults")
+check(spanMap(sp, .day) == "weather:1 calendar:1 notes:2", "spans decode: widgets missing from the data come back with their defaults")
 let roundTrip = (try? JSONEncoder().encode(sp)).flatMap { Pages.decode($0) }
 check(roundTrip == sp, "spans survive encode then decode unchanged")
 var keep = sp
@@ -126,11 +128,11 @@ check(Pages.span(of: .clock, in: cleared) == .small, "hiding a widget keeps its 
 var moved = Pages.defaults
 Pages.move(.timer, to: .day, in: &moved)
 check(invariant(moved) && Pages.page(of: .timer, in: moved) == .day, "move between pages keeps the invariant")
-check(Pages.visible(moved, present: { _ in true }) == [.now, .notes, .day], "visible: pages with a shown widget, in order (Notes holds the Notes widget)")
-check(Pages.visible(Pages.defaults, present: { $0 == .notes }) == [.notes], "visible: the Notes page shows whenever its field is present")
+check(Pages.visible(moved, present: { _ in true }) == [.now, .day, .agents], "visible: pages that are on and have a shown widget, in order")
+check(Pages.visible(Pages.defaults, present: { $0 == .notes }) == [.day], "visible: Day shows whenever the Notes field is present")
 check(Pages.visible(moved, present: { $0 == .nowPlaying }) == [.now], "visible: a page with nothing present is skipped")
 var off = moved; off[0].enabled = false
-check(Pages.visible(off, present: { _ in true }) == [.notes, .day], "visible: a page switched off is skipped")
+check(Pages.visible(off, present: { _ in true }) == [.day, .agents], "visible: a page switched off is skipped")
 check(Pages.resolve(.notes, visible: [.now, .day]) == .now, "resolve falls back to the first visible page")
 check(Pages.resolve(.day, visible: [.now, .day]) == .day, "resolve keeps the remembered page")
 check(Pages.neighbour(of: .now, by: 1, visible: [.now, .day]) == .day && Pages.neighbour(of: .day, by: 1, visible: [.now, .day]) == nil, "neighbour has no wrap")
@@ -154,30 +156,37 @@ let busy = WidgetLayout.rows(WidgetKind.allCases.map { ($0, WidgetSpan.small) },
 check(busy.flatMap { $0 }.map(\.kind) == WidgetKind.allCases, "overflow: nothing is dropped when rows exceed the room")
 
 // 13. Page swipe (docs/widget-hub.md §1.3). Deltas are finger-direction: negative = fingers left = next page.
-func swipe(_ steps: [(CGFloat, CGFloat)], hasNeighbour: Bool = true, follow: Bool = true) -> (results: [SwipeTracker.Result], tracker: SwipeTracker) {
+// The page follows the fingers one to one (page width 600 here) and commits past a fifth of it, or on a flick.
+func swipe(_ steps: [(CGFloat, CGFloat)], hasNeighbour: Bool = true, follow: Bool = true, dt: TimeInterval = 0.2) -> (results: [SwipeTracker.Result], tracker: SwipeTracker) {
     var t = SwipeTracker(), out: [SwipeTracker.Result] = []
     for (i, d) in steps.enumerated() {
         let phase: SwipeTracker.Phase = i == 0 ? .began : i == steps.count - 1 ? .ended : .changed
-        out.append(t.feed(dx: d.0, dy: d.1, phase: phase, followsFingers: follow) { _ in hasNeighbour })
+        out.append(t.feed(dx: d.0, dy: d.1, phase: phase, followsFingers: follow, width: 600, time: Double(i) * dt) { _ in hasNeighbour })
     }
     return (out, t)
 }
 let drag = swipe([(-10, 0), (-30, 0), (-30, 0), (-60, 0), (0, 0)])
 check(drag.results.dropLast().allSatisfy(\.consumed), "swipe: horizontal gesture is consumed")
-check(drag.results.dropLast().compactMap(\.offset).allSatisfy { $0 <= 0 && $0 >= -40 }, "swipe: follow offset stays within 40 pt")
-check(drag.results.last?.commit == 1 && drag.results.last?.settle == true, "swipe: fingers left past 60 pt commits to the next page")
-check(swipe([(40, 0), (40, 0), (0, 0)]).results.last?.commit == -1, "swipe: fingers right past 60 pt commits to the previous page")
+check(drag.results.dropLast().compactMap(\.offset) == [-10, -40, -70, -130], "swipe: the page follows the fingers one to one")
+check(drag.results.last?.commit == 1 && drag.results.last?.settle == true, "swipe: slowly dragging past a fifth of the page commits to the next page")
+check(swipe([(40, 0), (40, 0), (40, 0), (40, 0), (0, 0)]).results.last?.commit == -1, "swipe: fingers right past a fifth of the page commits to the previous page")
 let short = swipe([(-20, 0), (-30, 0), (0, 0)])
-check(short.results.last?.commit == nil && short.results.last?.settle == true, "swipe: under 60 pt springs back without committing")
+check(short.results.last?.commit == nil && short.results.last?.settle == true, "swipe: a short slow drag springs back without committing")
+let flick = swipe([(-8, 0), (-14, 0), (-22, 0), (0, 0)], dt: 0.02)
+check(flick.results.last?.commit == 1, "swipe: a quick flick commits even from a short drag")
+let tiny = swipe([(-4, 0), (-4, 0), (-4, 0), (0, 0)], dt: 0.005)
+check(tiny.results.last?.commit == nil, "swipe: a twitch under 14 pt never commits")
+let wrongWay = swipe([(-40, 0), (-40, 0), (30, 0), (0, 0)], dt: 0.02)
+check(wrongWay.results.last?.commit == nil, "swipe: a flick back the other way does not commit")
 let huge = swipe([(-500, 0), (-500, 0), (0, 0)])
-check(huge.results.compactMap(\.offset).allSatisfy { abs($0) <= 40 }, "swipe: a huge swipe still moves the page at most 40 pt")
+check(huge.results.compactMap(\.offset).allSatisfy { abs($0) <= 600 }, "swipe: a huge swipe moves the page at most one page width")
 let edge = swipe([(-80, 0), (-80, 0), (0, 0)], hasNeighbour: false)
 check(edge.results.last?.commit == nil, "swipe: no commit past the last page (no wrap)")
-check(edge.results.compactMap(\.offset).allSatisfy { abs($0) < 14 }, "swipe: the end rubber-bands under 14 pt")
+check(edge.results.compactMap(\.offset).allSatisfy { abs($0) < 600 * SwipeTracker.endGive }, "swipe: the end rubber-bands under 6% of the page")
 let vertical = swipe([(-2, 10), (-3, 30), (-60, 40), (0, 0)])
 check(vertical.results.allSatisfy { !$0.consumed && $0.offset == nil && $0.commit == nil }, "swipe: a vertical scroll is never consumed, even if it drifts sideways")
 check(swipe([(-10, 0), (-40, 0), (0, 0)], follow: false).results.allSatisfy { $0.offset == nil }, "swipe: reduced motion has no follow")
-check(swipe([(-40, 0), (-40, 0), (0, 0)], follow: false).results.last?.commit == 1, "swipe: reduced motion still commits")
+check(swipe([(-100, 0), (-100, 0), (0, 0)], follow: false).results.last?.commit == 1, "swipe: reduced motion still commits")
 var mt = drag.tracker
 check(mt.momentum(ended: false) && mt.momentum(ended: true) && !mt.momentum(ended: false), "swipe: momentum after a swipe is swallowed, then released")
 var v2 = SwipeTracker(); _ = v2.feed(dx: 0, dy: 20, phase: .began, followsFingers: true) { _ in true }; _ = v2.feed(dx: 0, dy: 0, phase: .ended, followsFingers: true) { _ in true }
@@ -489,6 +498,55 @@ MainActor.assumeIsolated {
     let h = (1...7).reduce([String]()) { RollLogic.pushed($0, String($1)) }
     check(h == ["7", "6", "5", "4", "3"] && RollLogic.historyText(["4", "3"]) == "4 · 3", "roll: history keeps the newest five")
     check(RollLogic.spoken(.d6, last: "4") == "D6 roll: 4." && RollLogic.spoken(.coin, last: nil) == "Roll a coin.", "roll: spoken")
+}
+
+// Buddies (docs/buddies.md): ordering, wording, roster strip, thread tails, routine countdown.
+do {
+    let order = BuddyLogic.ordered([("a", BuddyRunState.idle), ("b", .working), ("c", .waiting), ("d", .error), ("e", .working), ("f", .paused), ("g", .done)], state: \.1).map(\.0)
+    check(order == ["c", "d", "b", "e", "g", "a", "f"], "buddies: needs-you, then stopped, then working (ties keep order), done, idle, paused")
+    check(BuddyLogic.statusText(.working, detail: "running tests") == "working · running tests" && BuddyLogic.statusText(.idle, detail: nil) == "idle" && BuddyLogic.statusText(.waiting, detail: "") == "needs you", "buddies: status wording")
+    check(BuddyLogic.strip(count: 4, selected: 0, fit: 7).visible == [0, 1, 2, 3] && BuddyLogic.strip(count: 4, selected: 0, fit: 7).more == 0, "buddies: a short roster shows everyone")
+    check(BuddyLogic.strip(count: 10, selected: 2, fit: 7).visible == [0, 1, 2, 3, 4, 5, 6] && BuddyLogic.strip(count: 10, selected: 2, fit: 7).more == 3, "buddies: a long roster collapses into +n")
+    check(BuddyLogic.strip(count: 10, selected: 9, fit: 7).visible.last == 9 && BuddyLogic.strip(count: 10, selected: 9, fit: 7).visible.count == 7, "buddies: the selected buddy is always in the strip")
+    check(BuddyLogic.strip(count: 0, selected: 0, fit: 7).visible.isEmpty, "buddies: no buddies, no strip")
+    check(BuddyLogic.tail(Array(1...9), columns: 3) == [4, 5, 6, 7, 8, 9] && BuddyLogic.tail(Array(1...9), columns: 2) == [8, 9] && BuddyLogic.tail([1], columns: 1).isEmpty, "buddies: thread tail per form")
+    let now = Date(timeIntervalSince1970: 1_000_000)
+    check(BuddyLogic.until(nil, now: now) == "on event" && BuddyLogic.until(now.addingTimeInterval(30), now: now) == "now" && BuddyLogic.until(now.addingTimeInterval(-5), now: now) == "now", "buddies: routine countdown, now and event")
+    check(BuddyLogic.until(now.addingTimeInterval(12 * 60 + 5), now: now) == "in 12 min" && BuddyLogic.until(now.addingTimeInterval(3 * 3600 + 5), now: now) == "in 3 h" && BuddyLogic.until(now.addingTimeInterval(3 * 86_400 + 5), now: now) == "in 3 d", "buddies: routine countdown units")
+    check(WidgetKind.buddies.home == .agents && WidgetKind.routines.home == .agents && PageKind.allCases.filter { !$0.isExtra }.last == .agents, "buddies: widgets live on the Agents page, the last built-in page")
+    let pages = Pages.migrated(from: WidgetSetting.defaults)
+    check(Pages.visible(pages) { $0 != .buddies && $0 != .routines && $0 != .tasks }.allSatisfy { $0 != .agents }, "buddies: the Agents page is hidden when none of its widgets has anything to show")
+    check(Pages.visible(pages) { _ in true }.contains(.agents), "buddies: the Agents page shows once a buddy is present (beepo always is)")
+    check(WidgetKind.tasks.home == .agents && WidgetKind.tasks.defaultSpan == .wide, "tasks: the Tasks widget lives on Agents, wide")
+    check(TaskRunState.planOK.needsYou && TaskRunState.needsYou.needsYou && !TaskRunState.running.needsYou, "tasks: the plan and a step wait on you; running doesn't")
+    check(Set(TaskRunState.allCases.filter(\.isFinished)) == [.blocked, .done, .stopped, .failed], "tasks: finished states are blocked, done, stopped and failed")
+    check(TaskRunState.needsYou.urgency < TaskRunState.running.urgency && TaskRunState.running.urgency < TaskRunState.done.urgency, "tasks: what needs you sorts first, finished last")
+    check(BuddyLogic.parseLimit("150") == 150 && BuddyLogic.parseLimit(" 99.5 ") == 99.5 && BuddyLogic.parseLimit("") == nil && BuddyLogic.parseLimit("1e3") == nil && BuddyLogic.parseLimit("-5") == nil && BuddyLogic.parseLimit("0") == nil, "tasks: a limit is a positive number, typed plainly")
+    check(BuddyLogic.money(120, currency: "USD") == "120 USD" && BuddyLogic.money(12.5, currency: nil) == "12.50" && BuddyLogic.progress(done: 2, total: 3) == "2 of 3 steps" && BuddyLogic.progress(done: 0, total: 0) == nil, "tasks: money and progress words")
+}
+
+// Your own pages: add, name, remove (layout pass 2).
+do {
+    var p = Pages.defaults
+    check(Pages.nextSpare(in: p) == .extra1, "pages: the first spare page is offered")
+    p[p.firstIndex { $0.kind == .extra1 }!].enabled = true
+    check(Pages.nextSpare(in: p) == .extra2, "pages: then the next one")
+    check(PageKind.extra1.isExtra && !PageKind.agents.isExtra && PageKind.extra1.name == "Page 5", "pages: spare pages are named Page 5 and up")
+    PageNames.custom = ["extra1": "Trips"]
+    check(PageKind.extra1.name == "Trips", "pages: your name wins")
+    PageNames.custom = ["extra1": ""]
+    check(PageKind.extra1.name == "Page 5", "pages: an empty name falls back")
+    PageNames.custom = [:]
+    Pages.move(.timer, to: .extra1, in: &p)
+    check(Pages.page(of: .timer, in: p) == .extra1, "pages: a widget can live on a page you made")
+    let heir = Pages.remove(.extra1, in: &p)
+    check(heir == .agents && Pages.page(of: .timer, in: p) == .agents && p.first { $0.kind == .extra1 }?.enabled == false, "pages: removing a page moves its widgets to the neighbour before it and switches it off")
+    check(invariant(p), "pages: removing keeps the invariant (every widget exactly once)")
+    var one = Pages.defaults
+    for k in [PageKind.day, .agents] { one[one.firstIndex { $0.kind == k }!].enabled = false }
+    check(Pages.remove(.now, in: &one) == nil, "pages: the last page can't be removed")
+    var first = Pages.defaults
+    check(Pages.remove(.now, in: &first) == .day, "pages: removing the first page hands over to the next")
 }
 
 print(failures == 0 ? "PASS" : "FAILED: \(failures)")

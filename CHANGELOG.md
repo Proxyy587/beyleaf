@@ -6,6 +6,53 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed (review pass)
+- belayd no longer dies on an unhandled error in one request or a due routine: the request gets an error reply instead.
+- Blank goals are refused for tasks and routines; finished tasks are dropped oldest first past 200 so the core can't grow without bound.
+
+### Changed (expanded is a workspace, not a bigger panel)
+- **Expanded now shows more, not bigger** (`docs/notch-research.md`, from reading Perch, Avo and DynamicNotchKit): a page rail
+  with every page named (and a badge where something waits on you), four grid columns instead of two so two wide widgets share a
+  row, and a "needs you" bar on every page. Compact keeps the glance with dots at the bottom.
+- **Agents, expanded:** crew, conversation, and a right column with two tabs: **Tasks** and **Schedule**. Schedule runs a goal
+  daily, on weekdays or hourly; each time it comes round the core makes a task for the buddy, which waits for your OK to its
+  plan. Routines live in `belayd` (`crew/routines.ts`, tested): missed runs collapse into one and nothing runs by itself.
+- **Full is a whole row** at any column count (it was fixed at three columns).
+- **The menu bar icon is monochrome** (a template image, like other menu bar icons), with beepo's eyes cut out.
+
+
+### Added (buddies you make, tasks, your own pages, beepo)
+- **Buddies are made by you** (ADR 0026). The crew starts as beepo alone. Press + to make one: pick a face, name it, say what
+  it does, and choose how far it may reach (Look, Errands, Hands). A buddy you made can make up to three more, never with more
+  reach or freedom than it has, and the notch says "made by …". Buddies message each other and share a notebook, in the open.
+  The rules are in `belayd` (`crew/registry.ts`, `talk.ts`) with tests.
+- **Tasks.** The composer's Task chip sends a goal. Nothing runs until you approve its plan. Spending or sending asks every
+  time; paying is yours (Belay never types card or bank details); every task has step, time and money limits; a money goal
+  with no limit is refused; **trading is off**. A Tasks widget on the Agents page shows each task and what waits on you.
+  The engine runtime that plans and runs steps isn't built yet, so a real task stops at "planning" and says so.
+- **Your own pages.** Edit widgets now has a page name you can change, a remove button (its widgets move to a neighbour) and
+  a + to add a page, up to eight.
+- **beepo is the logo** in the menu bar and the app icon (`scripts/make-icon.sh`), as it already was in the notch.
+
+### Changed
+- **Pagination is at the bottom:** small dots, the current page a longer pill; the page's name sits beside the logo.
+- **Notes moved onto Day** (weather and calendar side by side, notes beneath), so no page is a single thin row. Existing
+  layouts are reset once to the new defaults.
+- Hidden-widget chips in the editor scroll sideways and show their full names.
+
+
+### Changed (layout and paging pass)
+- **Pages slide.** Pages now sit side by side and move as one strip: the page follows your fingers one to one, then
+  springs to rest, committing past a fifth of the page or on a flick. Tabs and ⌘[ ⌘] slide the same way. Before, a swipe
+  nudged the page 40 pt and then swapped it with a fade. Ends rubber-band; reduced motion cross-fades.
+- **Page tabs replace the dots:** each page's own symbol, the current one in a pill, with the shortcut on hover.
+- **Rows fill the panel.** A row that doesn't use every column stretches its widgets across it, so no hole sits beside a
+  wide widget (the order and sizes you chose are unchanged).
+- **Agents page:** the chosen buddy is named in its chip, the composer is a visible field with its send button in place,
+  and Routines has a header with the next run.
+- **System widget:** values no longer clip ("7.6 GB fr…"); the disk row reads FREE and every value column lines up.
+
+
 _Docs: widget-hub, ui-inventory, status and open-questions updated for ADR 0023 and the hover rules._
 
 ### Fixed
@@ -13,6 +60,14 @@ _Docs: widget-hub, ui-inventory, status and open-questions updated for ADR 0023 
 - **The notch no longer closes while you use it:** it used to close the instant the pointer was 6 pt outside the panel (Close after leaving defaults to 0), so a swipe, typing in Notes or dragging a card could close it as the panel changed height. Now the area around the panel has 20 pt at the sides and 28 pt below, the tallest recent height keeps counting for 1.2 s, scrolling or a key press holds it open for 1.5 s, a held mouse button (drag) or unsaved typing in Notes holds it open, and a genuine leave waits at least 0.3 s whatever Close after leaving says. Pure rules with self-tests. Debug: `--trace-input`.
 
 ### Added
+- **Buddies on the notch (Phase 2, demo data):** a new Agents page (last, shown only once buddies exist) with two widgets. **Buddies:** small shows one buddy and what it is doing; wide is the compact form (roster strip with state dots, the last reply, a one-line composer); full in the expanded panel puts the roster beside the thread, with tool steps as status rows and a speaker label on hand-offs. **Routines:** goal, schedule in words, time to the next run, pause and resume. Working turns a buddy's eyes live green; nothing loops at rest. Measured: 0.3% CPU and 37 MB with the page open, 0.0% and 19 MB closed. Until belayd is connected the data is sample data, loaded in memory only by `--buddies-demo` and marked "DEMO". Self-tested ordering, wording, roster strip, thread tails and routine countdowns.
+- **belayd crew core (Bun):** protocol v1 crew messages (zod), the routine scheduler (daily, every, once, event; next run and missed runs with an injected clock, short lowercase descriptions) and a deterministic name router ("willo, find...", "@sprout @pip ..."). 14 `bun test` tests. No socket, runtime or tsc run yet.
+- **Engines: use your own subscription through the vendor's CLI (ADR 0025, modelled on how dusk bot does it, none of its code):** Settings → Agents now lists Claude Code, Codex, Cursor, Antigravity and OpenCode as belayd found them, with version and state ("Signed in · claude.ai · pro"). Status is read from the CLI's own status command (`claude auth status --json`, verified on 2.1.311: 112 ms), never from credential files, with a timeout; an engine with no verified status says "can't tell". **Sign in** opens the vendor's own login in a visible Terminal window (Belay never sees the code, password or token) while belayd re-reads status every 2 s for up to 5 minutes (Cancel stops it) and the row turns signed in by itself. A missing CLI shows its install command with Copy; Belay runs no installer. API-key variables are removed from every engine's environment so a stray key can't bill instead of your plan. "Signed out" with a stripped session environment reports "can't tell" (found: Claude Code says signed out without `USER`).
+- **belayd socket and link (protocol v1):** newline-delimited envelopes over a 0600 Unix socket in a 0700 folder (never deletes a file that isn't a socket); `ping`, `engines.list`, `engines.signin`, `engines.cancel`, pushed `engines.updated`. The app starts belayd with `--core-dir <core/>` (run.sh adds it unless `BELAY_NO_CORE=1`), and belayd exits when the app does (no orphan, checked). Debug: `--core-probe` prints what the shell decoded and quits. 38 bun tests.
+- **Decisions:** ADR 0024 (positioning "one rope for every AI on your Mac", build order) and 0025 (engine sign-in); ADR 0022 accepted.
+- **Product vision:** `docs/product-vision.md` (positioning "one rope for every AI on your Mac", five USPs, adapter tiers, Belay as an MCP server so any agent can ask the notch or delegate to a buddy, how subscriptions work through the user's own CLIs, flows, risks, build order with the session bus and rope first). A recommendation, not yet an ADR.
+- **Docs:** `docs/buddies.md` (design spec: cast, compact vs expanded, chat, reach tiers, routines, build order) and `docs/buddy-pointers.md` (pointer anatomy, human-like motion, overlay engineering, safety, tests; written for Phase 6, nothing built).
+
 - **Widget cards fill their row:** a card beside a taller neighbour now stretches to its height instead of sitting short. `--enable-widget` can be repeated.
 - **Layout freedom (ADR 0023, supersedes ADR 0019's packing rule):** each widget has a size you choose: **small** (one column, its tile form), **wide** (two) or **full** (three, a whole row when expanded). The notch lays widgets out in your order and leaves them as arranged: no pairing, no promoting a lone tile, no always-wide widgets, so any layout is possible (including rows that aren't full). Defaults and your existing layout look as before (migrated once). Set the size with a tap on a card in edit mode, right-click → Size, or Settings → Widgets → Size. Every widget has a small and a wide form (Now playing and Calendar gain compact forms; Notes shows 2, 3 or 5 notes by size). Cells have a minimum height so a card never collapses.
 - **Expand adds room, not size:** expanded is now a third column of the same width, so more widgets fit on a page; widgets keep their size (artwork no longer grows). Debug: `--expanded` and `--span <kind>=<1|2|3>` (this run only, nothing saved).
